@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: HTTP API Gateway with custom domain and ACM certificate
+
+Parameters:
+  ApiDomainName:
+    Type: String
+    Description: The custom domain for the API (e.g., api.p5software.com)
+
+  CertificateDomainName:
+    Type: String
+    Description: The domain name for the ACM certificate (e.g., *.p5software.com)
+
+  HostedZoneId:
+    Type: String
+    Description: Route53 Hosted Zone ID for p5software.com
+
+Resources:
+
+  ApiCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref CertificateDomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref CertificateDomainName
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Name 
+          Value: firefly-api-certificate
+
+  ApiGateway:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: FireFly
+      Description: FireFly HTTPS API Gateway
+      StageName: $default
+      DisableExecuteApiEndpoint: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+      Tags:
+        Name: firefly-api-gateway
+
+  ApiCustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    DependsOn: ApiCertificate
+    Properties:
+      DomainName: !Ref ApiDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ApiCertificate
+          EndpointType: REGIONAL
+
+  ApiBasePathMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn: ApiCustomDomain
+    Properties:
+      ApiId: !Ref ApiGateway
+      DomainName: !Ref ApiCustomDomain
+      Stage: '$default'
+
+  ApiDomainAliasRecord:
+    Type: AWS::Route53::RecordSet
+    DependsOn: ApiCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref ApiDomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
+        HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
+  
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /aws/apigateway/firefly-api-access-logs
+      RetentionInDays: 1
+      KmsKeyId: !Ref AWS::NoValue
+
+Outputs:
+  ApiUrl:
+    Value: !Sub "https://${ApiDomainName}"
+    Description: Custom API URL
+    
+  ApiId:
+    Value: !Ref ApiGateway
+    Description: ID of the HTTP API
