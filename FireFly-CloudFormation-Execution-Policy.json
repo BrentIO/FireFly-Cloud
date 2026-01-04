@@ -86,6 +86,8 @@
                 "s3:DeleteBucket",
                 "s3:PutBucketPolicy",
                 "s3:PutBucketAcl",
+                "s3:PutBucketVersioning",
+                "s3:PutBucketPublicAccessBlock",
                 "s3:PutEncryptionConfiguration",
                 "s3:GetBucketLocation",
                 "s3:PutLifecycleConfiguration"
