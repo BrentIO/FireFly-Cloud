@@ -60,7 +60,7 @@
         {
             "Effect": "Allow",
             "Action": "iam:PassRole",
-            "Resource": "arn:aws:iam::AWS_ACCOUNT_ID:role/Firefly-CloudFormation-Execution-Role"
+            "Resource": "arn:aws:iam::AWS_ACCOUNT_ID:role/firefly-cloudformation-execution-role"
         }
     ]
 }
