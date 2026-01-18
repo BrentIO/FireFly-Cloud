@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Health check Lambda for FireFly API
+
+Parameters:
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+Resources:
+
+  FuncApiHealthRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-health-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  FuncApiHealth:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-health
+      Role: !GetAtt FuncApiHealthRole.Arn
+      CodeUri: .
+      Handler: app.health
+      Runtime: python3.12
+      Architectures:
+        - arm64
+      Timeout: 5
+
+  FuncApiHealthIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiHealth.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiHealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: GET /health
+      Target: !Sub integrations/${FuncApiHealthIntegration.IntegrationId}
+
+  FuncApiHealthPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiHealth
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/*/health
+
+Outputs:
+  FuncApiHealthArn:
+    Value: !GetAtt FuncApiHealth.Arn
+    Description: ARN of the health check Lambda

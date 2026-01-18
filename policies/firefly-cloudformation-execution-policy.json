@@ -16,7 +16,7 @@
                 "iam:ListRolePolicies",
                 "iam:PassRole"
             ],
-            "Resource": "arn:aws:iam::AWS_ACCOUNT_ID:role/firefly-lambda-stack-*"
+            "Resource": "arn:aws:iam::AWS_ACCOUNT_ID:role/firefly-func-*"
         },
         {
             "Effect": "Allow",
@@ -32,7 +32,7 @@
                 "lambda:GetFunction",
                 "lambda:GetFunctionConfiguration"
             ],
-            "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:firefly-*"
+            "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:firefly-func-*"
         },
         {
             "Effect": "Allow",
@@ -90,7 +90,8 @@
                 "s3:PutBucketPublicAccessBlock",
                 "s3:PutEncryptionConfiguration",
                 "s3:GetBucketLocation",
-                "s3:PutLifecycleConfiguration"
+                "s3:PutLifecycleConfiguration",
+                "s3:PutBucketNotification"
             ],
             "Resource": "arn:aws:s3:::S3_FIRMWARE_BUCKET_NAME"
         },
@@ -99,7 +100,8 @@
             "Action": [
                 "s3:PutObject",
                 "s3:DeleteObject",
-                "s3:GetObject"
+                "s3:GetObject",
+                "s3:PutBucketNotification"
             ],
             "Resource": "arn:aws:s3:::S3_FIRMWARE_BUCKET_NAME/*"
         },
@@ -163,7 +165,7 @@
             "Resource": [
                 "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/apigateway/firefly-api-access-logs:*",
                 "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/apigateway/firefly-api-access-logs*",
-                "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/lambda/firefly-*:*"
+                "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/lambda/firefly-func-*:*"
             ]
         },
         {
@@ -196,6 +198,18 @@
                 "cloudformation:DeleteChangeSet"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:CreateTable",
+                "dynamodb:DescribeTable",
+                "dynamodb:UpdateTable",
+                "dynamodb:DeleteTable",
+                "dynamodb:UpdateTimeToLive",
+                "dynamodb:DescribeTimeToLive"
+            ],
+            "Resource": "arn:aws:dynamodb:*:AWS_ACCOUNT_ID:table/firefly-*"
         }
     ]
 }

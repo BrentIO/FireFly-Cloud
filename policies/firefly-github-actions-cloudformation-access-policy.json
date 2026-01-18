@@ -10,12 +10,11 @@
                 "cloudformation:CreateChangeSet",
                 "cloudformation:DeleteChangeSet",
                 "cloudformation:DescribeChangeSet",
-                "cloudformation:ExecuteChangeSet"
+                "cloudformation:ExecuteChangeSet",
+                "cloudformation:ListChangeSets"
             ],
             "Resource": [
-                "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-s3-firmware-bucket-stack/*",
-                "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-api-stack/*",
-                "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-lambda-stack/*"
+                "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-*/*"
             ]
         },
         {

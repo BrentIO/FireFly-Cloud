@@ -32,7 +32,7 @@ Resources:
   ApiGateway:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Name: FireFly
+      Name: firefly-api-gateway
       Description: FireFly HTTPS API Gateway
       StageName: $default
       DisableExecuteApiEndpoint: true

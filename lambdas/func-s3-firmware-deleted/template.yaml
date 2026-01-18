@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Handles deletion of firmware ZIPs and updates DynamoDB TTL
+
+Parameters:
+  DynamoDbFirmwareTableName:
+    Type: String
+
+Resources:
+
+  FuncS3FirmwareDeletedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-s3-firmware-deleted-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: FirmwareDeletedPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+
+  FuncS3FirmwareDeleted:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-s3-firmware-deleted
+      Role: !GetAtt FuncS3FirmwareDeletedRole.Arn
+      CodeUri: .
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      Architectures:
+        - arm64
+      Timeout: 30
+      Environment:
+        Variables:
+          DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+
+Outputs:
+  FuncS3FirmwareDeletedArn:
+    Value: !GetAtt FuncS3FirmwareDeleted.Arn
+    Description: ARN of the firmware deletion handler Lambda

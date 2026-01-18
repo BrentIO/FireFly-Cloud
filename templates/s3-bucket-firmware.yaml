@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: S3 bucket containing firmware
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the S3 bucket to create
+
+  FirmwareUploadLambdaArn:
+    Type: String
+    Description: ARN of the firefly-func-s3-firmware-uploaded Lambda
+
+  FirmwareDeleteLambdaArn:
+    Type: String
+    Description: ARN of the firefly-func-s3-firmware-deleted Lambda
+
+Resources:
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      
+      VersioningConfiguration:
+        Status: Enabled
+
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+      LifecycleConfiguration:
+        Rules:
+          - Id: IncomingTTL
+            Status: Enabled
+            Prefix: incoming/
+            ExpirationInDays: 1
+
+          - Id: ProcessingTTL
+            Status: Enabled
+            Prefix: processing/
+            ExpirationInDays: 1
+
+          - Id: ErrorTTL
+            Status: Enabled
+            Prefix: error/
+            ExpirationInDays: 7
+
+          - Id: ProcessedTTL
+            Status: Enabled
+            Prefix: processed/
+            ExpirationInDays: 30
+
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !Ref FirmwareUploadLambdaArn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: incoming/
+                  - Name: suffix
+                    Value: .zip
+
+          - Event: s3:ObjectRemoved:*
+            Function: !Ref FirmwareDeleteLambdaArn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: processed/
+                  - Name: suffix
+                    Value: .zip
+
+          - Event: s3:ObjectRemoved:*
+            Function: !Ref FirmwareDeleteLambdaArn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: errors/
+                  - Name: suffix
+                    Value: .zip
+
+  FirmwareUploadLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FirmwareUploadLambdaArn
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${BucketName}
+
+  FirmwareDeleteLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FirmwareDeleteLambdaArn
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${BucketName}
+
+Outputs:
+  BucketName:
+    Value: !Ref S3Bucket
+    Description: The created S3 bucket name

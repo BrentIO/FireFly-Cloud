@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: DynamoDB table for FireFly firmware manifests
+
+Parameters:
+  DynamoDbFirmwareTableName:
+    Type: String
+    Default: firefly-firmware
+
+Resources:
+
+  FireflyFirmwareTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDbFirmwareTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: product_id
+          AttributeType: S
+        - AttributeName: version
+          AttributeType: S
+      KeySchema:
+        - AttributeName: product_id
+          KeyType: HASH
+        - AttributeName: version
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+Outputs:
+  FireflyFirmwareTableName:
+    Description: Name of the firmware table
+    Value: !Ref FireflyFirmwareTable
+
+  FireflyFirmwareTableArn:
+    Description: ARN of the firmware table
+    Value: !GetAtt FireflyFirmwareTable.Arn
