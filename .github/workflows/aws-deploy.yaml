@@ -26,13 +26,13 @@ jobs:
         uses: aws-actions/setup-sam@v2
 
       - name: Build DynamoDB SAM application
-        run: sam build --template-file Cloud/templates/dynamodb-table-firmware.yaml
+        run: sam build --template-file templates/dynamodb-table-firmware.yaml
 
       - name: Deploy DynamoDB table
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file Cloud/templates/dynamodb-table-firmware.yaml \
+            --template-file templates/dynamodb-table-firmware.yaml \
             --stack-name firefly-dynamodb-firmware \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
@@ -64,13 +64,13 @@ jobs:
         uses: aws-actions/setup-sam@v2
 
       - name: Build API SAM application
-        run: sam build --template-file Cloud/templates/api-gateway.yaml
+        run: sam build --template-file templates/api-gateway.yaml
 
       - name: Deploy API Gateway + Custom Domain
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file Cloud/templates/api-gateway.yaml \
+            --template-file templates/api-gateway.yaml \
             --stack-name firefly-api-gateway \
             --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
             --region ${{ secrets.AWS_REGION }} \
@@ -112,13 +112,13 @@ jobs:
         uses: aws-actions/setup-sam@v2
 
       - name: Build Health API stack
-        run: sam build --template-file Cloud/lambdas/func-api-health/template.yaml
+        run: sam build --template-file lambdas/func-api-health/template.yaml
 
       - name: Deploy Health API stack
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file Cloud/lambdas/func-api-health/template.yaml \
+            --template-file lambdas/func-api-health/template.yaml \
             --stack-name firefly-func-api-health \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
@@ -152,13 +152,13 @@ jobs:
         uses: aws-actions/setup-sam@v2
 
       - name: Build upload Lambda
-        run: sam build --template-file Cloud/lambdas/func-s3-firmware-uploaded/template.yaml
+        run: sam build --template-file lambdas/func-s3-firmware-uploaded/template.yaml
 
       - name: Deploy upload Lambda
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file Cloud/lambdas/func-s3-firmware-uploaded/template.yaml \
+            --template-file lambdas/func-s3-firmware-uploaded/template.yaml \
             --stack-name firefly-func-s3-firmware-uploaded \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
@@ -200,13 +200,13 @@ jobs:
         uses: aws-actions/setup-sam@v2
 
       - name: Build delete Lambda
-        run: sam build --template-file Cloud/lambdas/func-s3-firmware-deleted/template.yaml
+        run: sam build --template-file lambdas/func-s3-firmware-deleted/template.yaml
 
       - name: Deploy delete Lambda
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file Cloud/lambdas/func-s3-firmware-deleted/template.yaml \
+            --template-file lambdas/func-s3-firmware-deleted/template.yaml \
             --stack-name firefly-func-s3-firmware-deleted \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
@@ -246,13 +246,13 @@ jobs:
         uses: aws-actions/setup-sam@v2
 
       - name: Build S3 bucket SAM application
-        run: sam build --template-file Cloud/templates/s3-bucket-firmware.yaml
+        run: sam build --template-file templates/s3-bucket-firmware.yaml
 
       - name: Deploy S3 bucket
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file Cloud/templates/s3-bucket-firmware.yaml \
+            --template-file templates/s3-bucket-firmware.yaml \
             --stack-name firefly-s3-bucket-firmware \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
