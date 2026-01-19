@@ -1,49 +1,32 @@
 name: 🚀 🚀 Deploy All
 
 on:
-  workflow_dispatch
-
-permissions:
-  actions: write
-  contents: read
+  workflow_dispatch:
 
 jobs:
 
-  deploy-all:
-    runs-on: ubuntu-latest
+  deploy-dynamodb-firmware:
+    uses: ./.github/workflows/deploy-dynamodb-firmware.yaml
 
-    steps:
-      - name: Deploy DynamoDB Firmware Table
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy-dynamodb-firmware.yaml
-        
-      - name: Deploy ACM Certificate
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy-acm.yaml
+  deploy-acm:
+    uses: ./.github/workflows/deploy-acm.yaml
 
-      - name: Deploy API Gateway
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy-api-gateway.yaml
+  deploy-api-gateway:
+    needs: deploy-acm
+    uses: ./.github/workflows/deploy-api-gateway.yaml
 
-      - name: Deploy func-api-health-get
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy-func-api-health-get.yaml
+  deploy-api-health:
+    needs: deploy-api-gateway
+    uses: ./.github/workflows/deploy-func-api-health-get.yaml
 
-      - name: Deploy func-s3-firmware-uploaded
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy-func-s3-firmware-uploaded.yaml
+  deploy-func-s3-firmware-uploaded:
+    uses: ./.github/workflows/deploy-func-s3-firmware-uploaded.yaml
 
-      - name: Deploy func-s3-firmware-deleted
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy-func-s3-firmware-deleted.yaml
+  deploy-func-s3-firmware-deleted:
+    uses: ./.github/workflows/deploy-func-s3-firmware-deleted.yaml
 
-      - name: Deploy S3 Bucket for Firmware
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: deploy-s3-firmware.yaml      
+  deploy-s3-firmware:
+    needs:
+      - deploy-func-s3-firmware-uploaded
+      - deploy-func-s3-firmware-deleted
+    uses: ./.github/workflows/deploy-s3-firmware.yaml
