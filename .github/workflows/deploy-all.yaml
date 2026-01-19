@@ -1,0 +1,45 @@
+name: 🚀 🚀 Deploy All
+
+on:
+  workflow_dispatch
+
+jobs:
+
+  deploy-all:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy DynamoDB Firmware Table
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: deploy-dynamodb-firmware.yaml
+        
+      - name: Deploy ACM Certificate
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: deploy-acm.yaml
+
+      - name: Deploy API Gateway
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: deploy-api-gateway.yaml
+
+      - name: Deploy func-api-health-get
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: deploy-func-api-health-get.yaml
+
+      - name: Deploy func-s3-firmware-uploaded
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: deploy-func-s3-firmware-uploaded.yaml
+
+      - name: Deploy func-s3-firmware-deleted
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: deploy-func-s3-firmware-deleted.yaml
+
+      - name: Deploy S3 Bucket for Firmware
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: deploy-s3-firmware.yaml      

@@ -1,0 +1,48 @@
+name: ⚠️ ⚠️ Delete All
+
+on:
+  workflow_dispatch
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  delete-all:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete func-api-health-get
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-func-api-health-get.yaml
+        
+      - name: Delete func-s3-firmware-uploaded
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-func-s3-firmware-uploaded.yaml
+
+      - name: Delete func-s3-firmware-deleted
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-func-s3-firmware-deleted.yaml
+
+      - name: Delete api-gateway
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-api-gateway.yaml
+
+      - name: Delete s3-firmware
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-s3-firmware.yaml
+
+      - name: Delete dynamodb-firmware
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-dynamodb-firmware.yaml
+
+      - name: Delete acm-certificate
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-acm-certificate.yaml      

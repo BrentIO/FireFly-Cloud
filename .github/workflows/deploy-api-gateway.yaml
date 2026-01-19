@@ -1,0 +1,55 @@
+name: 🚀 Deploy API Gateway
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        uses: aws-actions/setup-sam@v2
+
+      - name: Look up ACM Certificate ARN dynamically
+        id: lookup-cert
+        run: |
+          CERT_DOMAIN="${{ vars.CERTIFICATE_DOMAIN_NAME }}"
+
+          CERT_ARN=$(aws acm list-certificates \
+            --certificate-statuses ISSUED \
+            --query "CertificateSummaryList[?DomainName=='${CERT_DOMAIN}'].CertificateArn" \
+            --output text)
+
+          echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+
+      - name: Build API SAM application
+        run: sam build --template-file templates/api-gateway.yaml
+
+      - name: Deploy API Gateway
+        run: |
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file templates/api-gateway.yaml \
+            --stack-name firefly-api-gateway \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              ApiDomainName=${{ vars.API_DOMAIN_NAME }} \
+              CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
+              HostedZoneId=${{ secrets.HOSTED_ZONE_ID }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
