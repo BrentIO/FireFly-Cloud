@@ -1,4 +1,4 @@
-name: ⚠️ Delete func-api-health-get
+name: delete-func-api-health-get
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
       - name: Delete func-api-health
         run: |
           sam delete \
-            --stack-name firefly-func-api-health \
+            --stack-name firefly-func-api-health-get \
             --region ${{ secrets.AWS_REGION }} \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
             --no-prompts
