@@ -42,7 +42,7 @@ jobs:
         with:
           workflow: delete-dynamodb-firmware.yaml
 
-      - name: Delete acm-certificate
+      - name: Delete acm
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: delete-acm-certificate.yaml      
+          workflow: delete-acm.yaml      
