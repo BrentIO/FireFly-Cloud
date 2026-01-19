@@ -3,6 +3,10 @@ name: 🚀 🚀 Deploy All
 on:
   workflow_dispatch
 
+permissions:
+  actions: write
+  contents: read
+
 jobs:
 
   deploy-all:
