@@ -27,6 +27,7 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+      DeletionProtectionEnabled: true
 
 Outputs:
   FireflyFirmwareTableName:
