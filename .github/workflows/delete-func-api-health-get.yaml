@@ -2,9 +2,10 @@ name: delete-func-api-health-get
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
-  deploy:
+  delete:
     environment: production
     runs-on: ubuntu-latest
 

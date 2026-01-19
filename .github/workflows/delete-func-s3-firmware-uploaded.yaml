@@ -2,9 +2,10 @@ name: ⚠️ Delete func-s3-firmware-uploaded
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
-  deploy:
+  delete:
     environment: production
     runs-on: ubuntu-latest
 
