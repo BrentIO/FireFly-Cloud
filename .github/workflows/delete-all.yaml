@@ -1,48 +1,48 @@
 name: ⚠️ ⚠️ Delete All
 
 on:
-  workflow_dispatch
+  workflow_dispatch:
 
 permissions:
-  actions: write
   contents: read
+  actions: write
 
 jobs:
-  delete-all:
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Delete func-api-health-get
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: delete-func-api-health-get.yaml
-        
-      - name: Delete func-s3-firmware-uploaded
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: delete-func-s3-firmware-uploaded.yaml
+  delete-dynamodb-firmware:
+    uses: ./.github/workflows/delete-dynamodb-firmware.yaml
+    secrets: inherit
 
-      - name: Delete func-s3-firmware-deleted
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: delete-func-s3-firmware-deleted.yaml
+  delete-s3-firmware:
+    uses: ./.github/workflows/delete-s3-firmware.yaml
+    secrets: inherit
 
-      - name: Delete api-gateway
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: delete-api-gateway.yaml
+  delete-api-health:
 
-      - name: Delete s3-firmware
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: delete-s3-firmware.yaml
+     uses: ./.github/workflows/delete-func-api-health-get.yaml
+     secrets: inherit
 
-      - name: Delete dynamodb-firmware
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: delete-dynamodb-firmware.yaml
+  delete-api-gateway:
+    needs:
+      - delete-api-health
+    uses: ./.github/workflows/delete-api-gateway.yaml
+    secrets: inherit
 
-      - name: Delete acm
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: delete-acm.yaml      
+  delete-acm:
+    needs:
+      - delete-api-gateway
+    uses: ./.github/workflows/delete-acm.yaml
+    secrets: inherit
+    
+  delete-func-s3-firmware-uploaded:
+    needs:
+      - delete-s3-firmware
+    uses: ./.github/workflows/delete-func-s3-firmware-uploaded.yaml
+    secrets: inherit
+
+  delete-func-s3-firmware-deleted:
+    needs:
+      - delete-s3-firmware
+    uses: ./.github/workflows/delete-func-s3-firmware-deleted.yaml
+    secrets: inherit
+
