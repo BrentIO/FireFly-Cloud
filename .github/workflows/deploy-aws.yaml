@@ -64,13 +64,13 @@ jobs:
         uses: aws-actions/setup-sam@v2
 
       - name: Build certificate stack
-        run: sam build --template-file templates/certificate.yaml
+        run: sam build --template-file templates/acm-api-gateway.yaml
 
       - name: Deploy certificate stack
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file templates/certificate.yaml \
+            --template-file templates/acm-api-gateway.yaml \
             --stack-name firefly-acm-certificate \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
