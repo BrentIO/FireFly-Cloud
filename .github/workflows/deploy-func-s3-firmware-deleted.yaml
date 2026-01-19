@@ -1,6 +1,7 @@
 name: 🚀 Deploy func-s3-firmware-deleted
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   deploy:

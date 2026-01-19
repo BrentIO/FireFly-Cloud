@@ -1,6 +1,7 @@
 name: 🚀 Deploy S3 Bucket Firmware
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   deploy:
