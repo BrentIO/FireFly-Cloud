@@ -1,11 +1,11 @@
-name: delete-func-api-health-get
+name: ⚠️ Delete func-api-health-get
 
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  delete:
+  delete-func-api-health-get:
     environment: production
     runs-on: ubuntu-latest
 
@@ -21,7 +21,7 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Delete func-api-health
+      - name: Delete func-api-health-get
         run: |
           sam delete \
             --stack-name firefly-func-api-health-get \

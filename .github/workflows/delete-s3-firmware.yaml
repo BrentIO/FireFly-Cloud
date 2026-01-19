@@ -1,11 +1,11 @@
-name: ⚠️ Delete S3 Bucket Firmware
+name: ⚠️ Delete S3 Firmware
 
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  delete:
+  delete-s3-firmware:
     environment: production
     runs-on: ubuntu-latest
 
@@ -21,10 +21,10 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Delete S3 Bucket for Firmware stack
+      - name: Delete s3-firmware
         run: |
           sam delete \
-            --stack-name firefly-s3-bucket-firmware \
+            --stack-name firefly-s3-firmware \
             --region ${{ secrets.AWS_REGION }} \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
             --no-prompts

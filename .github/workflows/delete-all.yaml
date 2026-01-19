@@ -17,21 +17,20 @@ jobs:
     uses: ./.github/workflows/delete-s3-firmware.yaml
     secrets: inherit
 
-  delete-api-health:
-
+  delete-func-api-health-get:
      uses: ./.github/workflows/delete-func-api-health-get.yaml
      secrets: inherit
 
   delete-api-gateway:
     needs:
-      - delete-api-health
+      - delete-func-api-health-get
     uses: ./.github/workflows/delete-api-gateway.yaml
     secrets: inherit
 
-  delete-acm:
+  delete-acm-api-gateway:
     needs:
       - delete-api-gateway
-    uses: ./.github/workflows/delete-acm.yaml
+    uses: ./.github/workflows/delete-acm-api-gateway.yaml
     secrets: inherit
     
   delete-func-s3-firmware-uploaded:

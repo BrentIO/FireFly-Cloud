@@ -1,10 +1,10 @@
-name: 🚀 Deploy S3 Bucket Firmware
+name: 🚀 Deploy S3 Firmware
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  deploy:
+  deploy-s3-firmware:
     environment: production
     runs-on: ubuntu-latest
 
@@ -23,26 +23,30 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Look up Lambda ARNs dynamically
-        id: lookup
+      - name: Look up Lambda ARN for func-s3-firmware-uploaded
+        id: lookup_uploaded
         run: |
           UPLOAD_ARN=$(aws lambda get-function \
             --function-name firefly-func-s3-firmware-uploaded \
             --query 'Configuration.FunctionArn' \
             --output text)
 
+          echo "upload_arn=$UPLOAD_ARN" >> $GITHUB_OUTPUT
+
+      - name: Look up Lambda ARN for func-s3-firmware-deleted
+        id: lookup_deleted
+        run: |
           DELETE_ARN=$(aws lambda get-function \
             --function-name firefly-func-s3-firmware-deleted \
             --query 'Configuration.FunctionArn' \
             --output text)
 
-          echo "upload_arn=$UPLOAD_ARN" >> $GITHUB_OUTPUT
           echo "delete_arn=$DELETE_ARN" >> $GITHUB_OUTPUT
 
-      - name: Build S3 bucket SAM application
+      - name: Build s3-firmware
         run: sam build --template-file templates/s3-firmware.yaml
 
-      - name: Deploy S3 bucket
+      - name: Deploy s3-firmware
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \

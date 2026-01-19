@@ -5,7 +5,7 @@ on:
   workflow_call:
 
 jobs:
-  deploy:
+  deploy-api-gateway:
     environment: production
     runs-on: ubuntu-latest
 
@@ -24,7 +24,7 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Look up ACM Certificate ARN dynamically
+      - name: Look up ACM Certificate ARN for CERTIFICATE_DOMAIN_NAME
         id: lookup-cert
         run: |
           CERT_DOMAIN="${{ vars.CERTIFICATE_DOMAIN_NAME }}"
@@ -36,10 +36,10 @@ jobs:
 
           echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
 
-      - name: Build API SAM application
+      - name: Build api-gateway
         run: sam build --template-file templates/api-gateway.yaml
 
-      - name: Deploy API Gateway
+      - name: Deploy api-gateway
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
