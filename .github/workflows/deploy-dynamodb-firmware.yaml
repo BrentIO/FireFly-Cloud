@@ -24,14 +24,14 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Build DynamoDB SAM application
-        run: sam build --template-file templates/dynamodb-table-firmware.yaml
+      - name: Build DynamoDB firmware table
+        run: sam build --template-file templates/dynamodb-firmware.yaml
 
       - name: Deploy DynamoDB table
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file templates/dynamodb-table-firmware.yaml \
+            --template-file templates/dynamodb-firmware.yaml \
             --stack-name firefly-dynamodb-firmware \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
