@@ -68,6 +68,14 @@
                 "lambda:GetFunctionConfiguration"
             ],
             "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:firefly-func-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "acm:DescribeCertificate",
+                "acm:GetCertificate"
+            ],
+            "Resource": "arn:aws:acm:AWS_REGION:AWS_ACCOUNT_ID:certificate/firefly-*"
         }
     ]
 }

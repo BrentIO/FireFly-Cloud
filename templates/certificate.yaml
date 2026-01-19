@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ACM certificate for FireFly API
+
+Parameters:
+  CertificateDomainName:
+    Type: String
+    Description: Domain name for the ACM certificate (e.g., *.p5software.com)
+
+  HostedZoneId:
+    Type: String
+    Description: Route53 Hosted Zone ID
+
+Resources:
+  ApiCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref CertificateDomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref CertificateDomainName
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Name
+          Value: firefly-api-certificate
+
+Outputs:
+  CertificateArn:
+    Value: !Ref ApiCertificate
+    Description: ARN of the ACM certificate
