@@ -3,30 +3,41 @@ name: 🚀 🚀 Deploy All
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
 
   deploy-dynamodb-firmware:
     uses: ./.github/workflows/deploy-dynamodb-firmware.yaml
+    secrets: inherit
 
   deploy-acm:
     uses: ./.github/workflows/deploy-acm.yaml
+    secrets: inherit
 
   deploy-api-gateway:
     needs: deploy-acm
     uses: ./.github/workflows/deploy-api-gateway.yaml
+    secrets: inherit
 
   deploy-api-health:
     needs: deploy-api-gateway
     uses: ./.github/workflows/deploy-func-api-health-get.yaml
+    secrets: inherit
 
   deploy-func-s3-firmware-uploaded:
     uses: ./.github/workflows/deploy-func-s3-firmware-uploaded.yaml
+    secrets: inherit
 
   deploy-func-s3-firmware-deleted:
     uses: ./.github/workflows/deploy-func-s3-firmware-deleted.yaml
+    secrets: inherit
 
   deploy-s3-firmware:
     needs:
       - deploy-func-s3-firmware-uploaded
       - deploy-func-s3-firmware-deleted
     uses: ./.github/workflows/deploy-s3-firmware.yaml
+    secrets: inherit
