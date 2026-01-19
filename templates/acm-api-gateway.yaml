@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ACM certificate for FireFly API
+Description: ACM certificate for FireFly API Gateway
 
 Parameters:
   CertificateDomainName:

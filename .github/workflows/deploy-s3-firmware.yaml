@@ -55,7 +55,7 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               BucketName=${{ secrets.S3_FIRMWARE_BUCKET_NAME }} \
-              FirmwareUploadLambdaArn=${{ steps.lookup.outputs.upload_arn }} \
-              FirmwareDeleteLambdaArn=${{ steps.lookup.outputs.delete_arn }} \
+              FirmwareUploadLambdaArn=${{ steps.lookup_uploaded.outputs.upload_arn }} \
+              FirmwareDeleteLambdaArn=${{ steps.lookup_deleted.outputs.delete_arn }} \
             --no-confirm-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
