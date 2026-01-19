@@ -1,0 +1,50 @@
+name: 🚀 Deploy func-api-health-get
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        uses: aws-actions/setup-sam@v2
+
+      - name: Look up API Gateway ID dynamically
+        id: lookup-api
+        run: |
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-api-gateway \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
+            --output text)
+
+          echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+
+      - name: Build Health API stack
+        run: sam build --template-file lambdas/func-api-health-get/template.yaml
+
+      - name: Deploy Health API stack
+        run: |
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file lambdas/func-api-health-get/template.yaml \
+            --stack-name firefly-func-api-health-get \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              ApiId=${{ steps.lookup-api.outputs.api_id }} \
+            --no-confirm-changeset \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

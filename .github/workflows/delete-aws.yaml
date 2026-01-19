@@ -4,182 +4,41 @@ on:
   workflow_dispatch
 
 jobs:
-  delete-func-api-health:
-    environment: production
-    name: Delete func-api-health
+  delete-all:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Delete func-api-health-get
+        uses: benc-uk/workflow-dispatch@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Install AWS SAM CLI
-        if: ${{ !env.ACT }}
-        uses: aws-actions/setup-sam@v2
-
-      - name: Delete func-api-health
-        run: |
-          sam delete \
-            --stack-name firefly-func-api-health \
-            --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
-            --no-prompts
-
-  delete-func-s3-firmware-uploaded:
-    environment: production
-    name: Delete func-s3-firmware-uploaded
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Install AWS SAM CLI
-        if: ${{ !env.ACT }}
-        uses: aws-actions/setup-sam@v2
-
-      - name: Delete func-s3-firmware-uploaded
-        run: |
-          sam delete \
-            --stack-name firefly-func-s3-firmware-uploaded \
-            --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
-            --no-prompts
-
-  delete-func-s3-firmware-deleted:
-    environment: production
-    name: Delete func-s3-firmware-deleted
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Install AWS SAM CLI
-        if: ${{ !env.ACT }}
-        uses: aws-actions/setup-sam@v2
+          workflow: delete-func-api-health-get.yaml
         
+      - name: Delete func-s3-firmware-uploaded
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-func-s3-firmware-uploaded.yaml
+
       - name: Delete func-s3-firmware-deleted
-        run: |
-          sam delete \
-            --stack-name firefly-func-s3-firmware-deleted \
-            --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
-            --no-prompts
-
-  delete-acm-certificate:
-    environment: production
-    name: Delete ACM Certificate
-    runs-on: ubuntu-latest
-    needs:
-      - delete-api-gateway
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: benc-uk/workflow-dispatch@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          workflow: delete-func-s3-firmware-deleted.yaml
 
-      - name: Install AWS SAM CLI
-        if: ${{ !env.ACT }}
-        uses: aws-actions/setup-sam@v2
-
-      - name: Delete ACM Certificate stack
-        run: |
-          sam delete \
-            --stack-name firefly-acm-certificate \
-            --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
-            --no-prompts
-
-  delete-api-gateway:
-    environment: production
-    name: Delete API Gateway
-    runs-on: ubuntu-latest
-    needs:
-      - delete-func-api-health
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Delete api-gateway
+        uses: benc-uk/workflow-dispatch@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          workflow: delete-api-gateway.yaml
 
-      - name: Install AWS SAM CLI
-        if: ${{ !env.ACT }}
-        uses: aws-actions/setup-sam@v2
-
-      - name: Delete API Gateway stack
-        run: |
-          sam delete \
-            --stack-name firefly-api-gateway \
-            --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
-            --no-prompts
-
-  delete-s3-bucket-firmware:
-    environment: production
-    name: Delete S3 Bucket for Firmware
-    runs-on: ubuntu-latest
-    needs: delete-dynamodb-firmware
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Delete s3-firmware
+        uses: benc-uk/workflow-dispatch@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          workflow: delete-s3-firmware.yaml
 
-      - name: Install AWS SAM CLI
-        if: ${{ !env.ACT }}
-        uses: aws-actions/setup-sam@v2
-
-      - name: Delete S3 Bucket for Firmware stack
-        run: |
-          sam delete \
-            --stack-name firefly-s3-bucket-firmware \
-            --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
-            --no-prompts
-
-  delete-dynamodb-firmware:
-    environment: production
-    name: Delete DynamoDB Firmware Table
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Delete dynamodb-firmware
+        uses: benc-uk/workflow-dispatch@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          workflow: delete-dynamodb-firmware.yaml
 
-      - name: Install AWS SAM CLI
-        if: ${{ !env.ACT }}
-        uses: aws-actions/setup-sam@v2
-
-      - name: Delete DynamoDB Firmware Table Stack
-        run: |
-          sam delete \
-            --stack-name firefly-dynamodb-firmware \
-            --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
-            --no-prompts
+      - name: Delete acm-certificate
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: delete-acm-certificate.yaml      

@@ -1,0 +1,29 @@
+name: ⚠️ Delete S3 Bucket Firmware
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        uses: aws-actions/setup-sam@v2
+
+      - name: Delete S3 Bucket for Firmware stack
+        run: |
+          sam delete \
+            --stack-name firefly-s3-bucket-firmware \
+            --region ${{ secrets.AWS_REGION }} \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
+            --no-prompts
