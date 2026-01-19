@@ -11,6 +11,8 @@ Resources:
 
   FireflyFirmwareTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: !Ref DynamoDbFirmwareTableName
       BillingMode: PAY_PER_REQUEST
