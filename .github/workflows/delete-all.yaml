@@ -3,15 +3,19 @@ name: ⚠️ ⚠️ Delete All
 on:
   workflow_dispatch
 
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   delete-all:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: benc-uk/workflow-dispatch@v1
+      - name: Delete func-api-health-get
+        uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: delete-func-api-health-get.yaml
-          ref: monlith-breakup
         
       - name: Delete func-s3-firmware-uploaded
         uses: benc-uk/workflow-dispatch@v1
