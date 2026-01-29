@@ -2,11 +2,22 @@ name: 🚀 Deploy func-api-health-get
 
 on:
   workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
   workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
 
 jobs:
   deploy-func-api-health-get:
-    environment: production
+    environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
     steps:

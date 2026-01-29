@@ -2,6 +2,13 @@ name: 🚀 🚀 Deploy All
 
 on:
   workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
 
 permissions:
   contents: read
@@ -12,28 +19,40 @@ jobs:
   deploy-dynamodb-firmware:
     uses: ./.github/workflows/deploy-dynamodb-firmware.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   deploy-acm:
     uses: ./.github/workflows/deploy-acm-api-gateway.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   deploy-api-gateway:
     needs: deploy-acm
     uses: ./.github/workflows/deploy-api-gateway.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   deploy-func-api-health-get:
     needs: deploy-api-gateway
     uses: ./.github/workflows/deploy-func-api-health-get.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   deploy-func-s3-firmware-uploaded:
     uses: ./.github/workflows/deploy-func-s3-firmware-uploaded.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   deploy-func-s3-firmware-deleted:
     uses: ./.github/workflows/deploy-func-s3-firmware-deleted.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   deploy-s3-firmware:
     needs:
@@ -41,3 +60,5 @@ jobs:
       - deploy-func-s3-firmware-deleted
     uses: ./.github/workflows/deploy-s3-firmware.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}

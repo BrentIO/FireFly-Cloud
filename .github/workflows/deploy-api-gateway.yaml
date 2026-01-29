@@ -2,11 +2,22 @@ name: 🚀 Deploy API Gateway
 
 on:
   workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
   workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
 
 jobs:
   deploy-api-gateway:
-    environment: production
+    environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
     steps:

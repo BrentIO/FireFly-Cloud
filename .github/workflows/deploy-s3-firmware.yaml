@@ -1,11 +1,22 @@
 name: 🚀 Deploy S3 Firmware
 on:
   workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
   workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
 
 jobs:
   deploy-s3-firmware:
-    environment: production
+    environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
     steps:
