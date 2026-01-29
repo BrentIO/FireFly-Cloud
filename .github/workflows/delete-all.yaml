@@ -2,6 +2,13 @@ name: ⚠️ ⚠️ Delete All
 
 on:
   workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
 
 permissions:
   contents: read
@@ -12,36 +19,49 @@ jobs:
   delete-dynamodb-firmware:
     uses: ./.github/workflows/delete-dynamodb-firmware.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   delete-s3-firmware:
     uses: ./.github/workflows/delete-s3-firmware.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   delete-func-api-health-get:
-     uses: ./.github/workflows/delete-func-api-health-get.yaml
-     secrets: inherit
+    uses: ./.github/workflows/delete-func-api-health-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   delete-api-gateway:
     needs:
       - delete-func-api-health-get
     uses: ./.github/workflows/delete-api-gateway.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   delete-acm-api-gateway:
     needs:
       - delete-api-gateway
     uses: ./.github/workflows/delete-acm-api-gateway.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
     
   delete-func-s3-firmware-uploaded:
     needs:
       - delete-s3-firmware
     uses: ./.github/workflows/delete-func-s3-firmware-uploaded.yaml
     secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
 
   delete-func-s3-firmware-deleted:
     needs:
       - delete-s3-firmware
     uses: ./.github/workflows/delete-func-s3-firmware-deleted.yaml
     secrets: inherit
-
+    with:
+      target_env: ${{ inputs.target_env }}
