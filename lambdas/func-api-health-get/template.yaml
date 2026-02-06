@@ -30,10 +30,11 @@ Resources:
       Role: !GetAtt FuncApiHealthRole.Arn
       CodeUri: .
       Handler: app.health
-      Runtime: python3.12
+      Runtime: python3.13
       Architectures:
         - arm64
       Timeout: 5
+      MemorySize: 128
 
   FuncApiHealthIntegration:
     Type: AWS::ApiGatewayV2::Integration

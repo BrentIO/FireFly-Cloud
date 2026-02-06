@@ -40,10 +40,11 @@ Resources:
       Role: !GetAtt FuncS3FirmwareDeletedRole.Arn
       CodeUri: .
       Handler: app.lambda_handler
-      Runtime: python3.12
+      Runtime: python3.13
       Architectures:
         - arm64
       Timeout: 30
+      MemorySize: 128
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
