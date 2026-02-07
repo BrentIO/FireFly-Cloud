@@ -64,6 +64,8 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          S3_ENDPOINT:
+          DYNAMODB_ENDPOINT:
 
 Outputs:
   FuncS3FirmwareUploadedArn:

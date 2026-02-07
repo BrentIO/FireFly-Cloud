@@ -7,8 +7,8 @@ import uuid
 import time
 from urllib.parse import unquote_plus
 
-s3 = boto3.client("s3")
-dynamodb = boto3.resource("dynamodb")
+s3 = boto3.client("s3", endpoint_url=os.environ.get("S3_ENDPOINT"))
+dynamodb = boto3.resource("dynamodb", endpoint_url=os.environ.get("DYNAMODB_ENDPOINT"))
 
 TABLE_NAME = os.environ["DYNAMODB_FIRMWARE_TABLE_NAME"]
 

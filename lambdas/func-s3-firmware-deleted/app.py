@@ -5,7 +5,7 @@ from urllib.parse import unquote_plus
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Attr
 
-dynamodb = boto3.resource("dynamodb")
+dynamodb = boto3.resource("dynamodb", endpoint_url=os.environ.get("DYNAMODB_ENDPOINT"))
 
 TABLE_NAME = os.environ["DYNAMODB_FIRMWARE_TABLE_NAME"]
 firmware_table = dynamodb.Table(TABLE_NAME)
