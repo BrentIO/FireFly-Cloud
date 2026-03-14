@@ -1,9 +1,14 @@
+from shared.app_config import get_appconfig
+from shared.logging_config import configure_logger
 import boto3
 import os
 import time
 from urllib.parse import unquote_plus
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Attr
+
+logging_config = get_appconfig(profile="logging")
+logger = configure_logger(logging_config)
 
 dynamodb = boto3.resource("dynamodb", endpoint_url=os.environ.get("DYNAMODB_ENDPOINT"))
 
@@ -12,7 +17,6 @@ firmware_table = dynamodb.Table(TABLE_NAME)
 
 TTL_DAYS = 10
 TTL_SECONDS = TTL_DAYS * 24 * 3600
-
 
 def mark_deleted_by_zip(filename: str) -> None:
     """
@@ -29,13 +33,12 @@ def mark_deleted_by_zip(filename: str) -> None:
 
     items = response.get("Items", [])
 
+    if response.get("Count") == 0:
+        raise Exception(f"DynamoDB did not return any objects for filename {filename}.")
+
     for item in items:
         product_id = item.get("product_id")
         version = item.get("version")
-
-        if not product_id or not version:
-            # Shouldn't happen, but don't blow up the whole batch
-            continue
 
         try:
             firmware_table.update_item(
@@ -43,31 +46,43 @@ def mark_deleted_by_zip(filename: str) -> None:
                     "product_id": product_id,
                     "version": version,
                 },
-                UpdateExpression="SET deleted = :d, ttl = :ttl",
+                UpdateExpression="SET #ttl = :ttl, release_status = :rs",
                 ConditionExpression="attribute_exists(product_id) AND attribute_exists(version)",
+                ExpressionAttributeNames={
+                    "#ttl": "ttl",
+                },
                 ExpressionAttributeValues={
-                    ":d": True,
                     ":ttl": expires_at,
+                    ":rs": "DELETED",
                 },
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                # Item disappeared or never existed with this key; ignore
+                raise Exception(f"Failed to update DynamoDB for {filename}.")
+                # Item disappeared or never existed with this key
                 continue
             else:
                 raise
 
 
 def lambda_handler(event, context):
-    for record in event.get("Records", []):
-        key = unquote_plus(record["s3"]["object"]["key"])
-        filename = os.path.basename(key)
 
-        # Ignore non-zip deletions
-        if not filename.endswith(".zip"):
-            continue
+    try:
+        for record in event.get("Records", []):
+            key = unquote_plus(record["s3"]["object"]["key"])
+            logger.debug(f"Processing key '{key}'")
+            filename = os.path.basename(key)
 
-        # We only care about processed/ and errors/ prefixes,
-        # but behavior is the same: mark matching records deleted.
-        if key.startswith("processed/") or key.startswith("errors/"):
-            mark_deleted_by_zip(filename)
+            # Ignore non-zip deletions
+            if not filename.endswith(".zip"):
+                logger.warning(f"Filename '{filename}' does not end with .zip")
+                continue
+
+            # We only care about processed/ and errors/ prefixes,
+            # but behavior is the same: mark matching records deleted.
+            if key.startswith("processed/") or key.startswith("errors/"):
+                mark_deleted_by_zip(filename)
+
+    except Exception:
+        logger.exception("Unhandled exception")
+        raise

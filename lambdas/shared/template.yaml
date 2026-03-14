@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Shared Python layer for all Lambdas
+
+Resources:
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: shared
+      Description: Shared logging and feature flag helpers
+      ContentUri: lambdas/shared/
+      CompatibleRuntimes:
+        - python3.13
+
+
+
+### THIS NEEDS TO BE VALIDATED
