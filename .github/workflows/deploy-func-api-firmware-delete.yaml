@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-s3-firmware-uploaded
+name: 🚀 Deploy func-api-firmware-delete
 on:
   workflow_dispatch:
     inputs:
@@ -15,7 +15,7 @@ on:
         type: string
 
 jobs:
-  deploy-func-s3-firmware-uploaded:
+  deploy-func-api-firmware-delete:
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
@@ -34,20 +34,31 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Build func-s3-firmware-uploaded
-        run: sam build --template-file lambdas/func-s3-firmware-uploaded/template.yaml
+      - name: Look up API Gateway ID for firefly-api-gateway
+        id: lookup-api
+        run: |
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-api-gateway \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
+            --output text)
 
-      - name: Deploy func-s3-firmware-uploaded
+          echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+
+      - name: Build func-api-firmware-delete
+        run: sam build --template-file lambdas/func-api-firmware-delete/template.yaml
+
+      - name: Deploy func-api-firmware-delete
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file lambdas/func-s3-firmware-uploaded/template.yaml \
-            --stack-name firefly-func-s3-firmware-uploaded \
+            --template-file lambdas/func-api-firmware-delete/template.yaml \
+            --stack-name firefly-func-api-firmware-delete \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
-              FirmwareBucketName=${{ secrets.S3_FIRMWARE_BUCKET_NAME }} \
+              ApiId=${{ steps.lookup-api.outputs.api_id }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
+              FirmwareBucketName=${{ secrets.S3_FIRMWARE_BUCKET_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

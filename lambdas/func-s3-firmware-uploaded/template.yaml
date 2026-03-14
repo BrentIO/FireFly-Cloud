@@ -11,6 +11,9 @@ Parameters:
     Type: String
     Description: Name of the DynamoDB firmware table
 
+  EnvironmentName:
+    Type: String
+
 Resources:
 
   FuncS3FirmwareUploadedRole:
@@ -56,14 +59,19 @@ Resources:
       Role: !GetAtt FuncS3FirmwareUploadedRole.Arn
       CodeUri: .
       Handler: app.lambda_handler
-      Runtime: python3.12
+      Runtime: python3.13
       Architectures:
         - arm64
-      Timeout: 60
-      MemorySize: 512
+      Timeout: 30
+      MemorySize: 128
+      Layers:
+        - !ImportValue firefly-shared-layer-arn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          APP_CONFIG_ENV: !Ref EnvironmentName
+          S3_ENDPOINT:
+          DYNAMODB_ENDPOINT:
 
 Outputs:
   FuncS3FirmwareUploadedArn:

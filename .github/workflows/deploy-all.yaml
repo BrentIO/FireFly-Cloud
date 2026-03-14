@@ -42,13 +42,48 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-func-api-firmware-get:
+    needs:
+      - deploy-api-gateway
+      - deploy-shared-layer
+    uses: ./.github/workflows/deploy-func-api-firmware-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-firmware-status-patch:
+    needs:
+      - deploy-api-gateway
+      - deploy-shared-layer
+    uses: ./.github/workflows/deploy-func-api-firmware-status-patch.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-firmware-delete:
+    needs:
+      - deploy-api-gateway
+      - deploy-shared-layer
+    uses: ./.github/workflows/deploy-func-api-firmware-delete.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-shared-layer:
+    uses: ./.github/workflows/deploy-shared-layer.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-func-s3-firmware-uploaded:
+    needs: deploy-shared-layer
     uses: ./.github/workflows/deploy-func-s3-firmware-uploaded.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
 
   deploy-func-s3-firmware-deleted:
+    needs: deploy-shared-layer
     uses: ./.github/workflows/deploy-func-s3-firmware-deleted.yaml
     secrets: inherit
     with:

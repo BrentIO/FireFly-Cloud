@@ -1,0 +1,48 @@
+@startuml GET /firmware
+
+title GET /firmware (list)
+
+actor Client
+participant "API Gateway" as APIGW
+participant "func-api-firmware-get" as Lambda
+database DynamoDB
+
+== All firmware ==
+
+Client -> APIGW : GET /firmware
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Scan (all items)
+DynamoDB --> Lambda : items[]
+Lambda --> APIGW : 200 OK\n{"items": [...]}
+APIGW --> Client : 200 OK\n{"items": [...]}
+
+note right of Lambda
+  files[] and pk are excluded from list responses.
+  Use GET /firmware/{zip_name} for the full record.
+end note
+
+== Filtered by product ==
+
+Client -> APIGW : GET /firmware?product_id=FFC3232-2603
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Query GSI product_id-index\nKeyCondition: product_id = "FFC3232-2603"
+DynamoDB --> Lambda : items[]
+Lambda --> APIGW : 200 OK\n{"items": [...]}
+APIGW --> Client : 200 OK\n{"items": [...]}
+
+note right of Lambda
+  The same product_id may appear multiple times
+  with different application and zip_name values,
+  representing distinct builds.
+end note
+
+== Filtered by product and version ==
+
+Client -> APIGW : GET /firmware?product_id=FFC3232-2603&version=2026.03.01
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Query GSI product_id-index\nKeyCondition: product_id = "FFC3232-2603"\nFilterExpression: version = "2026.03.01"
+DynamoDB --> Lambda : items[] (may contain multiple builds)
+Lambda --> APIGW : 200 OK\n{"items": [...]}
+APIGW --> Client : 200 OK\n{"items": [...]}
+
+@enduml

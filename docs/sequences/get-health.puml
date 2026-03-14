@@ -1,0 +1,14 @@
+@startuml GET /health
+
+title GET /health
+
+actor Client
+participant "API Gateway" as APIGW
+participant "func-api-health" as Lambda
+
+Client -> APIGW : GET /health
+APIGW -> Lambda : invoke
+Lambda --> APIGW : 200 OK\n{"status": "OK"}
+APIGW --> Client : 200 OK\n{"status": "OK"}
+
+@enduml

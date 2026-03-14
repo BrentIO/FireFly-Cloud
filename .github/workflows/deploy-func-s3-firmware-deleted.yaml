@@ -47,5 +47,6 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
+              EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

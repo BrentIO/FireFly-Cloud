@@ -1,0 +1,56 @@
+@startuml PATCH /firmware/{zip_name}/status
+
+title PATCH /firmware/{zip_name}/status
+
+actor Client
+participant "API Gateway" as APIGW
+participant "func-api-firmware-status-patch" as Lambda
+database DynamoDB
+
+== Valid transition (e.g. READY_TO_TEST → TESTING) ==
+
+Client -> APIGW : PATCH /firmware/550e8400-...zip/status\n{"release_status": "TESTING"}
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "550e8400-...zip"
+DynamoDB --> Lambda : item\n{pk, version, release_status: "READY_TO_TEST", ...}
+Lambda -> Lambda : validate transition\nREADY_TO_TEST → TESTING ✓
+Lambda -> DynamoDB : UpdateItem\nKey: {pk, version}\nSET release_status = "TESTING"
+DynamoDB --> Lambda : success
+Lambda --> APIGW : 200 OK\n{updated firmware record}
+APIGW --> Client : 200 OK\n{updated firmware record}
+
+== Invalid transition ==
+
+Client -> APIGW : PATCH /firmware/550e8400-...zip/status\n{"release_status": "RELEASED"}
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "550e8400-...zip"
+DynamoDB --> Lambda : item\n{release_status: "READY_TO_TEST", ...}
+Lambda -> Lambda : validate transition\nREADY_TO_TEST → RELEASED ✗
+Lambda --> APIGW : 422 Unprocessable Entity\n{"message": "Cannot transition from 'READY_TO_TEST' to 'RELEASED'",\n "allowed_transitions": ["TESTING"]}
+APIGW --> Client : 422 Unprocessable Entity
+
+== Not found ==
+
+Client -> APIGW : PATCH /firmware/00000000-...zip/status\n{"release_status": "TESTING"}
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "00000000-...zip"
+DynamoDB --> Lambda : (no items)
+Lambda --> APIGW : 404 Not Found
+APIGW --> Client : 404 Not Found
+
+== State transition reference ==
+
+note over Client, DynamoDB
+  Valid transitions (human-initiated via this endpoint):
+  READY_TO_TEST → TESTING
+  TESTING       → RELEASED
+  RELEASED      → REVOKED
+
+  Automatic transitions (event-driven, not via this endpoint):
+  upload success → READY_TO_TEST  (func-s3-firmware-uploaded)
+  upload failure → ERROR          (func-s3-firmware-uploaded)
+  S3 file removed (was RELEASED)  → REVOKED  (func-s3-firmware-deleted)
+  S3 file removed (other states)  → DELETED  (func-s3-firmware-deleted)
+end note
+
+@enduml

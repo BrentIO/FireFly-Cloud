@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API PATCH /firmware/{zip_name}/status
+
+Parameters:
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+  DynamoDbFirmwareTableName:
+    Type: String
+    Description: Name of the DynamoDB firmware table
+
+  EnvironmentName:
+    Type: String
+
+Resources:
+
+  FuncApiFirmwareStatusPatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-firmware-status-patch-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: FirmwareStatusPatchPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
+
+  FuncApiFirmwareStatusPatch:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-firmware-status-patch
+      Role: !GetAtt FuncApiFirmwareStatusPatchRole.Arn
+      CodeUri: .
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Timeout: 10
+      MemorySize: 128
+      Layers:
+        - !ImportValue firefly-shared-layer-arn
+      Environment:
+        Variables:
+          DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          APP_CONFIG_ENV: !Ref EnvironmentName
+          DYNAMODB_ENDPOINT:
+
+  FuncApiFirmwareStatusPatchIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiFirmwareStatusPatch.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiFirmwareStatusPatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: PATCH /firmware/{zip_name}/status
+      Target: !Sub integrations/${FuncApiFirmwareStatusPatchIntegration.IntegrationId}
+
+  FuncApiFirmwareStatusPatchPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiFirmwareStatusPatch
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/PATCH/firmware/*/status
+
+Outputs:
+  FuncApiFirmwareStatusPatchArn:
+    Value: !GetAtt FuncApiFirmwareStatusPatch.Arn
+    Description: ARN of the firmware status PATCH Lambda
