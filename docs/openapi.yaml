@@ -128,7 +128,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
               example:
-                message: "Firmware is already in state 'DELETED'; the S3 file has been removed"
+                message: "Firmware is already in state 'DELETED'"
         '500':
           $ref: '#/components/responses/InternalServerError'
 

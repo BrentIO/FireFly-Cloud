@@ -52,7 +52,7 @@ def lambda_handler(event, context):
 
         if release_status in ALREADY_REMOVED_STATES:
             return _response(409, {
-                "message": f"Firmware is already in state '{release_status}'; the S3 file has been removed"
+                "message": f"Firmware is already in state '{release_status}'"
             })
 
         prefix = ERROR_PREFIX if release_status == "ERROR" else PROCESSED_PREFIX
