@@ -11,6 +11,9 @@ Parameters:
     Type: String
     Description: Name of the DynamoDB firmware table
 
+  EnvironmentName:
+    Type: String
+
 Resources:
 
   FuncS3FirmwareUploadedRole:
@@ -49,6 +52,15 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
 
+  SharedLayer: ### THIS NEEDS TO BE REMOVED AND SOMETHING ELSE ADDED
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: shared
+      Description: Shared logging and feature flag helpers
+      ContentUri: lambdas/shared/
+      CompatibleRuntimes:
+        - python3.13
+
   FuncS3FirmwareUploaded:
     Type: AWS::Serverless::Function
     Properties:
@@ -61,9 +73,12 @@ Resources:
         - arm64
       Timeout: 30
       MemorySize: 128
+      Layers:
+        - !Ref SharedLayer
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          APP_CONFIG_ENV: !Ref EnvironmentName
           S3_ENDPOINT:
           DYNAMODB_ENDPOINT:
 

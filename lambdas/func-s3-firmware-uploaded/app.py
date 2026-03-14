@@ -1,3 +1,5 @@
+from shared.app_config import get_appconfig
+from shared.logging_config import configure_logger
 import json
 import boto3
 import hashlib
@@ -6,6 +8,9 @@ import zipfile
 import uuid
 import time
 from urllib.parse import unquote_plus
+
+logging_config = get_appconfig(profile="logging")
+logger = configure_logger(logging_config)
 
 s3 = boto3.client("s3", endpoint_url=os.environ.get("S3_ENDPOINT"))
 dynamodb = boto3.resource("dynamodb", endpoint_url=os.environ.get("DYNAMODB_ENDPOINT"))
@@ -67,7 +72,6 @@ def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
         "error": error_message,
         "zip_name": uuid_name,
         "timestamp": int(time.time()),
-        "deleted": False,
     }
 
     if original_name:
@@ -88,94 +92,110 @@ def move_object(bucket, source_key, dest_key):
 
 
 def lambda_handler(event, context):
-    record = event["Records"][0]
-    bucket = record["s3"]["bucket"]["name"]
-    key = unquote_plus(record["s3"]["object"]["key"])
-
-    if not key.endswith(".zip"):
-        return
-
-    original_filename = os.path.basename(key)
-    uuid_name = f"{uuid.uuid4()}.zip"
-
-    incoming_key = key
-    processing_key = f"{PROCESSING_PREFIX}{uuid_name}"
-    processed_key = f"{PROCESSED_PREFIX}{uuid_name}"
-    error_key = f"{ERROR_PREFIX}{uuid_name}"
-
-    manifest = None
-
     try:
-        move_object(bucket, incoming_key, processing_key)
+        record = event["Records"][0]
+        bucket = record["s3"]["bucket"]["name"]
+        key = unquote_plus(record["s3"]["object"]["key"])
 
-        head = s3.head_object(Bucket=bucket, Key=processing_key)
-        zip_size = head["ContentLength"]
+        if not key.endswith(".zip"):
+            logger.warning(f"Key '{key}' is not a .zip file, ignoring")
+            return
 
-        zip_path = os.path.join(TMP_DIR, uuid_name)
-        s3.download_file(bucket, processing_key, zip_path)
+        original_filename = os.path.basename(key)
+        uuid_name = f"{uuid.uuid4()}.zip"
 
-        zip_sha256 = sha256_file(zip_path)
+        incoming_key = key
+        processing_key = f"{PROCESSING_PREFIX}{uuid_name}"
+        processed_key = f"{PROCESSED_PREFIX}{uuid_name}"
+        error_key = f"{ERROR_PREFIX}{uuid_name}"
 
-        extract_dir = os.path.join(TMP_DIR, "unzipped")
-        os.makedirs(extract_dir, exist_ok=True)
+        manifest = None
 
-        with zipfile.ZipFile(zip_path, "r") as z:
-            z.extractall(extract_dir)
-
-        manifest_path = os.path.join(extract_dir, "manifest.json")
-        if not os.path.exists(manifest_path):
-            raise Exception("manifest.json missing")
-
-        with open(manifest_path) as f:
-            manifest = json.load(f)
-
-        validate_manifest_schema(manifest)
-
-        product_id = manifest["product_id"]
-        version = manifest["version"]
-
-        for entry in manifest["files"]:
-            file_path = os.path.join(extract_dir, entry["name"])
-            if not os.path.exists(file_path):
-                raise Exception(f"Missing file: {entry['name']}")
-
-            actual_sha256 = sha256_file(file_path)
-            if actual_sha256 != entry["sha256"]:
-                raise Exception(f"SHA256 mismatch for {entry['name']}")
-
-        item = {
-            "product_id": product_id,
-            "version": version,
-            "class": manifest.get("class"),
-            "application": manifest.get("application"),
-            "branch": manifest.get("branch"),
-            "commit": manifest.get("commit"),
-            "created": manifest.get("created"),
-            "files": manifest.get("files", []),
-            "zip_name": uuid_name,
-            "original_name": original_filename,
-            "zip_sha256": zip_sha256,
-            "zip_size": zip_size,
-            "uploaded_at": int(time.time()),
-            "deleted": False,
-            "release_status": "PROCESSING",
-        }
-
-        firmware_table.put_item(Item=item)
-
-        move_object(bucket, processing_key, processed_key)
-
-    except Exception as e:
-        put_error_item(
-            uuid_name,
-            str(e),
-            original_name=original_filename,
-            manifest=manifest,
-        )
+        logger.debug(f"Processing upload: original='{original_filename}', assigned='{uuid_name}'")
 
         try:
-            move_object(bucket, processing_key, error_key)
-        except Exception:
-            pass
+            move_object(bucket, incoming_key, processing_key)
+            logger.debug(f"Moved '{incoming_key}' to '{processing_key}'")
 
+            head = s3.head_object(Bucket=bucket, Key=processing_key)
+            zip_size = head["ContentLength"]
+
+            zip_path = os.path.join(TMP_DIR, uuid_name)
+            s3.download_file(bucket, processing_key, zip_path)
+            logger.debug(f"Downloaded '{processing_key}' ({zip_size} bytes)")
+
+            zip_sha256 = sha256_file(zip_path)
+
+            extract_dir = os.path.join(TMP_DIR, "unzipped")
+            os.makedirs(extract_dir, exist_ok=True)
+
+            with zipfile.ZipFile(zip_path, "r") as z:
+                z.extractall(extract_dir)
+
+            manifest_path = os.path.join(extract_dir, "manifest.json")
+            if not os.path.exists(manifest_path):
+                raise Exception("manifest.json missing")
+
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+
+            validate_manifest_schema(manifest)
+            logger.debug(f"Manifest validated for product_id='{manifest['product_id']}' version='{manifest['version']}'")
+
+            product_id = manifest["product_id"]
+            version = manifest["version"]
+
+            for entry in manifest["files"]:
+                file_path = os.path.join(extract_dir, entry["name"])
+                if not os.path.exists(file_path):
+                    raise Exception(f"Missing file: {entry['name']}")
+
+                actual_sha256 = sha256_file(file_path)
+                if actual_sha256 != entry["sha256"]:
+                    raise Exception(f"SHA256 mismatch for {entry['name']}")
+
+            logger.debug(f"All file checksums verified for '{uuid_name}'")
+
+            item = {
+                "product_id": product_id,
+                "version": version,
+                "class": manifest.get("class"),
+                "application": manifest.get("application"),
+                "branch": manifest.get("branch"),
+                "commit": manifest.get("commit"),
+                "created": manifest.get("created"),
+                "files": manifest.get("files", []),
+                "zip_name": uuid_name,
+                "original_name": original_filename,
+                "zip_sha256": zip_sha256,
+                "zip_size": zip_size,
+                "uploaded_at": int(time.time()),
+                "release_status": "READY_TO_TEST",
+            }
+
+            firmware_table.put_item(Item=item)
+            logger.debug(f"DynamoDB record written for product_id='{product_id}' version='{version}'")
+
+            move_object(bucket, processing_key, processed_key)
+            logger.debug(f"Moved '{processing_key}' to '{processed_key}'")
+
+        except Exception as e:
+            logger.warning(f"Processing failed for '{uuid_name}': {e}")
+            put_error_item(
+                uuid_name,
+                str(e),
+                original_name=original_filename,
+                manifest=manifest,
+            )
+
+            try:
+                move_object(bucket, processing_key, error_key)
+                logger.debug(f"Moved '{processing_key}' to '{error_key}'")
+            except Exception:
+                pass
+
+            raise
+
+    except Exception:
+        logger.exception("Unhandled exception")
         raise
