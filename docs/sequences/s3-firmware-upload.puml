@@ -1,0 +1,43 @@
+@startuml S3 Firmware Upload (GitHub Action → func-s3-firmware-uploaded)
+
+title S3 Firmware Upload\n(GitHub Action → func-s3-firmware-uploaded)
+
+actor "GitHub Action" as GHA
+storage S3
+participant "func-s3-firmware-uploaded" as Lambda
+database DynamoDB
+
+== Successful upload ==
+
+GHA -> S3 : PutObject\nKey: incoming/firefly-controller-v2-1.4.2.zip
+S3 -> Lambda : S3 ObjectCreated event\n(incoming/firefly-controller-v2-1.4.2.zip)
+Lambda -> S3 : CopyObject incoming/ → processing/\nDeleteObject incoming/
+Lambda -> S3 : HeadObject (get file size)
+Lambda -> S3 : Download ZIP to /tmp
+Lambda -> Lambda : Compute SHA256 of ZIP
+Lambda -> Lambda : Extract ZIP\nRead manifest.json
+Lambda -> Lambda : Validate manifest schema\n(required fields, files array)
+Lambda -> Lambda : Verify each file exists\nand matches SHA256 in manifest
+Lambda -> DynamoDB : PutItem\n{release_status: "READY_TO_TEST", ...}
+Lambda -> S3 : CopyObject processing/ → processed/\nDeleteObject processing/
+
+== Failed upload (manifest or checksum error) ==
+
+GHA -> S3 : PutObject\nKey: incoming/bad-firmware.zip
+S3 -> Lambda : S3 ObjectCreated event
+Lambda -> S3 : CopyObject incoming/ → processing/
+Lambda -> S3 : Download ZIP to /tmp
+Lambda -> Lambda : Extract ZIP
+Lambda -> Lambda : Validate manifest — fails\n(e.g. "SHA256 mismatch for firmware.bin")
+Lambda -> DynamoDB : PutItem\n{product_id: "__UNKNOWN_PRODUCT__" or manifest value,\n version: "ERROR#<version>#<uuid>",\n release_status: "ERROR",\n error: "SHA256 mismatch for firmware.bin"}
+Lambda -> S3 : CopyObject processing/ → errors/\nDeleteObject processing/
+
+note over S3
+  S3 lifecycle rules clean up prefixes automatically:
+  incoming/   — 1 day
+  processing/ — 1 day
+  errors/     — 7 days
+  processed/  — 30 days
+end note
+
+@enduml

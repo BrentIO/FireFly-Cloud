@@ -1,0 +1,386 @@
+openapi: 3.0.3
+
+info:
+  title: FireFly Firmware API
+  version: 1.0.0
+  description: |
+    Management API for FireFly lighting controller firmware.
+
+    Firmware follows a defined lifecycle managed through this API:
+
+    ```
+    PROCESSING → READY_TO_TEST → TESTING → RELEASED → REVOKED
+                              ↘ ERROR
+    ```
+
+    `DELETED` is set automatically when the underlying S3 file is removed.
+    `REVOKED` is set automatically when a `RELEASED` firmware's S3 file is removed.
+
+servers:
+  - url: https://{domain}
+    variables:
+      domain:
+        default: api.example.com
+        description: Custom API domain configured in api-gateway.yaml
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Firmware
+    description: Firmware lifecycle management
+
+paths:
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: OK
+
+  /firmware:
+    get:
+      tags: [Firmware]
+      summary: List firmware
+      description: |
+        Returns all firmware records. Optionally filter by `product_id`.
+        The `files` and `manifest` fields are excluded from list responses
+        to keep payloads small; use the single-item GET to retrieve those.
+      operationId: listFirmware
+      parameters:
+        - name: product_id
+          in: query
+          required: false
+          description: Filter results to a specific product
+          schema:
+            type: string
+          example: firefly-controller-v2
+      responses:
+        '200':
+          description: List of firmware records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareListResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /firmware/{product_id}/{version}:
+    get:
+      tags: [Firmware]
+      summary: Get firmware
+      description: Returns the full firmware record including the `files` array.
+      operationId: getFirmware
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/Version'
+      responses:
+        '200':
+          description: Firmware record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [Firmware]
+      summary: Delete firmware
+      description: |
+        Deletes the firmware ZIP from S3, which asynchronously triggers
+        `func-s3-firmware-deleted` to update DynamoDB:
+
+        - If the firmware was `RELEASED`, status transitions to `REVOKED`
+        - Otherwise, status transitions to `DELETED`
+
+        Returns `202 Accepted` immediately; the DynamoDB update occurs
+        asynchronously after the S3 event is processed.
+      operationId: deleteFirmware
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/Version'
+      responses:
+        '202':
+          description: Deletion initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: Deletion initiated
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Firmware is already in a removed state (DELETED or REVOKED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Firmware is already in state 'DELETED'; the S3 file has been removed"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /firmware/{product_id}/{version}/status:
+    patch:
+      tags: [Firmware]
+      summary: Update firmware status
+      description: |
+        Transitions the firmware to a new `release_status`.
+
+        Valid transitions:
+
+        | From | To |
+        |---|---|
+        | `READY_TO_TEST` | `TESTING` |
+        | `TESTING` | `RELEASED` |
+        | `RELEASED` | `REVOKED` |
+
+        Any other transition returns `422 Unprocessable Entity`.
+      operationId: patchFirmwareStatus
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/Version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdateRequest'
+            examples:
+              approve_for_testing:
+                summary: Approve for testing
+                value:
+                  release_status: TESTING
+              release:
+                summary: Release to public
+                value:
+                  release_status: RELEASED
+              revoke:
+                summary: Revoke a released firmware
+                value:
+                  release_status: REVOKED
+      responses:
+        '200':
+          description: Status updated; returns the full updated record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareRecord'
+        '400':
+          description: Missing required field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Missing required field: release_status"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransitionErrorResponse'
+              example:
+                message: "Cannot transition from 'READY_TO_TEST' to 'RELEASED'"
+                current_status: READY_TO_TEST
+                allowed_transitions: [TESTING]
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+
+  parameters:
+    ProductId:
+      name: product_id
+      in: path
+      required: true
+      description: Product identifier (DynamoDB partition key)
+      schema:
+        type: string
+      example: firefly-controller-v2
+
+    Version:
+      name: version
+      in: path
+      required: true
+      description: Firmware version string (DynamoDB sort key)
+      schema:
+        type: string
+      example: 1.4.2
+
+  schemas:
+
+    ReleaseStatus:
+      type: string
+      enum:
+        - PROCESSING
+        - READY_TO_TEST
+        - TESTING
+        - RELEASED
+        - REVOKED
+        - DELETED
+        - ERROR
+      description: |
+        Current lifecycle state of the firmware.
+
+        - `PROCESSING` — upload lambda is actively working on the file
+        - `READY_TO_TEST` — upload succeeded; awaiting human approval
+        - `TESTING` — actively being tested
+        - `RELEASED` — publicly available
+        - `REVOKED` — was released; pulled back (S3 file removed)
+        - `DELETED` — removed before release (S3 file removed)
+        - `ERROR` — upload failed; see `error` field for details
+
+    FirmwareFile:
+      type: object
+      properties:
+        name:
+          type: string
+          example: firmware.bin
+        sha256:
+          type: string
+          minLength: 64
+          maxLength: 64
+          example: a3f1e2...
+
+    FirmwareListItem:
+      type: object
+      description: Firmware record as returned in list responses (excludes files and manifest)
+      properties:
+        product_id:
+          type: string
+          example: firefly-controller-v2
+        version:
+          type: string
+          example: 1.4.2
+        class:
+          type: string
+          example: controller
+        application:
+          type: string
+          example: firefly-main
+        branch:
+          type: string
+          example: main
+        commit:
+          type: string
+          example: abc1234
+        created:
+          type: string
+          description: ISO 8601 timestamp from the manifest
+          example: "2026-03-01T12:00:00Z"
+        release_status:
+          $ref: '#/components/schemas/ReleaseStatus'
+        zip_name:
+          type: string
+          description: UUID filename assigned during upload
+          example: 550e8400-e29b-41d4-a716-446655440000.zip
+        original_name:
+          type: string
+          description: Original filename from the GitHub Action upload
+          example: firefly-controller-v2-1.4.2.zip
+        zip_sha256:
+          type: string
+          description: SHA256 of the ZIP file
+          example: b2e4f1...
+        zip_size:
+          type: integer
+          description: ZIP file size in bytes
+          example: 204800
+        uploaded_at:
+          type: integer
+          description: Unix timestamp of when the upload was processed
+          example: 1741910400
+        error:
+          type: string
+          description: Present only when release_status is ERROR
+          example: "SHA256 mismatch for firmware.bin"
+        ttl:
+          type: integer
+          description: Unix timestamp after which DynamoDB will automatically remove the record (set for DELETED/REVOKED items)
+          example: 1742774400
+
+    FirmwareRecord:
+      allOf:
+        - $ref: '#/components/schemas/FirmwareListItem'
+        - type: object
+          properties:
+            files:
+              type: array
+              description: File entries from manifest.json
+              items:
+                $ref: '#/components/schemas/FirmwareFile'
+
+    FirmwareListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FirmwareListItem'
+
+    StatusUpdateRequest:
+      type: object
+      required:
+        - release_status
+      properties:
+        release_status:
+          $ref: '#/components/schemas/ReleaseStatus'
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: OK
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    TransitionErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        current_status:
+          $ref: '#/components/schemas/ReleaseStatus'
+        allowed_transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseStatus'
+
+  responses:
+    NotFound:
+      description: Firmware record not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+          example:
+            message: "Firmware not found: firefly-controller-v2/1.4.2"
+
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+          example:
+            message: Internal server error

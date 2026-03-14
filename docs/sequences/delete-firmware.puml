@@ -1,0 +1,70 @@
+@startuml DELETE /firmware/{product_id}/{version}
+
+title DELETE /firmware/{product_id}/{version}
+
+actor Client
+participant "API Gateway" as APIGW
+participant "func-api-firmware-delete" as DeleteLambda
+participant "func-s3-firmware-deleted" as DeletedLambda
+database DynamoDB
+storage S3
+
+== Successful deletion (non-released firmware) ==
+
+Client -> APIGW : DELETE /firmware/firefly-controller-v2/1.4.2
+APIGW -> DeleteLambda : invoke
+DeleteLambda -> DynamoDB : GetItem\nKey: {product_id, version}
+DynamoDB --> DeleteLambda : item\n{release_status: "READY_TO_TEST",\n zip_name: "abc.zip", ...}
+DeleteLambda -> DeleteLambda : release_status not in {DELETED, REVOKED} ✓\nprefix = "processed/"
+DeleteLambda -> S3 : DeleteObject\nKey: processed/abc.zip
+S3 --> DeleteLambda : success
+DeleteLambda --> APIGW : 202 Accepted\n{"message": "Deletion initiated"}
+APIGW --> Client : 202 Accepted
+
+note over S3, DeletedLambda
+  Async: S3 fires ObjectRemoved event
+end note
+
+S3 -> DeletedLambda : S3 ObjectRemoved event\n(processed/abc.zip)
+DeletedLambda -> DynamoDB : Scan\nFilterExpression: zip_name = "abc.zip"
+DynamoDB --> DeletedLambda : item\n{release_status: "READY_TO_TEST"}
+DeletedLambda -> DeletedLambda : release_status != RELEASED\nnew_status = "DELETED"
+DeletedLambda -> DynamoDB : UpdateItem\nSET release_status = "DELETED", ttl = now + 10 days
+
+== Successful deletion (released firmware → REVOKED) ==
+
+Client -> APIGW : DELETE /firmware/firefly-controller-v2/1.4.2
+APIGW -> DeleteLambda : invoke
+DeleteLambda -> DynamoDB : GetItem\nKey: {product_id, version}
+DynamoDB --> DeleteLambda : item\n{release_status: "RELEASED",\n zip_name: "abc.zip", ...}
+DeleteLambda -> S3 : DeleteObject\nKey: processed/abc.zip
+S3 --> DeleteLambda : success
+DeleteLambda --> APIGW : 202 Accepted
+APIGW --> Client : 202 Accepted
+
+S3 -> DeletedLambda : S3 ObjectRemoved event\n(processed/abc.zip)
+DeletedLambda -> DynamoDB : Scan\nFilterExpression: zip_name = "abc.zip"
+DynamoDB --> DeletedLambda : item\n{release_status: "RELEASED"}
+DeletedLambda -> DeletedLambda : release_status == RELEASED\nnew_status = "REVOKED"
+DeletedLambda -> DynamoDB : UpdateItem\nSET release_status = "REVOKED", ttl = now + 10 days
+
+== Already removed ==
+
+Client -> APIGW : DELETE /firmware/firefly-controller-v2/1.4.2
+APIGW -> DeleteLambda : invoke
+DeleteLambda -> DynamoDB : GetItem\nKey: {product_id, version}
+DynamoDB --> DeleteLambda : item\n{release_status: "DELETED", ...}
+DeleteLambda -> DeleteLambda : release_status in {DELETED, REVOKED} ✗
+DeleteLambda --> APIGW : 409 Conflict\n{"message": "Firmware is already in state 'DELETED'..."}
+APIGW --> Client : 409 Conflict
+
+== Firmware not found ==
+
+Client -> APIGW : DELETE /firmware/unknown/9.9.9
+APIGW -> DeleteLambda : invoke
+DeleteLambda -> DynamoDB : GetItem\nKey: {product_id, version}
+DynamoDB --> DeleteLambda : (no item)
+DeleteLambda --> APIGW : 404 Not Found
+APIGW --> Client : 404 Not Found
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml GET /firmware
+
+title GET /firmware (list)
+
+actor Client
+participant "API Gateway" as APIGW
+participant "func-api-firmware-get" as Lambda
+database DynamoDB
+
+== All firmware ==
+
+Client -> APIGW : GET /firmware
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Scan (all items)
+DynamoDB --> Lambda : items[]
+Lambda --> APIGW : 200 OK\n{"items": [...]}
+APIGW --> Client : 200 OK\n{"items": [...]}
+
+note right of Lambda
+  files[] and manifest fields
+  are excluded from list responses
+end note
+
+== Filtered by product ==
+
+Client -> APIGW : GET /firmware?product_id=firefly-controller-v2
+APIGW -> Lambda : invoke
+Lambda -> DynamoDB : Query\nKeyCondition: product_id = "firefly-controller-v2"
+DynamoDB --> Lambda : items[]
+Lambda --> APIGW : 200 OK\n{"items": [...]}
+APIGW --> Client : 200 OK\n{"items": [...]}
+
+@enduml
