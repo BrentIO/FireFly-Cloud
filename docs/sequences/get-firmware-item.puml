@@ -1,6 +1,6 @@
-@startuml GET /firmware/{product_id}/{version}
+@startuml GET /firmware/{zip_name}
 
-title GET /firmware/{product_id}/{version}
+title GET /firmware/{zip_name}
 
 actor Client
 participant "API Gateway" as APIGW
@@ -9,20 +9,20 @@ database DynamoDB
 
 == Found ==
 
-Client -> APIGW : GET /firmware/firefly-controller-v2/1.4.2
+Client -> APIGW : GET /firmware/550e8400-e29b-41d4-a716-446655440000.zip
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : GetItem\nKey: {product_id, version}
+Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "550e8400-...zip"
 DynamoDB --> Lambda : item (full record including files[])
 Lambda --> APIGW : 200 OK\n{full firmware record}
 APIGW --> Client : 200 OK\n{full firmware record}
 
 == Not found ==
 
-Client -> APIGW : GET /firmware/firefly-controller-v2/9.9.9
+Client -> APIGW : GET /firmware/00000000-0000-0000-0000-000000000000.zip
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : GetItem\nKey: {product_id, version}
-DynamoDB --> Lambda : (no item)
-Lambda --> APIGW : 404 Not Found\n{"message": "Firmware not found: ..."}
+Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "00000000-...zip"
+DynamoDB --> Lambda : (no items)
+Lambda --> APIGW : 404 Not Found\n{"message": "Firmware not found: 00000000-...zip"}
 APIGW --> Client : 404 Not Found
 
 @enduml

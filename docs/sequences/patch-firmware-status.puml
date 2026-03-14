@@ -1,6 +1,6 @@
-@startuml PATCH /firmware/{product_id}/{version}/status
+@startuml PATCH /firmware/{zip_name}/status
 
-title PATCH /firmware/{product_id}/{version}/status
+title PATCH /firmware/{zip_name}/status
 
 actor Client
 participant "API Gateway" as APIGW
@@ -9,33 +9,33 @@ database DynamoDB
 
 == Valid transition (e.g. READY_TO_TEST → TESTING) ==
 
-Client -> APIGW : PATCH /firmware/firefly-controller-v2/1.4.2/status\n{"release_status": "TESTING"}
+Client -> APIGW : PATCH /firmware/550e8400-...zip/status\n{"release_status": "TESTING"}
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : GetItem\nKey: {product_id, version}
-DynamoDB --> Lambda : item\n{release_status: "READY_TO_TEST", ...}
+Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "550e8400-...zip"
+DynamoDB --> Lambda : item\n{product_id, version, release_status: "READY_TO_TEST", ...}
 Lambda -> Lambda : validate transition\nREADY_TO_TEST → TESTING ✓
-Lambda -> DynamoDB : UpdateItem\nSET release_status = "TESTING"
+Lambda -> DynamoDB : UpdateItem\nKey: {product_id, version}\nSET release_status = "TESTING"
 DynamoDB --> Lambda : success
 Lambda --> APIGW : 200 OK\n{updated firmware record}
 APIGW --> Client : 200 OK\n{updated firmware record}
 
 == Invalid transition ==
 
-Client -> APIGW : PATCH /firmware/firefly-controller-v2/1.4.2/status\n{"release_status": "RELEASED"}
+Client -> APIGW : PATCH /firmware/550e8400-...zip/status\n{"release_status": "RELEASED"}
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : GetItem\nKey: {product_id, version}
+Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "550e8400-...zip"
 DynamoDB --> Lambda : item\n{release_status: "READY_TO_TEST", ...}
 Lambda -> Lambda : validate transition\nREADY_TO_TEST → RELEASED ✗
 Lambda --> APIGW : 422 Unprocessable Entity\n{"message": "Cannot transition from 'READY_TO_TEST' to 'RELEASED'",\n "allowed_transitions": ["TESTING"]}
 APIGW --> Client : 422 Unprocessable Entity
 
-== Firmware not found ==
+== Not found ==
 
-Client -> APIGW : PATCH /firmware/unknown/9.9.9/status\n{"release_status": "TESTING"}
+Client -> APIGW : PATCH /firmware/00000000-...zip/status\n{"release_status": "TESTING"}
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : GetItem\nKey: {product_id, version}
-DynamoDB --> Lambda : (no item)
-Lambda --> APIGW : 404 Not Found\n{"message": "Firmware not found: ..."}
+Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "00000000-...zip"
+DynamoDB --> Lambda : (no items)
+Lambda --> APIGW : 404 Not Found
 APIGW --> Client : 404 Not Found
 
 == State transition reference ==
