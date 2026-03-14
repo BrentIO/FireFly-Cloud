@@ -6,12 +6,15 @@ Resources:
   SharedLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: shared
+      LayerName: firefly-shared
       Description: Shared logging and feature flag helpers
       ContentUri: lambdas/shared/
       CompatibleRuntimes:
         - python3.13
 
-
-
-### THIS NEEDS TO BE VALIDATED
+Outputs:
+  SharedLayerArn:
+    Description: ARN of the shared Lambda layer
+    Value: !Ref SharedLayer
+    Export:
+      Name: firefly-shared-layer-arn

@@ -65,3 +65,12 @@ jobs:
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
+
+  delete-shared-layer:
+    needs:
+      - delete-func-s3-firmware-uploaded
+      - delete-func-s3-firmware-deleted
+    uses: ./.github/workflows/delete-shared-layer.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}

@@ -35,15 +35,6 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
 
-  SharedLayer: ### THIS NEEDS TO BE REMOVED AND SOMETHING ELSE ADDED
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: shared
-      Description: Shared logging and feature flag helpers
-      ContentUri: lambdas/shared/
-      CompatibleRuntimes:
-        - python3.13
-
   FuncS3FirmwareDeleted:
     Type: AWS::Serverless::Function
     Properties:
@@ -57,7 +48,7 @@ Resources:
       Timeout: 30
       MemorySize: 128
       Layers:
-        - !Ref SharedLayer
+        - !ImportValue firefly-shared-layer-arn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
