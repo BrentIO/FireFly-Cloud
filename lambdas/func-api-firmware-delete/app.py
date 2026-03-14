@@ -3,6 +3,7 @@ from shared.logging_config import configure_logger
 import json
 import boto3
 import os
+from boto3.dynamodb.conditions import Attr
 
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
@@ -33,18 +34,20 @@ def _response(status_code, body):
 def lambda_handler(event, context):
     try:
         path_params = event.get("pathParameters") or {}
-        product_id = path_params.get("product_id")
-        version = path_params.get("version")
+        zip_name = path_params.get("zip_name")
 
-        logger.debug(f"DELETE firmware product_id='{product_id}' version='{version}'")
+        logger.debug(f"DELETE firmware zip_name='{zip_name}'")
 
-        response = firmware_table.get_item(
-            Key={"product_id": product_id, "version": version}
+        # zip_name (UUID) is the unique identifier for a specific build.
+        # Scan is used because zip_name is not the DynamoDB primary key.
+        response = firmware_table.scan(
+            FilterExpression=Attr("zip_name").eq(zip_name)
         )
-        item = response.get("Item")
-        if not item:
-            return _response(404, {"message": f"Firmware not found: {product_id}/{version}"})
+        items = response.get("Items", [])
+        if not items:
+            return _response(404, {"message": f"Firmware not found: {zip_name}"})
 
+        item = items[0]
         release_status = item.get("release_status")
 
         if release_status in ALREADY_REMOVED_STATES:
@@ -52,11 +55,10 @@ def lambda_handler(event, context):
                 "message": f"Firmware is already in state '{release_status}'; the S3 file has been removed"
             })
 
-        zip_name = item.get("zip_name")
         prefix = ERROR_PREFIX if release_status == "ERROR" else PROCESSED_PREFIX
         s3_key = f"{prefix}{zip_name}"
 
-        logger.debug(f"Deleting s3://{BUCKET_NAME}/{s3_key} for product_id='{product_id}' version='{version}' (status: '{release_status}')")
+        logger.debug(f"Deleting s3://{BUCKET_NAME}/{s3_key} (status: '{release_status}')")
 
         s3.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
 

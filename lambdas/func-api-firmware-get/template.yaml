@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: API GET /firmware and GET /firmware/{product_id}/{version}
+Description: API GET /firmware and GET /firmware/{zip_name}
 
 Parameters:
   ApiId:
@@ -36,7 +36,6 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:GetItem
                   - dynamodb:Query
                   - dynamodb:Scan
                 Resource:
@@ -81,7 +80,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref ApiId
-      RouteKey: GET /firmware/{product_id}/{version}
+      RouteKey: GET /firmware/{zip_name}
       Target: !Sub integrations/${FuncApiFirmwareGetIntegration.IntegrationId}
 
   FuncApiFirmwareListPermission:
@@ -98,7 +97,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref FuncApiFirmwareGet
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/firmware/*/*
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/firmware/*
 
 Outputs:
   FuncApiFirmwareGetArn:
