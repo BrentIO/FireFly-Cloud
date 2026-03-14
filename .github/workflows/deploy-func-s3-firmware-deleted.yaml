@@ -34,9 +34,6 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Build func-s3-firmware-deleted
-        run: sam build --template-file lambdas/func-s3-firmware-deleted/template.yaml
-
       - name: Deploy func-s3-firmware-deleted
         run: |
           sam deploy \

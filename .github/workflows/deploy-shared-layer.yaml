@@ -34,9 +34,6 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Build shared-layer
-        run: sam build --template-file lambdas/shared/template.yaml
-
       - name: Deploy shared-layer
         run: |
           sam deploy \

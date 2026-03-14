@@ -34,9 +34,6 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Build func-s3-firmware-uploaded
-        run: sam build --template-file lambdas/func-s3-firmware-uploaded/template.yaml
-
       - name: Deploy func-s3-firmware-uploaded
         run: |
           sam deploy \

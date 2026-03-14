@@ -44,9 +44,6 @@ jobs:
 
           echo "api_id=$API_ID" >> $GITHUB_OUTPUT
 
-      - name: Build func-api-firmware-get
-        run: sam build --template-file lambdas/func-api-firmware-get/template.yaml
-
       - name: Deploy func-api-firmware-get
         run: |
           sam deploy \
