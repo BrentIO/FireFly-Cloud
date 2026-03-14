@@ -99,14 +99,14 @@ paths:
       tags: [Firmware]
       summary: Delete firmware
       description: |
-        Deletes the firmware ZIP from S3, which asynchronously triggers an
+        Deletes the firmware ZIP, which asynchronously triggers an
         update to the firmware record:
 
         - If the firmware was `RELEASED`, status transitions to `REVOKED`
         - Otherwise, status transitions to `DELETED`
 
         Returns `202 Accepted` immediately; the status update occurs
-        asynchronously after the S3 event is processed.
+        asynchronously.
       operationId: deleteFirmware
       parameters:
         - $ref: '#/components/parameters/ZipName'
@@ -297,8 +297,8 @@ components:
         - `READY_TO_TEST` — upload succeeded; awaiting approval
         - `TESTING` — actively being tested
         - `RELEASED` — publicly available
-        - `REVOKED` — was released; subsequently pulled back (S3 file removed)
-        - `DELETED` — removed before release (S3 file removed)
+        - `REVOKED` — was released; subsequently pulled back
+        - `DELETED` — removed before release
         - `ERROR` — upload failed; see `error` field for details
       enum:
         - PROCESSING
