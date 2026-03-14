@@ -34,9 +34,30 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  delete-func-api-firmware-get:
+    uses: ./.github/workflows/delete-func-api-firmware-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-api-firmware-status-patch:
+    uses: ./.github/workflows/delete-func-api-firmware-status-patch.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-api-firmware-delete:
+    uses: ./.github/workflows/delete-func-api-firmware-delete.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   delete-api-gateway:
     needs:
       - delete-func-api-health-get
+      - delete-func-api-firmware-get
+      - delete-func-api-firmware-status-patch
+      - delete-func-api-firmware-delete
     uses: ./.github/workflows/delete-api-gateway.yaml
     secrets: inherit
     with:
@@ -70,6 +91,9 @@ jobs:
     needs:
       - delete-func-s3-firmware-uploaded
       - delete-func-s3-firmware-deleted
+      - delete-func-api-firmware-get
+      - delete-func-api-firmware-status-patch
+      - delete-func-api-firmware-delete
     uses: ./.github/workflows/delete-shared-layer.yaml
     secrets: inherit
     with:

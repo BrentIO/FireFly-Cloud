@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API DELETE /firmware/{product_id}/{version}
+
+Parameters:
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+  DynamoDbFirmwareTableName:
+    Type: String
+    Description: Name of the DynamoDB firmware table
+
+  FirmwareBucketName:
+    Type: String
+    Description: Name of the S3 bucket containing firmware ZIPs
+
+  EnvironmentName:
+    Type: String
+
+Resources:
+
+  FuncApiFirmwareDeleteRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-firmware-delete-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: FirmwareDeletePermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+              - Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub arn:aws:s3:::${FirmwareBucketName}/processed/*
+                  - !Sub arn:aws:s3:::${FirmwareBucketName}/errors/*
+
+  FuncApiFirmwareDelete:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-firmware-delete
+      Role: !GetAtt FuncApiFirmwareDeleteRole.Arn
+      CodeUri: .
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Timeout: 15
+      MemorySize: 128
+      Layers:
+        - !ImportValue firefly-shared-layer-arn
+      Environment:
+        Variables:
+          DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          S3_FIRMWARE_BUCKET_NAME: !Ref FirmwareBucketName
+          APP_CONFIG_ENV: !Ref EnvironmentName
+          DYNAMODB_ENDPOINT:
+          S3_ENDPOINT:
+
+  FuncApiFirmwareDeleteIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiFirmwareDelete.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiFirmwareDeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: DELETE /firmware/{product_id}/{version}
+      Target: !Sub integrations/${FuncApiFirmwareDeleteIntegration.IntegrationId}
+
+  FuncApiFirmwareDeletePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiFirmwareDelete
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/DELETE/firmware/*/*
+
+Outputs:
+  FuncApiFirmwareDeleteArn:
+    Value: !GetAtt FuncApiFirmwareDelete.Arn
+    Description: ARN of the firmware DELETE Lambda
