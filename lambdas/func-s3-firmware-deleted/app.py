@@ -39,6 +39,10 @@ def mark_deleted_by_zip(filename: str) -> None:
     for item in items:
         product_id = item.get("product_id")
         version = item.get("version")
+        current_status = item.get("release_status")
+
+        new_status = "REVOKED" if current_status == "RELEASED" else "DELETED"
+        logger.debug(f"Transitioning product_id='{product_id}' version='{version}' from '{current_status}' to '{new_status}'")
 
         try:
             firmware_table.update_item(
@@ -53,14 +57,12 @@ def mark_deleted_by_zip(filename: str) -> None:
                 },
                 ExpressionAttributeValues={
                     ":ttl": expires_at,
-                    ":rs": "DELETED",
+                    ":rs": new_status,
                 },
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                 raise Exception(f"Failed to update DynamoDB for {filename}.")
-                # Item disappeared or never existed with this key
-                continue
             else:
                 raise
 
