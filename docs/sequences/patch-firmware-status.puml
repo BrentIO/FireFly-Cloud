@@ -11,10 +11,10 @@ database DynamoDB
 
 Client -> APIGW : PATCH /firmware/550e8400-...zip/status\n{"release_status": "TESTING"}
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "550e8400-...zip"
-DynamoDB --> Lambda : item\n{product_id, version, release_status: "READY_TO_TEST", ...}
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "550e8400-...zip"
+DynamoDB --> Lambda : item\n{pk, version, release_status: "READY_TO_TEST", ...}
 Lambda -> Lambda : validate transition\nREADY_TO_TEST → TESTING ✓
-Lambda -> DynamoDB : UpdateItem\nKey: {product_id, version}\nSET release_status = "TESTING"
+Lambda -> DynamoDB : UpdateItem\nKey: {pk, version}\nSET release_status = "TESTING"
 DynamoDB --> Lambda : success
 Lambda --> APIGW : 200 OK\n{updated firmware record}
 APIGW --> Client : 200 OK\n{updated firmware record}
@@ -23,7 +23,7 @@ APIGW --> Client : 200 OK\n{updated firmware record}
 
 Client -> APIGW : PATCH /firmware/550e8400-...zip/status\n{"release_status": "RELEASED"}
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "550e8400-...zip"
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "550e8400-...zip"
 DynamoDB --> Lambda : item\n{release_status: "READY_TO_TEST", ...}
 Lambda -> Lambda : validate transition\nREADY_TO_TEST → RELEASED ✗
 Lambda --> APIGW : 422 Unprocessable Entity\n{"message": "Cannot transition from 'READY_TO_TEST' to 'RELEASED'",\n "allowed_transitions": ["TESTING"]}
@@ -33,7 +33,7 @@ APIGW --> Client : 422 Unprocessable Entity
 
 Client -> APIGW : PATCH /firmware/00000000-...zip/status\n{"release_status": "TESTING"}
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "00000000-...zip"
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "00000000-...zip"
 DynamoDB --> Lambda : (no items)
 Lambda --> APIGW : 404 Not Found
 APIGW --> Client : 404 Not Found

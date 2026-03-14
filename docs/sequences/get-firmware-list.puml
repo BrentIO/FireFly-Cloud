@@ -17,7 +17,7 @@ Lambda --> APIGW : 200 OK\n{"items": [...]}
 APIGW --> Client : 200 OK\n{"items": [...]}
 
 note right of Lambda
-  files[] is excluded from list responses.
+  files[] and pk are excluded from list responses.
   Use GET /firmware/{zip_name} for the full record.
 end note
 
@@ -25,22 +25,22 @@ end note
 
 Client -> APIGW : GET /firmware?product_id=FFC3232-2603
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : Query\nKeyCondition: product_id = "FFC3232-2603"
+Lambda -> DynamoDB : Query GSI product_id-index\nKeyCondition: product_id = "FFC3232-2603"
 DynamoDB --> Lambda : items[]
 Lambda --> APIGW : 200 OK\n{"items": [...]}
 APIGW --> Client : 200 OK\n{"items": [...]}
 
 note right of Lambda
-  The same product_id and version may appear
-  multiple times with different zip_name (UUID)
-  values, representing distinct builds.
+  The same product_id may appear multiple times
+  with different application and zip_name values,
+  representing distinct builds.
 end note
 
 == Filtered by product and version ==
 
 Client -> APIGW : GET /firmware?product_id=FFC3232-2603&version=2026.03.01
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : Query\nKeyCondition: product_id = "FFC3232-2603"\nFilterExpression: version = "2026.03.01"
+Lambda -> DynamoDB : Query GSI product_id-index\nKeyCondition: product_id = "FFC3232-2603"\nFilterExpression: version = "2026.03.01"
 DynamoDB --> Lambda : items[] (may contain multiple builds)
 Lambda --> APIGW : 200 OK\n{"items": [...]}
 APIGW --> Client : 200 OK\n{"items": [...]}

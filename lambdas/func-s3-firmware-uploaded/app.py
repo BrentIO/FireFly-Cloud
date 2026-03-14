@@ -57,15 +57,19 @@ def validate_manifest_schema(manifest):
 
 def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
     product_id = "__UNKNOWN_PRODUCT__"
+    application = "__UNKNOWN_APPLICATION__"
     version = f"ERROR#UNKNOWN#{uuid_name}"
 
     if isinstance(manifest, dict):
         if "product_id" in manifest:
             product_id = manifest["product_id"]
+        if "application" in manifest:
+            application = manifest["application"]
         if "version" in manifest:
             version = f"ERROR#{manifest['version']}#{uuid_name}"
 
     item = {
+        "pk": f"{product_id}#{application}",
         "product_id": product_id,
         "version": version,
         "release_status": "ERROR",
@@ -157,6 +161,7 @@ def lambda_handler(event, context):
             logger.debug(f"All file checksums verified for '{uuid_name}'")
 
             item = {
+                "pk": f"{product_id}#{manifest.get('application')}",
                 "product_id": product_id,
                 "version": version,
                 "class": manifest.get("class"),

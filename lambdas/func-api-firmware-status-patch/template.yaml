@@ -36,10 +36,11 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:Scan
+                  - dynamodb:Query
                   - dynamodb:UpdateItem
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
 
   FuncApiFirmwareStatusPatch:
     Type: AWS::Serverless::Function

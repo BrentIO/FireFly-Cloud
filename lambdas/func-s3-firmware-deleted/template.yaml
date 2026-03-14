@@ -31,9 +31,10 @@ Resources:
               - Effect: Allow
                 Action:
                   - dynamodb:UpdateItem
-                  - dynamodb:Scan
+                  - dynamodb:Query
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
 
   FuncS3FirmwareDeleted:
     Type: AWS::Serverless::Function

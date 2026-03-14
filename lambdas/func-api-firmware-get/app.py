@@ -14,8 +14,8 @@ TABLE_NAME = os.environ["DYNAMODB_FIRMWARE_TABLE_NAME"]
 firmware_table = dynamodb.Table(TABLE_NAME)
 
 # Exclude large/internal fields from list responses to keep payloads small.
-# The single-item GET returns the full record.
-LIST_EXCLUDE_FIELDS = {"files", "manifest"}
+# The single-item GET returns the full record. pk is always excluded (internal).
+LIST_EXCLUDE_FIELDS = {"files", "manifest", "pk"}
 
 
 def _response(status_code, body):
@@ -26,46 +26,53 @@ def _response(status_code, body):
     }
 
 
-def get_firmware_list(product_id=None, version=None):
-    if product_id and version:
+def get_firmware_list(product_id=None, application=None, version=None):
+    filter_parts = []
+    if application:
+        filter_parts.append(Attr("application").eq(application))
+    if version:
+        filter_parts.append(Attr("version").eq(version))
+
+    filter_expr = None
+    for part in filter_parts:
+        filter_expr = part if filter_expr is None else filter_expr & part
+
+    kwargs = {}
+    if filter_expr is not None:
+        kwargs["FilterExpression"] = filter_expr
+
+    if product_id:
         response = firmware_table.query(
+            IndexName="product_id-index",
             KeyConditionExpression=Key("product_id").eq(product_id),
-            FilterExpression=Attr("version").eq(version),
-        )
-    elif product_id:
-        # Query is efficient when filtering by partition key
-        response = firmware_table.query(
-            KeyConditionExpression=Key("product_id").eq(product_id)
-        )
-    elif version:
-        response = firmware_table.scan(
-            FilterExpression=Attr("version").eq(version)
+            **kwargs
         )
     else:
         # Full scan is acceptable given the small expected table size (<1000 items)
-        response = firmware_table.scan()
+        response = firmware_table.scan(**kwargs)
 
     items = [
         {k: v for k, v in item.items() if k not in LIST_EXCLUDE_FIELDS}
         for item in response.get("Items", [])
     ]
-    logger.debug(f"Returning {len(items)} firmware items (product_id='{product_id}' version='{version}')")
+    logger.debug(f"Returning {len(items)} firmware items (product_id='{product_id}' application='{application}' version='{version}')")
     return _response(200, {"items": items})
 
 
 def get_firmware_item(zip_name):
-    # zip_name (UUID) is the unique identifier for a specific build.
-    # Scan is used because zip_name is not the DynamoDB primary key.
-    response = firmware_table.scan(
-        FilterExpression=Attr("zip_name").eq(zip_name)
+    # Query GSI 2 by zip_name (UUID) — the unique identifier for a specific build.
+    response = firmware_table.query(
+        IndexName="zip_name-index",
+        KeyConditionExpression=Key("zip_name").eq(zip_name)
     )
     items = response.get("Items", [])
     if not items:
         logger.debug(f"Firmware not found: zip_name='{zip_name}'")
         return _response(404, {"message": f"Firmware not found: {zip_name}"})
 
+    item = {k: v for k, v in items[0].items() if k != "pk"}
     logger.debug(f"Returning firmware: zip_name='{zip_name}'")
-    return _response(200, items[0])
+    return _response(200, item)
 
 
 def lambda_handler(event, context):
@@ -79,9 +86,10 @@ def lambda_handler(event, context):
         else:
             query_params = event.get("queryStringParameters") or {}
             filter_product_id = query_params.get("product_id")
+            filter_application = query_params.get("application")
             filter_version = query_params.get("version")
-            logger.debug(f"GET /firmware product_id='{filter_product_id}' version='{filter_version}'")
-            return get_firmware_list(product_id=filter_product_id, version=filter_version)
+            logger.debug(f"GET /firmware product_id='{filter_product_id}' application='{filter_application}' version='{filter_version}'")
+            return get_firmware_list(product_id=filter_product_id, application=filter_application, version=filter_version)
 
     except Exception:
         logger.exception("Unhandled exception")

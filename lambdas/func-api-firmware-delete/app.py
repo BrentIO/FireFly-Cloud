@@ -3,7 +3,7 @@ from shared.logging_config import configure_logger
 import json
 import boto3
 import os
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Key
 
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
@@ -38,10 +38,10 @@ def lambda_handler(event, context):
 
         logger.debug(f"DELETE firmware zip_name='{zip_name}'")
 
-        # zip_name (UUID) is the unique identifier for a specific build.
-        # Scan is used because zip_name is not the DynamoDB primary key.
-        response = firmware_table.scan(
-            FilterExpression=Attr("zip_name").eq(zip_name)
+        # Query GSI 2 by zip_name (UUID) — the unique identifier for a specific build.
+        response = firmware_table.query(
+            IndexName="zip_name-index",
+            KeyConditionExpression=Key("zip_name").eq(zip_name)
         )
         items = response.get("Items", [])
         if not items:

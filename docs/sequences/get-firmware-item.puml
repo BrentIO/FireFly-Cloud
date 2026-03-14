@@ -11,7 +11,7 @@ database DynamoDB
 
 Client -> APIGW : GET /firmware/550e8400-e29b-41d4-a716-446655440000.zip
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "550e8400-...zip"
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "550e8400-...zip"
 DynamoDB --> Lambda : item (full record including files[])
 Lambda --> APIGW : 200 OK\n{full firmware record}
 APIGW --> Client : 200 OK\n{full firmware record}
@@ -20,7 +20,7 @@ APIGW --> Client : 200 OK\n{full firmware record}
 
 Client -> APIGW : GET /firmware/00000000-0000-0000-0000-000000000000.zip
 APIGW -> Lambda : invoke
-Lambda -> DynamoDB : Scan\nFilterExpression: zip_name = "00000000-...zip"
+Lambda -> DynamoDB : Query GSI zip_name-index\nKeyCondition: zip_name = "00000000-...zip"
 DynamoDB --> Lambda : (no items)
 Lambda --> APIGW : 404 Not Found\n{"message": "Firmware not found: 00000000-...zip"}
 APIGW --> Client : 404 Not Found

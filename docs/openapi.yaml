@@ -50,6 +50,12 @@ paths:
           description: Filter results to a specific product
           schema:
             $ref: '#/components/schemas/ProductId'
+        - name: application
+          in: query
+          required: false
+          description: Filter results to a specific application
+          schema:
+            $ref: '#/components/schemas/Application'
         - name: version
           in: query
           required: false

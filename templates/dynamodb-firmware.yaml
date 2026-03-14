@@ -15,15 +15,32 @@ Resources:
       TableName: !Ref DynamoDbFirmwareTableName
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: product_id
+        - AttributeName: pk
           AttributeType: S
         - AttributeName: version
           AttributeType: S
-      KeySchema:
         - AttributeName: product_id
+          AttributeType: S
+        - AttributeName: zip_name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
           KeyType: HASH
         - AttributeName: version
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: product_id-index
+          KeySchema:
+            - AttributeName: product_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: zip_name-index
+          KeySchema:
+            - AttributeName: zip_name
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true

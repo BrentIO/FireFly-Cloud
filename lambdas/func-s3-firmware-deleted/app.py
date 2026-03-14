@@ -5,7 +5,7 @@ import os
 import time
 from urllib.parse import unquote_plus
 from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
 
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
@@ -20,38 +20,37 @@ TTL_SECONDS = TTL_DAYS * 24 * 3600
 
 def mark_deleted_by_zip(filename: str) -> None:
     """
-    Find all items with this zip_name and mark them deleted with a TTL.
-    We scan because the primary key is (product_id, version), not zip_name.
+    Find the item with this zip_name via GSI and mark it deleted with a TTL.
     """
 
     expires_at = int(time.time()) + TTL_SECONDS
 
-    # Small table size (<1000 items) makes a scan acceptable here.
-    response = firmware_table.scan(
-        FilterExpression=Attr("zip_name").eq(filename)
+    response = firmware_table.query(
+        IndexName="zip_name-index",
+        KeyConditionExpression=Key("zip_name").eq(filename)
     )
 
     items = response.get("Items", [])
 
-    if response.get("Count") == 0:
+    if not items:
         raise Exception(f"DynamoDB did not return any objects for filename {filename}.")
 
     for item in items:
-        product_id = item.get("product_id")
+        pk = item.get("pk")
         version = item.get("version")
         current_status = item.get("release_status")
 
         new_status = "REVOKED" if current_status == "RELEASED" else "DELETED"
-        logger.debug(f"Transitioning product_id='{product_id}' version='{version}' from '{current_status}' to '{new_status}'")
+        logger.debug(f"Transitioning pk='{pk}' version='{version}' from '{current_status}' to '{new_status}'")
 
         try:
             firmware_table.update_item(
                 Key={
-                    "product_id": product_id,
+                    "pk": pk,
                     "version": version,
                 },
                 UpdateExpression="SET #ttl = :ttl, release_status = :rs",
-                ConditionExpression="attribute_exists(product_id) AND attribute_exists(version)",
+                ConditionExpression="attribute_exists(pk) AND attribute_exists(version)",
                 ExpressionAttributeNames={
                     "#ttl": "ttl",
                 },

@@ -3,7 +3,7 @@ from shared.logging_config import configure_logger
 import json
 import boto3
 import os
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
 
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
@@ -41,17 +41,17 @@ def lambda_handler(event, context):
 
         logger.debug(f"PATCH status for zip_name='{zip_name}' new_status='{new_status}'")
 
-        # zip_name (UUID) is the unique identifier for a specific build.
-        # Scan is used because zip_name is not the DynamoDB primary key.
-        response = firmware_table.scan(
-            FilterExpression=Attr("zip_name").eq(zip_name)
+        # Query GSI 2 by zip_name (UUID) — the unique identifier for a specific build.
+        response = firmware_table.query(
+            IndexName="zip_name-index",
+            KeyConditionExpression=Key("zip_name").eq(zip_name)
         )
         items = response.get("Items", [])
         if not items:
             return _response(404, {"message": f"Firmware not found: {zip_name}"})
 
         item = items[0]
-        product_id = item["product_id"]
+        pk = item["pk"]
         version = item["version"]
         current_status = item.get("release_status")
         allowed = VALID_TRANSITIONS.get(current_status, [])
@@ -63,9 +63,9 @@ def lambda_handler(event, context):
                 "allowed_transitions": allowed,
             })
 
-        # UpdateItem uses the DynamoDB primary key (product_id, version)
+        # UpdateItem uses the DynamoDB primary key (pk, version)
         firmware_table.update_item(
-            Key={"product_id": product_id, "version": version},
+            Key={"pk": pk, "version": version},
             UpdateExpression="SET release_status = :rs",
             ExpressionAttributeValues={":rs": new_status},
         )
@@ -73,6 +73,7 @@ def lambda_handler(event, context):
         logger.debug(f"Transitioned zip_name='{zip_name}' from '{current_status}' to '{new_status}'")
 
         item["release_status"] = new_status
+        item.pop("pk", None)
         return _response(200, item)
 
     except Exception:

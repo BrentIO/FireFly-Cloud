@@ -40,9 +40,10 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:Scan
+                  - dynamodb:Query
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
               - Effect: Allow
                 Action:
                   - s3:DeleteObject
