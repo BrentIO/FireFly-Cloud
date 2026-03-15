@@ -117,20 +117,6 @@
         {
             "Effect": "Allow",
             "Action": [
-                "cloudfront:CreateDistribution",
-                "cloudfront:UpdateDistribution",
-                "cloudfront:DeleteDistribution",
-                "cloudfront:GetDistribution",
-                "cloudfront:GetDistributionConfig",
-                "cloudfront:TagResource",
-                "cloudfront:UntagResource",
-                "cloudfront:ListTagsForResource"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
                 "s3:GetObject",
                 "s3:ListBucket"
             ],
@@ -242,6 +228,24 @@
                 "lambda:GetLayerVersion"
             ],
             "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:layer:firefly-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateDistribution",
+                "cloudfront:UpdateDistribution",
+                "cloudfront:DeleteDistribution",
+                "cloudfront:GetDistribution",
+                "cloudfront:GetDistributionConfig",
+                "cloudfront:TagResource",
+                "cloudfront:UntagResource",
+                "cloudfront:ListTagsForResource",
+                "cloudfront:CreateOriginAccessControl",
+                "cloudfront:UpdateOriginAccessControl",
+                "cloudfront:DeleteOriginAccessControl",
+                "cloudfront:GetOriginAccessControl"
+            ],
+            "Resource": "*"
         }
     ]
 }
