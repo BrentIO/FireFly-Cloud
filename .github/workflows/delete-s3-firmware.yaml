@@ -34,35 +34,23 @@ jobs:
 
       - name: Empty S3 firmware bucket
         run: |
-          BUCKET="${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}"
-          STDERR=$(mktemp)
-          if ! aws s3 rm "s3://$BUCKET" --recursive 2>"$STDERR"; then
-            if grep -qiE "NoSuchBucket|does not exist" "$STDERR"; then
-              echo "Bucket does not exist, skipping"
-              rm -f "$STDERR"
-              exit 0
-            fi
-            cat "$STDERR" >&2
-            rm -f "$STDERR"
-            exit 1
-          fi
-          rm -f "$STDERR"
-          VERSIONS=$(aws s3api list-object-versions --bucket "$BUCKET" \
-            --query 'Versions[].{Key:Key,VersionId:VersionId}' \
-            --output json 2>/dev/null || echo "null")
-          if [ "$VERSIONS" != "null" ] && [ "$VERSIONS" != "[]" ] && [ -n "$VERSIONS" ]; then
-            echo "Deleting versioned objects..."
-            aws s3api delete-objects --bucket "$BUCKET" \
-              --delete "{\"Objects\": $VERSIONS, \"Quiet\": true}"
-          fi
-          MARKERS=$(aws s3api list-object-versions --bucket "$BUCKET" \
-            --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' \
-            --output json 2>/dev/null || echo "null")
-          if [ "$MARKERS" != "null" ] && [ "$MARKERS" != "[]" ] && [ -n "$MARKERS" ]; then
-            echo "Deleting delete markers..."
-            aws s3api delete-objects --bucket "$BUCKET" \
-              --delete "{\"Objects\": $MARKERS, \"Quiet\": true}"
-          fi
+          python3 - <<'EOF'
+          import boto3, sys
+          from botocore.exceptions import ClientError
+          bucket_name = "${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}"
+          s3 = boto3.resource("s3")
+          bucket = s3.Bucket(bucket_name)
+          try:
+              deleted = bucket.object_versions.delete()
+              count = len(deleted) if deleted else 0
+              print(f"Deleted {count} object version(s)/marker(s) from {bucket_name}")
+          except ClientError as e:
+              code = e.response["Error"]["Code"]
+              if code in ("NoSuchBucket", "404"):
+                  print(f"Bucket {bucket_name} does not exist, skipping")
+                  sys.exit(0)
+              raise
+          EOF
 
       - name: Delete s3-firmware
         run: |
