@@ -210,6 +210,15 @@
                 "dynamodb:DescribeTimeToLive"
             ],
             "Resource": "arn:aws:dynamodb:*:AWS_ACCOUNT_ID:table/firefly-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "lambda:PublishLayerVersion",
+                "lambda:DeleteLayerVersion",
+                "lambda:GetLayerVersion"
+            ],
+            "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:layer:firefly-*"
         }
     ]
 }
