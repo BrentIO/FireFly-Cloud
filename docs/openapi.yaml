@@ -139,7 +139,7 @@ paths:
       tags: [OTA]
       summary: Get OTA firmware manifest
       description: |
-        Returns an [esp32FOTA](https://github.com/chrisjoyce911/esp32FOTA)-compatible
+        Returns an [esp32FOTA](https://github.com/BrentIO/esp32FOTA)-compatible
         manifest for the latest `RELEASED` firmware matching the given `product_id`
         and `application`. The response includes URLs to download the firmware
         binaries from the CloudFront distribution.
