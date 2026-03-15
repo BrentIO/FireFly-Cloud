@@ -83,16 +83,7 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
             --output text)
 
-          CORS_JSON=$(python3 -c "
-import json, os
-config = {
-    'AllowOrigins': ['https://' + os.environ['UI_DOMAIN']],
-    'AllowMethods': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    'AllowHeaders': ['Content-Type', 'Authorization'],
-    'MaxAge': 300
-}
-print(json.dumps(config))
-")
+          CORS_JSON=$(python3 -c "import json, os; print(json.dumps({'AllowOrigins': ['https://' + os.environ['UI_DOMAIN']], 'AllowMethods': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], 'AllowHeaders': ['Content-Type', 'Authorization'], 'MaxAge': 300}))")
 
           aws apigatewayv2 update-api \
             --api-id "$API_ID" \
