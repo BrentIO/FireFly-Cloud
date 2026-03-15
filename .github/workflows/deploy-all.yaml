@@ -97,3 +97,15 @@ jobs:
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
+
+  run-integration-tests:
+    needs:
+      - deploy-s3-firmware
+      - deploy-func-api-firmware-get
+      - deploy-func-api-firmware-status-patch
+      - deploy-func-api-firmware-delete
+      - deploy-func-api-health-get
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}

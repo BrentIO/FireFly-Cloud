@@ -49,3 +49,11 @@ jobs:
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+
+  run-integration-tests:
+    if: github.event_name == 'workflow_dispatch'
+    needs: deploy-func-s3-firmware-uploaded
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
