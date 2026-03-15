@@ -15,6 +15,10 @@ Parameters:
     Type: String
     Description: Route53 Hosted Zone ID
 
+  UiDomain:
+    Type: String
+    Description: Domain name of the UI (e.g., firefly-dev.p5software.com) — used for CORS allowed origin
+
 Resources:
 
   ApiAccessLogGroup:
@@ -34,6 +38,20 @@ Resources:
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogGroup.Arn
         Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+      CorsConfiguration:
+        AllowOrigins:
+          - !Sub "https://${UiDomain}"
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 300
       Tags:
         Name: firefly-api-gateway
 

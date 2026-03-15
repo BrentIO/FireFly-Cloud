@@ -70,6 +70,7 @@ jobs:
               ApiDomainName=${{ vars.API_DOMAIN_NAME }} \
               CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
               HostedZoneId=${{ secrets.HOSTED_ZONE_ID }} \
+              UiDomain=${{ vars.UI_DOMAIN_NAME }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
