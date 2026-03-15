@@ -170,6 +170,53 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /firmware/{zip_name}/download:
+    get:
+      tags: [Firmware]
+      summary: Get firmware download URL
+      description: |
+        Returns a pre-signed S3 URL for downloading the firmware ZIP from the
+        private bucket. The URL expires after 15 minutes.
+
+        This endpoint is intended for testing — it provides temporary access to
+        the raw ZIP without exposing the private bucket publicly.
+
+        Returns `409 Conflict` if the firmware is still being processed, and
+        `410 Gone` if it has been deleted.
+      operationId: getFirmwareDownload
+      parameters:
+        - $ref: '#/components/parameters/ZipName'
+      responses:
+        '200':
+          description: Pre-signed download URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadResponse'
+              example:
+                url: "https://firefly-firmware.s3.amazonaws.com/processed/550e8400-e29b-41d4-a716-446655440000.zip?X-Amz-Algorithm=..."
+                expires_in: 900
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Firmware is still being processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Firmware is still being processed"
+        '410':
+          description: Firmware has been deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Firmware has been deleted"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /firmware/{zip_name}/status:
     patch:
       tags: [Firmware]
@@ -483,6 +530,18 @@ components:
           type: string
           description: CloudFront URL to the LittleFS partition image. Omitted if no LittleFS image is present in the firmware.
           example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/www.bin"
+
+    DownloadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          description: Pre-signed S3 URL to download the firmware ZIP. Valid for `expires_in` seconds.
+          example: "https://firefly-firmware.s3.amazonaws.com/processed/550e8400-e29b-41d4-a716-446655440000.zip?X-Amz-Algorithm=..."
+        expires_in:
+          type: integer
+          description: Number of seconds until the URL expires.
+          example: 900
 
     HealthResponse:
       type: object

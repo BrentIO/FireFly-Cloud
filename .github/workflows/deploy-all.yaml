@@ -123,6 +123,16 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-func-api-firmware-download-get:
+    needs:
+      - deploy-api-gateway
+      - deploy-shared-layer
+      - deploy-s3-firmware
+    uses: ./.github/workflows/deploy-func-api-firmware-download-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   run-integration-tests:
     needs:
       - deploy-s3-firmware
@@ -131,6 +141,7 @@ jobs:
       - deploy-func-api-firmware-delete
       - deploy-func-api-health-get
       - deploy-func-api-ota-get
+      - deploy-func-api-firmware-download-get
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:
