@@ -64,7 +64,7 @@ jobs:
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
             --template-file templates/api-gateway.yaml \
             --stack-name firefly-api-gateway \
-            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               ApiDomainName=${{ vars.API_DOMAIN_NAME }} \
