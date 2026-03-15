@@ -29,4 +29,9 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Empty S3 UI bucket
-        run: aws s3 rm s3://${{ secrets.S3_UI_BUCKET_NAME }} --recursive
+        run: |
+          if aws s3api head-bucket --bucket ${{ secrets.S3_UI_BUCKET_NAME }} 2>/dev/null; then
+            aws s3 rb s3://${{ secrets.S3_UI_BUCKET_NAME }} --force
+          else
+            echo "Bucket does not exist, skipping empty step"
+          fi
