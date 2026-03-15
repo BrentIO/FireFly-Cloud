@@ -1,0 +1,64 @@
+name: 🚀 Deploy S3 UI
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+      run_tests:
+        type: boolean
+        description: "Run integration tests after deploy"
+        default: true
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+      run_tests:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy-s3-ui:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Deploy s3-ui
+        run: |
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file templates/s3-ui.yaml \
+            --stack-name firefly-s3-ui \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              BucketName=${{ secrets.S3_UI_BUCKET_NAME }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+
+  run-integration-tests:
+    if: inputs.run_tests
+    needs: deploy-s3-ui
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}

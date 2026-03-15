@@ -133,6 +133,29 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-s3-ui:
+    uses: ./.github/workflows/deploy-s3-ui.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-cloudfront-ui:
+    needs:
+      - deploy-acm
+      - deploy-s3-ui
+    uses: ./.github/workflows/deploy-cloudfront-ui.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-ui-app:
+    needs:
+      - deploy-cloudfront-ui
+    uses: ./.github/workflows/deploy-ui-app.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   run-integration-tests:
     needs:
       - deploy-s3-firmware

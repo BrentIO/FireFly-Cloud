@@ -1,0 +1,65 @@
+name: 🚀 Deploy UI App
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+
+jobs:
+  deploy-ui-app:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Build UI
+        working-directory: ui
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
+        run: npm run build
+
+      - name: Sync to S3
+        run: aws s3 sync ui/dist/ s3://${{ secrets.S3_UI_BUCKET_NAME }} --delete
+
+      - name: Look up CloudFront distribution ID
+        id: lookup-dist
+        run: |
+          DIST_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cloudfront-ui \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text)
+
+          echo "dist_id=$DIST_ID" >> $GITHUB_OUTPUT
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.lookup-dist.outputs.dist_id }} \
+            --paths "/*"

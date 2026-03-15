@@ -16,6 +16,26 @@ permissions:
 
 jobs:
 
+  delete-ui-app:
+    uses: ./.github/workflows/delete-ui-app.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-cloudfront-ui:
+    needs: delete-ui-app
+    uses: ./.github/workflows/delete-cloudfront-ui.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-s3-ui:
+    needs: delete-cloudfront-ui
+    uses: ./.github/workflows/delete-s3-ui.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   delete-dynamodb-firmware:
     uses: ./.github/workflows/delete-dynamodb-firmware.yaml
     secrets: inherit
@@ -95,6 +115,7 @@ jobs:
     needs:
       - delete-api-gateway
       - delete-cloudfront
+      - delete-cloudfront-ui
     uses: ./.github/workflows/delete-acm-api-gateway.yaml
     secrets: inherit
     with:
