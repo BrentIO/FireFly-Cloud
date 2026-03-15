@@ -51,7 +51,7 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
-              FirmwareBucketName=${{ secrets.S3_FIRMWARE_BUCKET_NAME }} \
+              FirmwareBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
