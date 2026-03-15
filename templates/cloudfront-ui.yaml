@@ -25,7 +25,7 @@ Resources:
     Properties:
       OriginAccessControlConfig:
         Name: firefly-ui-oac
-        OriginType: s3
+        OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
 
