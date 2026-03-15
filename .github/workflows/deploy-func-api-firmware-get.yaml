@@ -64,6 +64,7 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
+              UiOrigin=https://${{ vars.UI_DOMAIN_NAME }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

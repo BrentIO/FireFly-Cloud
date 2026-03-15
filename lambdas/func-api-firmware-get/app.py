@@ -11,6 +11,7 @@ logger = configure_logger(logging_config)
 dynamodb = boto3.resource("dynamodb", endpoint_url=os.environ.get("DYNAMODB_ENDPOINT"))
 
 TABLE_NAME = os.environ["DYNAMODB_FIRMWARE_TABLE_NAME"]
+UI_ORIGIN = os.environ.get("UI_ORIGIN", "")
 firmware_table = dynamodb.Table(TABLE_NAME)
 
 # Exclude large/internal fields from list responses to keep payloads small.
@@ -18,15 +19,18 @@ firmware_table = dynamodb.Table(TABLE_NAME)
 LIST_EXCLUDE_FIELDS = {"files", "manifest", "pk"}
 
 
-def _response(status_code, body):
+def _response(status_code, body, origin=None):
+    headers = {"Content-Type": "application/json"}
+    if origin and UI_ORIGIN and origin == UI_ORIGIN:
+        headers["Access-Control-Allow-Origin"] = origin
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": headers,
         "body": json.dumps(body, indent=4, default=str),
     }
 
 
-def get_firmware_list(product_id=None, application=None, version=None):
+def get_firmware_list(product_id=None, application=None, version=None, origin=None):
     filter_parts = []
     if application:
         filter_parts.append(Attr("application").eq(application))
@@ -56,10 +60,10 @@ def get_firmware_list(product_id=None, application=None, version=None):
         for item in response.get("Items", [])
     ]
     logger.debug(f"Returning {len(items)} firmware items (product_id='{product_id}' application='{application}' version='{version}')")
-    return _response(200, {"items": items})
+    return _response(200, {"items": items}, origin=origin)
 
 
-def get_firmware_item(zip_name):
+def get_firmware_item(zip_name, origin=None):
     # Query GSI 2 by zip_name (UUID) — the unique identifier for a specific build.
     response = firmware_table.query(
         IndexName="zip_name-index",
@@ -68,28 +72,29 @@ def get_firmware_item(zip_name):
     items = response.get("Items", [])
     if not items:
         logger.debug(f"Firmware not found: zip_name='{zip_name}'")
-        return _response(404, {"message": f"Firmware not found: {zip_name}"})
+        return _response(404, {"message": f"Firmware not found: {zip_name}"}, origin=origin)
 
     item = {k: v for k, v in items[0].items() if k != "pk"}
     logger.debug(f"Returning firmware: zip_name='{zip_name}'")
-    return _response(200, item)
+    return _response(200, item, origin=origin)
 
 
 def lambda_handler(event, context):
     try:
+        origin = (event.get("headers") or {}).get("origin", "")
         path_params = event.get("pathParameters") or {}
         zip_name = path_params.get("zip_name")
 
         if zip_name:
             logger.debug(f"GET /firmware/{zip_name}")
-            return get_firmware_item(zip_name)
+            return get_firmware_item(zip_name, origin=origin)
         else:
             query_params = event.get("queryStringParameters") or {}
             filter_product_id = query_params.get("product_id")
             filter_application = query_params.get("application")
             filter_version = query_params.get("version")
             logger.debug(f"GET /firmware product_id='{filter_product_id}' application='{filter_application}' version='{filter_version}'")
-            return get_firmware_list(product_id=filter_product_id, application=filter_application, version=filter_version)
+            return get_firmware_list(product_id=filter_product_id, application=filter_application, version=filter_version, origin=origin)
 
     except Exception:
         logger.exception("Unhandled exception")
