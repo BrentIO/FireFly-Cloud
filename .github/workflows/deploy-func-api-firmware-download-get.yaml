@@ -1,0 +1,78 @@
+name: 🚀 Deploy func-api-firmware-download-get
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+      run_tests:
+        type: boolean
+        description: "Run integration tests after deploy"
+        default: true
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+      run_tests:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy-func-api-firmware-download-get:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Look up API Gateway ID for firefly-api-gateway
+        id: lookup-api
+        run: |
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-api-gateway \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
+            --output text)
+
+          echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+
+      - name: Deploy func-api-firmware-download-get
+        run: |
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file lambdas/func-api-firmware-download-get/template.yaml \
+            --stack-name firefly-func-api-firmware-download-get \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              ApiId=${{ steps.lookup-api.outputs.api_id }} \
+              DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
+              S3FirmwarePrivateBucketName=${{ vars.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
+              EnvironmentName=${{ inputs.target_env }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+
+  run-integration-tests:
+    if: inputs.run_tests
+    needs: deploy-func-api-firmware-download-get
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
