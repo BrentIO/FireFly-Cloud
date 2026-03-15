@@ -8,7 +8,7 @@ Resources:
     Properties:
       LayerName: firefly-shared
       Description: Shared logging and feature flag helpers
-      ContentUri: lambdas/shared/
+      ContentUri: .
       CompatibleRuntimes:
         - python3.13
 

@@ -69,4 +69,5 @@ jobs:
               FirmwareUploadLambdaArn=${{ steps.lookup_uploaded.outputs.upload_arn }} \
               FirmwareDeleteLambdaArn=${{ steps.lookup_deleted.outputs.delete_arn }} \
             --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

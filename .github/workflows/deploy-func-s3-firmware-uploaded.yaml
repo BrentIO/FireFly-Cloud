@@ -34,9 +34,6 @@ jobs:
         if: ${{ !env.ACT }}
         uses: aws-actions/setup-sam@v2
 
-      - name: Build func-s3-firmware-uploaded
-        run: sam build --template-file lambdas/func-s3-firmware-uploaded/template.yaml
-
       - name: Deploy func-s3-firmware-uploaded
         run: |
           sam deploy \
@@ -50,4 +47,5 @@ jobs:
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

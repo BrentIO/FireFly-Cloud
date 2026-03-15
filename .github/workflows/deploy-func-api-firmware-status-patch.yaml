@@ -44,9 +44,6 @@ jobs:
 
           echo "api_id=$API_ID" >> $GITHUB_OUTPUT
 
-      - name: Build func-api-firmware-status-patch
-        run: sam build --template-file lambdas/func-api-firmware-status-patch/template.yaml
-
       - name: Deploy func-api-firmware-status-patch
         run: |
           sam deploy \
@@ -60,4 +57,5 @@ jobs:
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

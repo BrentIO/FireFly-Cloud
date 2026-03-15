@@ -45,9 +45,6 @@ jobs:
 
           echo "api_id=$API_ID" >> $GITHUB_OUTPUT
 
-      - name: Build func-api-health-get
-        run: sam build --template-file lambdas/func-api-health-get/template.yaml
-
       - name: Deploy func-api-health-get
         run: |
           sam deploy \
@@ -59,4 +56,5 @@ jobs:
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
             --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
