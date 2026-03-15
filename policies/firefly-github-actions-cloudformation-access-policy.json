@@ -65,9 +65,21 @@
             "Effect": "Allow",
             "Action": [
                 "lambda:GetFunction",
-                "lambda:GetFunctionConfiguration"
+                "lambda:GetFunctionConfiguration",
+                "lambda:GetLayerVersion",
+                "lambda:ListLayerVersions"
             ],
-            "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:firefly-func-*"
+            "Resource": [
+                "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:firefly-func-*",
+                "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:layer:firefly-*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "acm:ListCertificates"
+            ],
+            "Resource": "*"
         },
         {
             "Effect": "Allow",
