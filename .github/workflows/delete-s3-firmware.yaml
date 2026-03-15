@@ -32,6 +32,14 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Empty S3 firmware bucket
+        run: |
+          if aws s3api head-bucket --bucket ${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} 2>/dev/null; then
+            aws s3 rm s3://${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} --recursive
+          else
+            echo "Bucket does not exist, skipping empty step"
+          fi
+
       - name: Delete s3-firmware
         run: |
           sam delete \
