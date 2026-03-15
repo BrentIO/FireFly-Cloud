@@ -24,7 +24,7 @@ const { toggleTheme, isDark } = useTheme()
 
         <!-- Title -->
         <span class="text-base font-semibold text-gray-900 dark:text-gray-100 absolute left-1/2 -translate-x-1/2">
-          FireFly
+          FireFly Management Console
         </span>
 
         <!-- Theme toggle -->

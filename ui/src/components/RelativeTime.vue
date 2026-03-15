@@ -26,7 +26,7 @@ onUnmounted(() => {
 
 <template>
   <span
-    class="cursor-pointer hover:underline decoration-dotted text-sm"
+    class="cursor-pointer hover:underline decoration-dotted text-sm text-gray-900 dark:text-gray-100"
     :title="showAbsolute ? undefined : formatAbsoluteDate(value)"
     @click="showAbsolute = !showAbsolute"
   >

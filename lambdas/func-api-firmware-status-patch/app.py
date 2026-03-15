@@ -22,7 +22,7 @@ firmware_table = dynamodb.Table(TABLE_NAME)
 
 VALID_TRANSITIONS = {
     "READY_TO_TEST": ["TESTING"],
-    "TESTING": ["RELEASED"],
+    "TESTING": ["READY_TO_TEST", "RELEASED"],
     "RELEASED": ["REVOKED"],
 }
 

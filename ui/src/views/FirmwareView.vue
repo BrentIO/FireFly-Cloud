@@ -21,6 +21,7 @@ import { listFirmware, patchFirmwareStatus, deleteFirmware } from '../api/firmwa
 import { useToast } from '../composables/useToast.js'
 import {
   VALID_TRANSITIONS,
+  ROLLBACK_TRANSITIONS,
   TRANSITION_BUTTON_LABELS,
   TRANSITIONS_REQUIRING_CONFIRM,
   NON_DELETABLE_STATES,
@@ -56,6 +57,7 @@ const confirmOpen = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
 const confirmDetails = ref(null)
+const confirmVariant = ref('danger')
 const confirmAction = ref(null)
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -169,7 +171,13 @@ function requestMenuTransition(item, nextStatus) {
   if (TRANSITIONS_REQUIRING_CONFIRM.has(nextStatus)) {
     confirmTitle.value = `Confirm: ${TRANSITION_BUTTON_LABELS[nextStatus]}`
     confirmMessage.value = `Are you sure you want to move this firmware to ${nextStatus}?`
-    confirmDetails.value = null
+    confirmDetails.value = nextStatus === 'RELEASED' ? {
+      Application: item.application,
+      'Product ID': item.product_id,
+      Branch: item.branch,
+      Commit: item.commit,
+    } : null
+    confirmVariant.value = nextStatus === 'RELEASED' ? 'success' : 'danger'
     confirmAction.value = () => executeMenuTransition(item, nextStatus)
     confirmOpen.value = true
   } else {
@@ -291,7 +299,7 @@ async function onDetailChanged() {
     </div>
 
     <!-- Table card -->
-    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
+    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-black/5 dark:ring-white/10">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
@@ -432,7 +440,20 @@ async function onDetailChanged() {
                       </MenuItem>
                     </div>
 
-                    <!-- Transition actions -->
+                    <!-- Rollback transition -->
+                    <div v-if="ROLLBACK_TRANSITIONS[item.release_status]" class="py-1">
+                      <MenuItem v-slot="{ active }">
+                        <button
+                          @click="requestMenuTransition(item, ROLLBACK_TRANSITIONS[item.release_status])"
+                          class="w-full text-left px-4 py-2 text-sm transition-colors"
+                          :class="active ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'"
+                        >
+                          {{ TRANSITION_BUTTON_LABELS[ROLLBACK_TRANSITIONS[item.release_status]] }}
+                        </button>
+                      </MenuItem>
+                    </div>
+
+                    <!-- Forward transition actions -->
                     <div v-if="VALID_TRANSITIONS[item.release_status]" class="py-1">
                       <MenuItem v-slot="{ active }">
                         <button
@@ -537,6 +558,7 @@ async function onDetailChanged() {
       :title="confirmTitle"
       :message="confirmMessage"
       :details="confirmDetails"
+      :variant="confirmVariant"
       @confirm="handleConfirm"
       @cancel="handleConfirmCancel"
     />

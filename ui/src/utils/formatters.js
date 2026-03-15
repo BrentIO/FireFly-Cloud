@@ -38,9 +38,15 @@ export const VALID_TRANSITIONS = {
 }
 
 export const TRANSITION_BUTTON_LABELS = {
+  READY_TO_TEST: 'Move Back to Ready to Test',
   TESTING: 'Move to Testing',
   RELEASED: 'Release',
   REVOKED: 'Revoke',
+}
+
+// Which status each state can roll BACK to (null = no rollback)
+export const ROLLBACK_TRANSITIONS = {
+  TESTING: 'READY_TO_TEST',
 }
 
 // Transitions that require a confirmation dialog
@@ -48,6 +54,11 @@ export const TRANSITIONS_REQUIRING_CONFIRM = new Set(['RELEASED', 'REVOKED'])
 
 // States that cannot be deleted via the API (409)
 export const NON_DELETABLE_STATES = new Set(['DELETED', 'REVOKED', 'RELEASED'])
+
+export function formatClass(value) {
+  if (!value) return '—'
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
+}
 
 export function formatBytes(bytes) {
   if (bytes == null) return '—'
