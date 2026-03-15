@@ -244,6 +244,14 @@
                 "cloudfront:GetOriginAccessControl"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters"
+            ],
+            "Resource": "arn:aws:ssm:AWS_REGION:AWS_ACCOUNT_ID:parameter/firefly/*"
         }
     ]
 }

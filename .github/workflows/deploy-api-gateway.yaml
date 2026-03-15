@@ -70,10 +70,33 @@ jobs:
               ApiDomainName=${{ vars.API_DOMAIN_NAME }} \
               CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
               HostedZoneId=${{ secrets.HOSTED_ZONE_ID }} \
-              UiDomain=${{ vars.UI_DOMAIN_NAME }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+
+      - name: Configure CORS on API Gateway
+        env:
+          UI_DOMAIN: ${{ vars.UI_DOMAIN_NAME }}
+        run: |
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-api-gateway \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
+            --output text)
+
+          CORS_JSON=$(python3 -c "
+import json, os
+config = {
+    'AllowOrigins': ['https://' + os.environ['UI_DOMAIN']],
+    'AllowMethods': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    'AllowHeaders': ['Content-Type', 'Authorization'],
+    'MaxAge': 300
+}
+print(json.dumps(config))
+")
+
+          aws apigatewayv2 update-api \
+            --api-id "$API_ID" \
+            --cors-configuration "$CORS_JSON"
 
   run-integration-tests:
     if: inputs.run_tests
