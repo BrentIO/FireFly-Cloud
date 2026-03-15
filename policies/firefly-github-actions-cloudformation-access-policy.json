@@ -42,8 +42,17 @@
                 "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME",
                 "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME/*",
                 "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME",
-                "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME/*"
+                "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME/*",
+                "arn:aws:s3:::S3_UI_BUCKET_NAME",
+                "arn:aws:s3:::S3_UI_BUCKET_NAME/*"
             ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateInvalidation"
+            ],
+            "Resource": "*"
         },
         {
             "Effect": "Allow",

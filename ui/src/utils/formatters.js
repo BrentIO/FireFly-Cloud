@@ -1,0 +1,83 @@
+export const STATUS_LABELS = {
+  PROCESSING: 'Processing',
+  READY_TO_TEST: 'Ready to Test',
+  TESTING: 'Testing',
+  RELEASED: 'Released',
+  REVOKED: 'Revoked',
+  DELETED: 'Deleted',
+  ERROR: 'Error',
+}
+
+// Tailwind classes for each status badge
+export const STATUS_STYLES = {
+  PROCESSING: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+  READY_TO_TEST: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+  TESTING: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+  RELEASED: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+  REVOKED: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+  DELETED: 'bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+  ERROR: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+}
+
+// Dot color for status badge
+export const STATUS_DOT = {
+  PROCESSING: 'bg-gray-400',
+  READY_TO_TEST: 'bg-amber-400',
+  TESTING: 'bg-blue-400',
+  RELEASED: 'bg-green-400',
+  REVOKED: 'bg-orange-400',
+  DELETED: 'bg-gray-300 dark:bg-gray-600',
+  ERROR: 'bg-red-400',
+}
+
+// Which status each state can transition TO (null = no transition)
+export const VALID_TRANSITIONS = {
+  READY_TO_TEST: 'TESTING',
+  TESTING: 'RELEASED',
+  RELEASED: 'REVOKED',
+}
+
+export const TRANSITION_BUTTON_LABELS = {
+  TESTING: 'Move to Testing',
+  RELEASED: 'Release',
+  REVOKED: 'Revoke',
+}
+
+// Transitions that require a confirmation dialog
+export const TRANSITIONS_REQUIRING_CONFIRM = new Set(['RELEASED', 'REVOKED'])
+
+// States that cannot be deleted via the API (409)
+export const NON_DELETABLE_STATES = new Set(['DELETED', 'REVOKED', 'RELEASED'])
+
+export function formatBytes(bytes) {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// value: ISO string or unix timestamp (seconds)
+export function formatAbsoluteDate(value) {
+  if (!value) return '—'
+  const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value)
+  return new Intl.DateTimeFormat(navigator.language, {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(date)
+}
+
+export function formatRelativeDate(value) {
+  if (!value) return '—'
+  const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value)
+  const diffMs = Date.now() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+  if (diffSec < 60) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffHour < 24) return `${diffHour}h ago`
+  if (diffDay < 30) return `${diffDay}d ago`
+  return formatAbsoluteDate(value)
+}
