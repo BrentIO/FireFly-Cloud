@@ -52,6 +52,16 @@ jobs:
 
           echo "api_id=$API_ID" >> $GITHUB_OUTPUT
 
+      - name: Store FIRMWARE_TYPE_MAP in SSM
+        env:
+          FIRMWARE_TYPE_MAP: ${{ vars.FIRMWARE_TYPE_MAP }}
+        run: |
+          aws ssm put-parameter \
+            --name "/firefly/${{ inputs.target_env }}/firmware_type_map" \
+            --value "$FIRMWARE_TYPE_MAP" \
+            --type String \
+            --overwrite
+
       - name: Deploy func-api-ota-get
         run: |
           sam deploy \
@@ -64,7 +74,7 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               CloudFrontDomain=${{ vars.FIRMWARE_DOMAIN_NAME }} \
-              FirmwareTypeMap='${{ vars.FIRMWARE_TYPE_MAP }}' \
+              FirmwareTypeMapSsmPath=/firefly/${{ inputs.target_env }}/firmware_type_map \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \

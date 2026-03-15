@@ -88,6 +88,22 @@
                 "cloudfront:CreateInvalidation"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:PATCH"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:AWS_REGION::/apis/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:PutParameter"
+            ],
+            "Resource": "arn:aws:ssm:AWS_REGION:AWS_ACCOUNT_ID:parameter/firefly/*"
         }
     ]
 }

@@ -15,9 +15,9 @@ Parameters:
     Type: String
     Description: Domain name of the CloudFront distribution for firmware delivery (e.g., firmware.somewhere.com)
 
-  FirmwareTypeMap:
+  FirmwareTypeMapSsmPath:
     Type: String
-    Description: JSON object mapping application name to esp32FOTA firmware type (e.g., {"Controller":"FireFly Controller"})
+    Description: SSM parameter path containing a JSON object mapping application name to esp32FOTA firmware type (e.g., /firefly/dev/firmware_type_map)
 
   EnvironmentName:
     Type: String
@@ -67,7 +67,7 @@ Resources:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
           CLOUDFRONT_DOMAIN: !Ref CloudFrontDomain
-          FIRMWARE_TYPE_MAP: !Ref FirmwareTypeMap
+          FIRMWARE_TYPE_MAP: !Sub "{{resolve:ssm:${FirmwareTypeMapSsmPath}}}"
           APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncApiOtaGetIntegration:
