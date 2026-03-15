@@ -95,9 +95,8 @@
                 "s3:PutBucketNotification"
             ],
             "Resource": [
-                "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME",
-                "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME",
-                "arn:aws:s3:::S3_UI_BUCKET_NAME"
+                "arn:aws:s3:::FIRMWARE_BUCKET_NAME_PREFIX*",
+                "arn:aws:s3:::UI_BUCKET_NAME_PREFIX*"
             ]
         },
         {
@@ -109,9 +108,8 @@
                 "s3:PutBucketNotification"
             ],
             "Resource": [
-                "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME/*",
-                "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME/*",
-                "arn:aws:s3:::S3_UI_BUCKET_NAME/*"
+                "arn:aws:s3:::FIRMWARE_BUCKET_NAME_PREFIX*/*",
+                "arn:aws:s3:::UI_BUCKET_NAME_PREFIX*/*"
             ]
         },
         {
