@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Public S3 bucket for OTA firmware binary delivery
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the public S3 bucket
+
+Resources:
+
+  FirmwarePublicBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+      LifecycleConfiguration:
+        Rules:
+          - Id: RevokedTTL
+            Status: Enabled
+            Prefix: revoked/
+            ExpirationInDays: 90
+
+  FirmwarePublicBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FirmwarePublicBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${BucketName}/*'
+          - Effect: Deny
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${BucketName}/revoked/*'
+
+Outputs:
+  BucketName:
+    Value: !Ref FirmwarePublicBucket
+    Description: The created public S3 bucket name

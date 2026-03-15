@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-firmware-delete
+name: 🚀 Deploy func-api-ota-get
 on:
   workflow_dispatch:
     inputs:
@@ -23,7 +23,7 @@ on:
         default: false
 
 jobs:
-  deploy-func-api-firmware-delete:
+  deploy-func-api-ota-get:
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
@@ -52,18 +52,19 @@ jobs:
 
           echo "api_id=$API_ID" >> $GITHUB_OUTPUT
 
-      - name: Deploy func-api-firmware-delete
+      - name: Deploy func-api-ota-get
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file lambdas/func-api-firmware-delete/template.yaml \
-            --stack-name firefly-func-api-firmware-delete \
+            --template-file lambdas/func-api-ota-get/template.yaml \
+            --stack-name firefly-func-api-ota-get \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
-              FirmwareBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
+              CloudFrontDomain=${{ vars.FIRMWARE_DOMAIN_NAME }} \
+              FirmwareTypeMap=${{ vars.FIRMWARE_TYPE_MAP }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
@@ -71,7 +72,7 @@ jobs:
 
   run-integration-tests:
     if: inputs.run_tests
-    needs: deploy-func-api-firmware-delete
+    needs: deploy-func-api-ota-get
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:

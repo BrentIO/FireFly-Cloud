@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: API DELETE /firmware/{zip_name}
+Description: API GET /ota/{product_id}/{application}
 
 Parameters:
   ApiId:
@@ -11,19 +11,23 @@ Parameters:
     Type: String
     Description: Name of the DynamoDB firmware table
 
-  FirmwareBucketName:
+  CloudFrontDomain:
     Type: String
-    Description: Name of the S3 bucket containing firmware ZIPs
+    Description: Domain name of the CloudFront distribution for firmware delivery (e.g., firmware.somewhere.com)
+
+  FirmwareTypeMap:
+    Type: String
+    Description: JSON object mapping application name to esp32FOTA firmware type (e.g., {"Controller":"FireFly Controller"})
 
   EnvironmentName:
     Type: String
 
 Resources:
 
-  FuncApiFirmwareDeleteRole:
+  FuncApiOtaGetRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: firefly-func-api-firmware-delete-role
+      RoleName: firefly-func-api-ota-get-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -34,7 +38,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: FirmwareDeletePermissions
+        - PolicyName: OtaGetPermissions
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -44,57 +48,52 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
-              - Effect: Allow
-                Action:
-                  - s3:DeleteObject
-                Resource:
-                  - !Sub arn:aws:s3:::${FirmwareBucketName}/processed/*
-                  - !Sub arn:aws:s3:::${FirmwareBucketName}/errors/*
 
-  FuncApiFirmwareDelete:
+  FuncApiOtaGet:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: firefly-func-api-firmware-delete
-      Role: !GetAtt FuncApiFirmwareDeleteRole.Arn
+      FunctionName: firefly-func-api-ota-get
+      Role: !GetAtt FuncApiOtaGetRole.Arn
       CodeUri: .
       Handler: app.lambda_handler
       Runtime: python3.13
       Architectures:
         - arm64
-      Timeout: 15
+      Timeout: 10
       MemorySize: 128
       Layers:
         - !ImportValue firefly-shared-layer-arn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
-          S3_FIRMWARE_PRIVATE_BUCKET_NAME: !Ref FirmwareBucketName
+          CLOUDFRONT_DOMAIN: !Ref CloudFrontDomain
+          FIRMWARE_TYPE_MAP: !Ref FirmwareTypeMap
           APP_CONFIG_ENV: !Ref EnvironmentName
 
-  FuncApiFirmwareDeleteIntegration:
+  FuncApiOtaGetIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref ApiId
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiFirmwareDelete.Arn}/invocations
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiOtaGet.Arn}/invocations
       PayloadFormatVersion: "2.0"
 
-  FuncApiFirmwareDeleteRoute:
+  FuncApiOtaGetRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref ApiId
-      RouteKey: DELETE /firmware/{zip_name}
-      Target: !Sub integrations/${FuncApiFirmwareDeleteIntegration.IntegrationId}
+      RouteKey: GET /ota/{product_id}/{application}
+      Target: !Sub integrations/${FuncApiOtaGetIntegration.IntegrationId}
 
-  FuncApiFirmwareDeletePermission:
+  FuncApiOtaGetPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref FuncApiFirmwareDelete
+      FunctionName: !Ref FuncApiOtaGet
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/DELETE/firmware/*
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/ota/*/*
 
 Outputs:
-  FuncApiFirmwareDeleteArn:
-    Value: !GetAtt FuncApiFirmwareDelete.Arn
-    Description: ARN of the firmware DELETE Lambda
+  FuncApiOtaGetArn:
+    Value: !GetAtt FuncApiOtaGet.Arn
+    Description: ARN of the OTA GET Lambda

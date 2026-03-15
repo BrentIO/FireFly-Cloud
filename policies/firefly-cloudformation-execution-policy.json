@@ -85,6 +85,7 @@
                 "s3:CreateBucket",
                 "s3:DeleteBucket",
                 "s3:PutBucketPolicy",
+                "s3:DeleteBucketPolicy",
                 "s3:PutBucketAcl",
                 "s3:PutBucketVersioning",
                 "s3:PutBucketPublicAccessBlock",
@@ -93,7 +94,10 @@
                 "s3:PutLifecycleConfiguration",
                 "s3:PutBucketNotification"
             ],
-            "Resource": "arn:aws:s3:::S3_FIRMWARE_BUCKET_NAME"
+            "Resource": [
+                "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME",
+                "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME"
+            ]
         },
         {
             "Effect": "Allow",
@@ -103,7 +107,24 @@
                 "s3:GetObject",
                 "s3:PutBucketNotification"
             ],
-            "Resource": "arn:aws:s3:::S3_FIRMWARE_BUCKET_NAME/*"
+            "Resource": [
+                "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME/*",
+                "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateDistribution",
+                "cloudfront:UpdateDistribution",
+                "cloudfront:DeleteDistribution",
+                "cloudfront:GetDistribution",
+                "cloudfront:GetDistributionConfig",
+                "cloudfront:TagResource",
+                "cloudfront:UntagResource",
+                "cloudfront:ListTagsForResource"
+            ],
+            "Resource": "*"
         },
         {
             "Effect": "Allow",

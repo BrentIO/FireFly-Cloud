@@ -11,6 +11,14 @@ Parameters:
     Type: String
     Description: Name of the DynamoDB firmware table
 
+  FirmwarePrivateBucketName:
+    Type: String
+    Description: Name of the private S3 bucket containing firmware ZIPs
+
+  FirmwarePublicBucketName:
+    Type: String
+    Description: Name of the public S3 bucket for OTA firmware delivery
+
   EnvironmentName:
     Type: String
 
@@ -41,6 +49,24 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:aws:s3:::${FirmwarePrivateBucketName}/processed/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${FirmwarePublicBucketName}
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:CopyObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub arn:aws:s3:::${FirmwarePublicBucketName}/*
 
   FuncApiFirmwareStatusPatch:
     Type: AWS::Serverless::Function
@@ -52,13 +78,15 @@ Resources:
       Runtime: python3.13
       Architectures:
         - arm64
-      Timeout: 10
-      MemorySize: 128
+      Timeout: 60
+      MemorySize: 256
       Layers:
         - !ImportValue firefly-shared-layer-arn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          S3_FIRMWARE_PRIVATE_BUCKET_NAME: !Ref FirmwarePrivateBucketName
+          S3_FIRMWARE_PUBLIC_BUCKET_NAME: !Ref FirmwarePublicBucketName
           APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncApiFirmwareStatusPatchIntegration:

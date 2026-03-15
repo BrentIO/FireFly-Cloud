@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront distribution for public OTA firmware delivery
+
+Parameters:
+  FirmwareBucketName:
+    Type: String
+    Description: Name of the public S3 bucket containing firmware binaries
+
+  CertificateArn:
+    Type: String
+    Description: ARN of the ACM certificate for the firmware domain (must be in us-east-1)
+
+  FirmwareDomain:
+    Type: String
+    Description: Custom domain name for firmware delivery (e.g., firmware.somewhere.com)
+
+  HostedZoneId:
+    Type: String
+    Description: Route53 Hosted Zone ID for the firmware domain
+
+Resources:
+
+  FirmwareDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases:
+          - !Ref FirmwareDomain
+        Origins:
+          - Id: FirmwareS3Origin
+            DomainName: !Sub "${FirmwareBucketName}.s3.${AWS::Region}.amazonaws.com"
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          TargetOriginId: FirmwareS3Origin
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+          MinTTL: 0
+          Compress: true
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+
+  FirmwareDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref FirmwareDomain
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt FirmwareDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+        EvaluateTargetHealth: false
+
+Outputs:
+  DistributionDomain:
+    Value: !GetAtt FirmwareDistribution.DomainName
+    Description: CloudFront distribution domain name
+
+  FirmwareDomain:
+    Value: !Ref FirmwareDomain
+    Description: Custom firmware delivery domain

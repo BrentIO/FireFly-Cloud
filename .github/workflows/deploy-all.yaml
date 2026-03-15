@@ -98,6 +98,31 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-s3-firmware-public:
+    uses: ./.github/workflows/deploy-s3-firmware-public.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-cloudfront:
+    needs:
+      - deploy-acm
+      - deploy-s3-firmware-public
+    uses: ./.github/workflows/deploy-cloudfront.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-ota-get:
+    needs:
+      - deploy-api-gateway
+      - deploy-shared-layer
+      - deploy-cloudfront
+    uses: ./.github/workflows/deploy-func-api-ota-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   run-integration-tests:
     needs:
       - deploy-s3-firmware
@@ -105,6 +130,7 @@ jobs:
       - deploy-func-api-firmware-status-patch
       - deploy-func-api-firmware-delete
       - deploy-func-api-health-get
+      - deploy-func-api-ota-get
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:
