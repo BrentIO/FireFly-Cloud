@@ -89,9 +89,18 @@ jobs:
             --api-id "$API_ID" \
             --cors-configuration "$CORS_JSON"
 
-          aws apigatewayv2 create-deployment \
+          # Toggle auto-deploy off then on to force a new deployment that
+          # includes the updated CorsConfiguration. Auto-deploy only fires
+          # automatically on route/integration changes, not API-level changes.
+          aws apigatewayv2 update-stage \
             --api-id "$API_ID" \
-            --stage-name '$default'
+            --stage-name '$default' \
+            --no-auto-deploy
+
+          aws apigatewayv2 update-stage \
+            --api-id "$API_ID" \
+            --stage-name '$default' \
+            --auto-deploy
 
   run-integration-tests:
     if: inputs.run_tests
