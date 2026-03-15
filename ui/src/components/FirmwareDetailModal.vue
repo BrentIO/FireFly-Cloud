@@ -19,8 +19,10 @@ import { getFirmware, patchFirmwareStatus, deleteFirmware, getFirmwareDownloadUr
 import { useToast } from '../composables/useToast.js'
 import {
   formatBytes,
+  formatClass,
   formatAbsoluteDate,
   VALID_TRANSITIONS,
+  ROLLBACK_TRANSITIONS,
   TRANSITION_BUTTON_LABELS,
   TRANSITIONS_REQUIRING_CONFIRM,
   NON_DELETABLE_STATES,
@@ -52,6 +54,7 @@ const confirmOpen = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
 const confirmDetails = ref(null)
+const confirmVariant = ref('danger')
 const confirmAction = ref(null)
 
 async function loadItem() {
@@ -92,7 +95,13 @@ function requestTransition(nextStatus) {
   if (TRANSITIONS_REQUIRING_CONFIRM.has(nextStatus)) {
     confirmTitle.value = `Confirm: ${TRANSITION_BUTTON_LABELS[nextStatus]}`
     confirmMessage.value = `Are you sure you want to move this firmware to ${nextStatus}?`
-    confirmDetails.value = null
+    confirmDetails.value = nextStatus === 'RELEASED' ? {
+      Application: item.value.application,
+      'Product ID': item.value.product_id,
+      Branch: item.value.branch,
+      Commit: item.value.commit,
+    } : null
+    confirmVariant.value = nextStatus === 'RELEASED' ? 'success' : 'danger'
     confirmAction.value = () => executeTransition(nextStatus)
     confirmOpen.value = true
   } else {
@@ -122,6 +131,7 @@ function requestDelete() {
     Commit: item.value.commit,
     'ZIP Name': item.value.zip_name,
   }
+  confirmVariant.value = 'danger'
   confirmAction.value = () => executeDelete()
   confirmOpen.value = true
 }
@@ -157,7 +167,7 @@ function transitionButtonClass(nextStatus) {
 
 <template>
   <TransitionRoot :show="true" as="template">
-    <Dialog as="div" class="relative z-50" @close="emit('close')">
+    <Dialog as="div" class="relative z-50" @close="() => {}">
       <TransitionChild
         as="template"
         enter="ease-out duration-200"
@@ -211,11 +221,13 @@ function transitionButtonClass(nextStatus) {
               <div v-else-if="item" class="flex flex-col max-h-[90vh]">
                 <!-- Header -->
                 <div class="flex items-start justify-between p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                  <div class="flex items-center gap-3 flex-wrap">
+                  <div class="flex flex-col gap-1">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       {{ item.application }}
                     </h2>
-                    <StatusBadge :status="item.release_status" />
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ item.product_id }} &mdash; {{ item.branch }}
+                    </p>
                   </div>
                   <button
                     @click="emit('close')"
@@ -240,7 +252,7 @@ function transitionButtonClass(nextStatus) {
                     <div>
                       <p class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Product ID</p>
                       <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {{ item.product_id }} ({{ item.class }})
+                        {{ item.product_id }} ({{ formatClass(item.class) }})
                       </p>
                     </div>
 
@@ -265,7 +277,8 @@ function transitionButtonClass(nextStatus) {
                     <!-- Uploaded -->
                     <div>
                       <p class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Uploaded</p>
-                      <RelativeTime :value="item.uploaded_at" />
+                      <RelativeTime v-if="item.uploaded_at" :value="item.uploaded_at" />
+                      <p v-else class="text-sm text-gray-400 dark:text-gray-500">—</p>
                     </div>
 
                     <!-- ZIP Name -->
@@ -280,11 +293,18 @@ function transitionButtonClass(nextStatus) {
                       <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ formatBytes(item.zip_size) }}</p>
                     </div>
 
-                    <!-- Release Status + transition -->
+                    <!-- Release Status + transitions -->
                     <div class="sm:col-span-2">
                       <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Release Status</p>
                       <div class="flex items-center gap-3 flex-wrap">
                         <StatusBadge :status="item.release_status" />
+                        <button
+                          v-if="ROLLBACK_TRANSITIONS[item.release_status]"
+                          @click="requestTransition(ROLLBACK_TRANSITIONS[item.release_status])"
+                          class="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-colors"
+                        >
+                          {{ TRANSITION_BUTTON_LABELS[ROLLBACK_TRANSITIONS[item.release_status]] }}
+                        </button>
                         <button
                           v-if="VALID_TRANSITIONS[item.release_status]"
                           @click="requestTransition(VALID_TRANSITIONS[item.release_status])"
@@ -304,31 +324,10 @@ function transitionButtonClass(nextStatus) {
 
                   <!-- TTL info box -->
                   <div
-                    v-if="item.release_status === 'DELETED' && item.ttl"
+                    v-if="item.ttl"
                     class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
                   >
                     This record will be automatically purged on {{ formatAbsoluteDate(item.ttl) }}.
-                  </div>
-
-                  <!-- Download section -->
-                  <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <button
-                      @click="handleDownload"
-                      :disabled="downloadLoading"
-                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
-                    >
-                      <template v-if="downloadLoading">
-                        <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                        </svg>
-                        Getting URL…
-                      </template>
-                      <template v-else>
-                        <ArrowDownTrayIcon class="w-4 h-4" />
-                        Download ZIP
-                      </template>
-                    </button>
                   </div>
 
                   <!-- Manifest files disclosure -->
@@ -360,7 +359,7 @@ function transitionButtonClass(nextStatus) {
                             class="bg-white dark:bg-gray-900"
                           >
                             <td class="px-4 py-2 font-mono text-xs text-gray-900 dark:text-gray-100">{{ file.name }}</td>
-                            <td class="px-4 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">{{ file.sha256.slice(0, 16) }}…</td>
+                            <td class="px-4 py-2 font-mono text-xs text-gray-500 dark:text-gray-400 break-all">{{ file.sha256 }}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -380,6 +379,30 @@ function transitionButtonClass(nextStatus) {
                     </button>
                   </div>
                 </div>
+
+                <!-- Footer -->
+                <div
+                  v-if="item.release_status !== 'DELETED'"
+                  class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end"
+                >
+                  <button
+                    @click="handleDownload"
+                    :disabled="downloadLoading"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
+                  >
+                    <template v-if="downloadLoading">
+                      <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Getting URL…
+                    </template>
+                    <template v-else>
+                      <ArrowDownTrayIcon class="w-4 h-4" />
+                      Download ZIP
+                    </template>
+                  </button>
+                </div>
               </div>
             </DialogPanel>
           </TransitionChild>
@@ -394,6 +417,7 @@ function transitionButtonClass(nextStatus) {
     :title="confirmTitle"
     :message="confirmMessage"
     :details="confirmDetails"
+    :variant="confirmVariant"
     @confirm="handleConfirm"
     @cancel="handleCancel"
   />

@@ -23,6 +23,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  variant: {
+    type: String,
+    default: 'danger',
+  },
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
@@ -87,7 +91,8 @@ const emit = defineEmits(['confirm', 'cancel'])
                 <button
                   type="button"
                   @click="emit('confirm')"
-                  class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                  :class="variant === 'success' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'"
                 >
                   Confirm
                 </button>
