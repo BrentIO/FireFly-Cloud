@@ -60,7 +60,6 @@ Resources:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
           APP_CONFIG_ENV: !Ref EnvironmentName
-          DYNAMODB_ENDPOINT:
 
   FuncApiFirmwareStatusPatchIntegration:
     Type: AWS::ApiGatewayV2::Integration

@@ -70,8 +70,6 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
           S3_FIRMWARE_BUCKET_NAME: !Ref FirmwareBucketName
           APP_CONFIG_ENV: !Ref EnvironmentName
-          DYNAMODB_ENDPOINT:
-          S3_ENDPOINT:
 
   FuncApiFirmwareDeleteIntegration:
     Type: AWS::ApiGatewayV2::Integration
