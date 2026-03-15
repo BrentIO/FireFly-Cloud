@@ -34,10 +34,34 @@ jobs:
 
       - name: Empty S3 firmware bucket
         run: |
-          if aws s3api head-bucket --bucket ${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} 2>/dev/null; then
-            aws s3 rb s3://${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} --force
-          else
-            echo "Bucket does not exist, skipping empty step"
+          BUCKET="${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}"
+          STDERR=$(mktemp)
+          if ! aws s3 rm "s3://$BUCKET" --recursive 2>"$STDERR"; then
+            if grep -qiE "NoSuchBucket|does not exist" "$STDERR"; then
+              echo "Bucket does not exist, skipping"
+              rm -f "$STDERR"
+              exit 0
+            fi
+            cat "$STDERR" >&2
+            rm -f "$STDERR"
+            exit 1
+          fi
+          rm -f "$STDERR"
+          VERSIONS=$(aws s3api list-object-versions --bucket "$BUCKET" \
+            --query 'Versions[].{Key:Key,VersionId:VersionId}' \
+            --output json 2>/dev/null || echo "null")
+          if [ "$VERSIONS" != "null" ] && [ "$VERSIONS" != "[]" ] && [ -n "$VERSIONS" ]; then
+            echo "Deleting versioned objects..."
+            aws s3api delete-objects --bucket "$BUCKET" \
+              --delete "{\"Objects\": $VERSIONS, \"Quiet\": true}"
+          fi
+          MARKERS=$(aws s3api list-object-versions --bucket "$BUCKET" \
+            --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' \
+            --output json 2>/dev/null || echo "null")
+          if [ "$MARKERS" != "null" ] && [ "$MARKERS" != "[]" ] && [ -n "$MARKERS" ]; then
+            echo "Deleting delete markers..."
+            aws s3api delete-objects --bucket "$BUCKET" \
+              --delete "{\"Objects\": $MARKERS, \"Quiet\": true}"
           fi
 
       - name: Delete s3-firmware

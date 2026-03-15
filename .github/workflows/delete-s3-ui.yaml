@@ -34,11 +34,19 @@ jobs:
 
       - name: Empty S3 UI bucket
         run: |
-          if aws s3api head-bucket --bucket ${{ secrets.S3_UI_BUCKET_NAME }} 2>/dev/null; then
-            aws s3 rm s3://${{ secrets.S3_UI_BUCKET_NAME }} --recursive
-          else
-            echo "Bucket does not exist, skipping empty step"
+          BUCKET="${{ secrets.S3_UI_BUCKET_NAME }}"
+          STDERR=$(mktemp)
+          if ! aws s3 rm "s3://$BUCKET" --recursive 2>"$STDERR"; then
+            if grep -qiE "NoSuchBucket|does not exist" "$STDERR"; then
+              echo "Bucket does not exist, skipping"
+              rm -f "$STDERR"
+              exit 0
+            fi
+            cat "$STDERR" >&2
+            rm -f "$STDERR"
+            exit 1
           fi
+          rm -f "$STDERR"
 
       - name: Delete s3-ui
         run: |
