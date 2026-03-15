@@ -39,32 +39,14 @@
                 "s3:ListBucket"
             ],
             "Resource": [
+                "arn:aws:s3:::SAM_DEPLOYMENT_BUCKET_NAME",
+                "arn:aws:s3:::SAM_DEPLOYMENT_BUCKET_NAME/*",
                 "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME",
                 "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME/*",
                 "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME",
                 "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME/*",
                 "arn:aws:s3:::S3_UI_BUCKET_NAME",
                 "arn:aws:s3:::S3_UI_BUCKET_NAME/*"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "cloudfront:CreateInvalidation"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:DeleteObject",
-                "s3:ListBucket"
-            ],
-            "Resource": [
-                "arn:aws:s3:::SAM_DEPLOYMENT_BUCKET_NAME",
-                "arn:aws:s3:::SAM_DEPLOYMENT_BUCKET_NAME/*"
             ]
         },
         {
@@ -99,6 +81,13 @@
                 "acm:GetCertificate"
             ],
             "Resource": "arn:aws:acm:AWS_REGION:AWS_ACCOUNT_ID:certificate/firefly-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateInvalidation"
+            ],
+            "Resource": "*"
         }
     ]
 }
