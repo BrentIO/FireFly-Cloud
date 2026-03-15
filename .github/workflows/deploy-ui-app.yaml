@@ -8,11 +8,19 @@ on:
         options:
           - dev
           - production
+      run_tests:
+        type: boolean
+        description: "Run integration tests after deploy"
+        default: true
   workflow_call:
     inputs:
       target_env:
         required: true
         type: string
+      run_tests:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   deploy-ui-app:
@@ -63,3 +71,11 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ steps.lookup-dist.outputs.dist_id }} \
             --paths "/*"
+
+  run-integration-tests:
+    if: inputs.run_tests
+    needs: deploy-ui-app
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}

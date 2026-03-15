@@ -41,6 +41,18 @@ jobs:
 
           echo "api_url=$API_URL" >> $GITHUB_OUTPUT
 
+      - name: Look up UI URL
+        id: lookup-ui
+        run: |
+          UI_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cloudfront-ui \
+            --query "Stacks[0].Outputs[?OutputKey=='UiDomain'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+
+          if [ -n "$UI_DOMAIN" ]; then
+            echo "ui_url=https://$UI_DOMAIN" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install test dependencies
         run: pip install -r tests/requirements.txt
 
@@ -49,3 +61,5 @@ jobs:
         env:
           FIREFLY_API_URL: ${{ steps.lookup-api.outputs.api_url }}
           FIREFLY_FIRMWARE_BUCKET: ${{ secrets.S3_FIRMWARE_BUCKET_NAME }}
+          FIREFLY_UI_URL: ${{ steps.lookup-ui.outputs.ui_url }}
+          FIREFLY_UI_BUCKET: ${{ secrets.S3_UI_BUCKET_NAME }}
