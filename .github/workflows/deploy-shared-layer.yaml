@@ -43,4 +43,5 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
             --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
