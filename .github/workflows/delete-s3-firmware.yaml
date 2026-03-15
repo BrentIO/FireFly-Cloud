@@ -44,20 +44,21 @@ jobs:
             exit 0
           fi
           echo "Emptying bucket: $BUCKET"
-          BUCKET="$BUCKET" python3 -c "
-import boto3, os, sys
-from botocore.exceptions import ClientError
-name = os.environ['BUCKET']
-try:
-    deleted = boto3.resource('s3').Bucket(name).object_versions.delete()
-    print(f'Deleted {len(deleted) if deleted else 0} version(s)/marker(s) from {name}')
-except ClientError as e:
-    code = e.response['Error']['Code']
-    if code in ('NoSuchBucket', '404'):
-        print(f'Bucket {name} does not exist, skipping')
-        sys.exit(0)
-    raise
-"
+          aws s3 rm "s3://$BUCKET" --recursive || true
+          VERSIONS=$(aws s3api list-object-versions --bucket "$BUCKET" \
+            --query 'Versions[].{Key:Key,VersionId:VersionId}' --output json)
+          if [ "$VERSIONS" != "null" ] && [ "$VERSIONS" != "[]" ] && [ -n "$VERSIONS" ]; then
+            echo "Deleting versioned objects..."
+            aws s3api delete-objects --bucket "$BUCKET" \
+              --delete "{\"Objects\": $VERSIONS}"
+          fi
+          MARKERS=$(aws s3api list-object-versions --bucket "$BUCKET" \
+            --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output json)
+          if [ "$MARKERS" != "null" ] && [ "$MARKERS" != "[]" ] && [ -n "$MARKERS" ]; then
+            echo "Deleting delete markers..."
+            aws s3api delete-objects --bucket "$BUCKET" \
+              --delete "{\"Objects\": $MARKERS}"
+          fi
 
       - name: Delete s3-firmware
         run: |
