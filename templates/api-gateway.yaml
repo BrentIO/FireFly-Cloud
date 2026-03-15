@@ -15,6 +15,10 @@ Parameters:
     Type: String
     Description: Route53 Hosted Zone ID
 
+  UiOrigin:
+    Type: String
+    Description: Full UI origin URL for CORS (e.g., https://example.com)
+
 Resources:
 
   ApiAccessLogGroup:
@@ -34,6 +38,20 @@ Resources:
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogGroup.Arn
         Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref UiOrigin
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 300
       Tags:
         Name: firefly-api-gateway
 
@@ -43,6 +61,81 @@ Resources:
         EndpointConfiguration: REGIONAL
         Route53:
           HostedZoneId: !Ref HostedZoneId
+
+  # Explicit OPTIONS handler — native HTTP API CorsConfiguration does not
+  # reliably intercept preflight requests when all routes are registered by
+  # external stacks (no routes in this template's OpenAPI body). An explicit
+  # OPTIONS /{proxy+} route guarantees correct preflight responses and also
+  # triggers auto-deploy so the CorsConfiguration above takes effect for
+  # actual request responses.
+  FuncApiOptionsHandlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-options-handler-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  FuncApiOptionsHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-options-handler
+      Role: !GetAtt FuncApiOptionsHandlerRole.Arn
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Architectures:
+        - arm64
+      Timeout: 5
+      MemorySize: 128
+      Environment:
+        Variables:
+          UI_ORIGIN: !Ref UiOrigin
+      InlineCode: |
+        import os
+        UI_ORIGIN = os.environ["UI_ORIGIN"]
+        def lambda_handler(event, context):
+            origin = (event.get("headers") or {}).get("origin", "")
+            if origin == UI_ORIGIN:
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Access-Control-Allow-Origin": origin,
+                        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+                        "Access-Control-Max-Age": "300",
+                    },
+                    "body": "",
+                }
+            return {"statusCode": 200, "body": ""}
+
+  FuncApiOptionsHandlerIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiOptionsHandler.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiOptionsHandlerRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: OPTIONS /{proxy+}
+      Target: !Sub integrations/${FuncApiOptionsHandlerIntegration.IntegrationId}
+
+  FuncApiOptionsHandlerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiOptionsHandler
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/OPTIONS/*
 
 Outputs:
   ApiUrl:
