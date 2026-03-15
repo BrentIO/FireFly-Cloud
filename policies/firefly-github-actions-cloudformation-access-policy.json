@@ -92,7 +92,8 @@
         {
             "Effect": "Allow",
             "Action": [
-                "apigateway:PATCH"
+                "apigateway:PATCH",
+                "apigateway:POST"
             ],
             "Resource": [
                 "arn:aws:apigateway:AWS_REGION::/apis/*"

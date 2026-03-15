@@ -89,6 +89,10 @@ jobs:
             --api-id "$API_ID" \
             --cors-configuration "$CORS_JSON"
 
+          aws apigatewayv2 create-deployment \
+            --api-id "$API_ID" \
+            --stage-name '$default'
+
   run-integration-tests:
     if: inputs.run_tests
     needs: deploy-api-gateway
