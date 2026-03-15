@@ -63,7 +63,7 @@ jobs:
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
-              S3FirmwarePrivateBucketName=${{ vars.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
+              S3FirmwarePrivateBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \

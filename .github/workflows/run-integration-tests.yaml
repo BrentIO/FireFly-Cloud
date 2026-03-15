@@ -60,6 +60,6 @@ jobs:
         run: pytest tests/integration/ -v
         env:
           FIREFLY_API_URL: ${{ steps.lookup-api.outputs.api_url }}
-          FIREFLY_FIRMWARE_BUCKET: ${{ secrets.S3_FIRMWARE_BUCKET_NAME }}
+          FIREFLY_FIRMWARE_BUCKET: ${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}
           FIREFLY_UI_URL: ${{ steps.lookup-ui.outputs.ui_url }}
           FIREFLY_UI_BUCKET: ${{ secrets.S3_UI_BUCKET_NAME }}
