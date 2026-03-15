@@ -64,7 +64,7 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               CloudFrontDomain=${{ vars.FIRMWARE_DOMAIN_NAME }} \
-              FirmwareTypeMap=${{ vars.FIRMWARE_TYPE_MAP }} \
+              FirmwareTypeMap='${{ vars.FIRMWARE_TYPE_MAP }}' \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
