@@ -114,3 +114,38 @@ def fresh_firmware_item():
     zip_name = item.get("zip_name")
     if zip_name:
         requests.delete(f"{API_URL}/firmware/{zip_name}", timeout=10)
+
+
+@pytest.fixture
+def released_firmware_item():
+    """
+    A firmware record walked to RELEASED state for a single test.
+    Cleaned up after the test by transitioning to REVOKED (which sets the DynamoDB TTL).
+
+    Requires FIREFLY_FIRMWARE_BUCKET to be set and the full OTA stack to be deployed,
+    including the public S3 bucket. The FIRMWARE_TYPE_MAP on func-api-ota-get must
+    include a mapping for the test application (e.g. {"test": "FireFly Test", ...}).
+    """
+    version = f"2026.03.r{int(time.time())}"
+    item = _upload_and_wait(version)
+    zip_name = item.get("zip_name")
+
+    # Walk to RELEASED
+    requests.patch(
+        f"{API_URL}/firmware/{zip_name}/status",
+        json={"release_status": "TESTING"},
+        timeout=10,
+    )
+    requests.patch(
+        f"{API_URL}/firmware/{zip_name}/status",
+        json={"release_status": "RELEASED"},
+        timeout=10,
+    )
+    yield item
+
+    # Cleanup: transition to REVOKED which sets the DynamoDB TTL.
+    requests.patch(
+        f"{API_URL}/firmware/{zip_name}/status",
+        json={"release_status": "REVOKED"},
+        timeout=10,
+    )

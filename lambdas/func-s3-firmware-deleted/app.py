@@ -40,7 +40,14 @@ def mark_deleted_by_zip(filename: str) -> None:
         version = item.get("version")
         current_status = item.get("release_status")
 
-        new_status = "REVOKED" if current_status == "RELEASED" else "DELETED"
+        # RELEASED and REVOKED records are managed by func-api-firmware-status-patch.
+        # Deletions of private bucket files for these statuses occur during normal
+        # lifecycle expiry and should not alter the DynamoDB record.
+        if current_status in {"RELEASED", "REVOKED"}:
+            logger.debug(f"Skipping update for pk='{pk}' version='{version}' (status: '{current_status}')")
+            continue
+
+        new_status = "DELETED"
         logger.debug(f"Transitioning pk='{pk}' version='{version}' from '{current_status}' to '{new_status}'")
 
         try:

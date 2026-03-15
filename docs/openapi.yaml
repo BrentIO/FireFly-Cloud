@@ -12,6 +12,8 @@ tags:
     description: Service health check
   - name: Firmware
     description: Firmware lifecycle management
+  - name: OTA
+    description: Over-the-air firmware update delivery
 
 paths:
 
@@ -122,13 +124,49 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: Firmware is already in a removed state (DELETED or REVOKED)
+          description: Firmware is already in a non-deletable state (DELETED, REVOKED, or RELEASED). RELEASED firmware must be transitioned to REVOKED via `PATCH /firmware/{zip_name}/status` before it can be removed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
               example:
-                message: "Firmware is already in state 'DELETED'"
+                message: "Firmware is already in state 'RELEASED'"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ota/{product_id}/{application}:
+    get:
+      tags: [OTA]
+      summary: Get OTA firmware manifest
+      description: |
+        Returns an [esp32FOTA](https://github.com/BrentIO/esp32FOTA)-compatible
+        manifest for the latest `RELEASED` firmware matching the given `product_id`
+        and `application`. The response includes URLs to download the firmware
+        binaries from the CloudFront distribution.
+
+        If multiple `RELEASED` builds exist for the same product and application,
+        the most recently processed build is returned.
+
+        Returns `404 Not Found` if no released firmware exists for the given
+        `product_id` and `application` combination.
+      operationId: getOtaManifest
+      parameters:
+        - $ref: '#/components/parameters/ProductIdPath'
+        - $ref: '#/components/parameters/ApplicationPath'
+      responses:
+        '200':
+          description: OTA manifest for the latest released firmware
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtaManifest'
+              example:
+                type: "FireFly Controller"
+                version: "2026.03.001"
+                url: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/Controller.ino.bin"
+                littlefs: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/www.bin"
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -210,6 +248,22 @@ components:
       description: UUID filename of the firmware build (e.g. `550e8400-e29b-41d4-a716-446655440000.zip`)
       schema:
         $ref: '#/components/schemas/ZipName'
+
+    ProductIdPath:
+      name: product_id
+      in: path
+      required: true
+      description: Product identifier
+      schema:
+        $ref: '#/components/schemas/ProductId'
+
+    ApplicationPath:
+      name: application
+      in: path
+      required: true
+      description: Application name
+      schema:
+        $ref: '#/components/schemas/Application'
 
   schemas:
 
@@ -402,6 +456,33 @@ components:
       properties:
         release_status:
           $ref: '#/components/schemas/ReleaseStatus'
+
+    OtaManifest:
+      type: object
+      description: |
+        esp32FOTA-compatible firmware manifest. The `url` field points to the main
+        application binary. The `littlefs` field, when present, points to the
+        LittleFS/SPIFFS partition image. Both URLs serve files from the CloudFront
+        firmware distribution.
+      required:
+        - type
+        - version
+        - url
+      properties:
+        type:
+          type: string
+          description: Firmware type string as expected by the esp32FOTA library on the device.
+          example: "FireFly Controller"
+        version:
+          $ref: '#/components/schemas/Version'
+        url:
+          type: string
+          description: CloudFront URL to the main application firmware binary.
+          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/Controller.ino.bin"
+        littlefs:
+          type: string
+          description: CloudFront URL to the LittleFS partition image. Omitted if no LittleFS image is present in the firmware.
+          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/www.bin"
 
     HealthResponse:
       type: object

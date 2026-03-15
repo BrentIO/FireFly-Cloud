@@ -12,7 +12,7 @@ dynamodb = boto3.resource("dynamodb", endpoint_url=os.environ.get("DYNAMODB_ENDP
 s3 = boto3.client("s3", endpoint_url=os.environ.get("S3_ENDPOINT"))
 
 TABLE_NAME = os.environ["DYNAMODB_FIRMWARE_TABLE_NAME"]
-BUCKET_NAME = os.environ["S3_FIRMWARE_BUCKET_NAME"]
+BUCKET_NAME = os.environ["S3_FIRMWARE_PRIVATE_BUCKET_NAME"]
 
 firmware_table = dynamodb.Table(TABLE_NAME)
 
@@ -20,7 +20,7 @@ PROCESSED_PREFIX = "processed/"
 ERROR_PREFIX = "errors/"
 
 # These states indicate the S3 file has already been removed
-ALREADY_REMOVED_STATES = {"DELETED", "REVOKED"}
+ALREADY_REMOVED_STATES = {"DELETED", "REVOKED", "RELEASED"}
 
 
 def _response(status_code, body):
@@ -62,7 +62,7 @@ def lambda_handler(event, context):
 
         s3.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
 
-        # DynamoDB status update (DELETED or REVOKED) is handled asynchronously
+        # DynamoDB status update (DELETED) is handled asynchronously
         # by func-s3-firmware-deleted, which is triggered by the S3 delete event above.
         return _response(202, {"message": "Deletion initiated"})
 
