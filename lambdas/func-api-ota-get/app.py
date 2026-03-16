@@ -67,8 +67,13 @@ def lambda_handler(event, context):
 
         if not items:
             # Check if current_version exists but is REVOKED (no newer release available).
-            check = firmware_table.get_item(Key={"pk": pk, "version": current_version})
-            if check.get("Item", {}).get("release_status") == "REVOKED":
+            # Uses Query (not GetItem) since only dynamodb:Query is permitted on this function.
+            check = firmware_table.query(
+                KeyConditionExpression=Key("pk").eq(pk) & Key("version").eq(current_version),
+                FilterExpression=Attr("release_status").eq("REVOKED"),
+                ConsistentRead=True,
+            )
+            if check.get("Items"):
                 return _response(409, {
                     "message": f"Current version '{current_version}' is no longer released and no newer version is available"
                 })
