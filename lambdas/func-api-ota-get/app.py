@@ -66,6 +66,12 @@ def lambda_handler(event, context):
         items = response.get("Items", [])
 
         if not items:
+            # Check if current_version exists but is REVOKED (no newer release available).
+            check = firmware_table.get_item(Key={"pk": pk, "version": current_version})
+            if check.get("Item", {}).get("release_status") == "REVOKED":
+                return _response(409, {
+                    "message": f"Current version '{current_version}' is no longer released and no newer version is available"
+                })
             return _response(404, {
                 "message": f"No released firmware found for product_id='{product_id}' application='{application}'"
             })
