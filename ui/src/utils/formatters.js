@@ -67,10 +67,18 @@ export function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-// value: ISO string or unix timestamp (seconds)
+// Coerce value to a Date. Handles numbers (unix seconds), numeric strings
+// (DynamoDB Decimal serialized via json.dumps default=str), and ISO strings.
+function toDate(value) {
+  if (typeof value === 'number') return new Date(value * 1000)
+  if (typeof value === 'string' && /^\d+$/.test(value)) return new Date(Number(value) * 1000)
+  return new Date(value)
+}
+
+// value: ISO string, unix timestamp (seconds), or numeric string
 export function formatAbsoluteDate(value) {
   if (!value) return '—'
-  const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value)
+  const date = toDate(value)
   return new Intl.DateTimeFormat(navigator.language, {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
@@ -80,7 +88,7 @@ export function formatAbsoluteDate(value) {
 
 export function formatRelativeDate(value) {
   if (!value) return '—'
-  const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value)
+  const date = toDate(value)
   const diffMs = Date.now() - date.getTime()
   const diffSec = Math.floor(diffMs / 1000)
   const diffMin = Math.floor(diffSec / 60)

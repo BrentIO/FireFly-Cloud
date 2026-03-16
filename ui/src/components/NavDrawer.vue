@@ -19,6 +19,7 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 const route = useRoute()
 const { logout } = useAuth()
+const commitSha = import.meta.env.VITE_COMMIT_SHA || null
 </script>
 
 <template>
@@ -51,7 +52,7 @@ const { logout } = useAuth()
           >
             <!-- Header -->
             <div class="flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-700">
-              <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">FireFly</span>
+              <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">FireFly Management Console</span>
               <button
                 @click="emit('close')"
                 class="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -80,8 +81,11 @@ const { logout } = useAuth()
             <!-- Spacer -->
             <div class="flex-1" />
 
-            <!-- Logout -->
-            <div class="px-3 py-4 border-t border-gray-200 dark:border-gray-700">
+            <!-- Commit SHA + Logout -->
+            <div class="px-3 py-4 border-t border-gray-200 dark:border-gray-700 space-y-1">
+              <p v-if="commitSha" class="px-3 text-xs font-mono text-gray-400 dark:text-gray-500 select-all">
+                {{ commitSha.slice(0, 8) }}
+              </p>
               <button
                 @click="logout()"
                 class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

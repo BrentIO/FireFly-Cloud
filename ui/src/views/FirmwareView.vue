@@ -396,7 +396,7 @@ async function onDetailChanged() {
             <!-- Data rows -->
             <tr
               v-else
-              v-for="item in paginatedItems"
+              v-for="(item, index) in paginatedItems"
               :key="item.zip_name"
               class="border-b border-gray-100 dark:border-gray-800 cursor-pointer transition-colors odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20"
               @click.self="goToDetail(item)"
@@ -425,7 +425,10 @@ async function onDetailChanged() {
                   </MenuButton>
 
                   <MenuItems
-                    class="absolute right-0 z-20 mt-1 w-48 origin-top-right rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700"
+                    :class="[
+                      'absolute right-0 z-50 w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700',
+                      index >= paginatedItems.length - 2 ? 'bottom-full mb-1 origin-bottom-right' : 'mt-1 origin-top-right',
+                    ]"
                   >
                     <!-- Details -->
                     <div class="py-1">
