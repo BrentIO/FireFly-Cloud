@@ -2,18 +2,23 @@
 Tests for sequential OTA version delivery via GET /ota/{product_id}/{application}.
 
 The multi_version_ota_items fixture (module-scoped) creates:
-  - product_a: firmware versions 1.0.01, 2.0.01, 3.0.01 — all RELEASED
-  - product_b: firmware version 1.0.01 only — RELEASED
+  - product_a: firmware versions 1.0.01, 2.0.01, 3.0.01 — all RELEASED, application="test"
+  - product_b: firmware version 1.0.01 only — RELEASED, application="test"
 
 The revoked_version_ota_items fixture (function-scoped) creates:
   - a product with versions 1.0.01 (REVOKED), 2.0.01, 3.0.01 (both RELEASED)
 
-Both fixtures use unique product_ids per invocation for full test isolation.
+The multi_application_ota_items fixture (module-scoped) creates:
+  - one product_id with application="test":       versions 1.0.01, 2.0.01, 3.0.01 — all RELEASED
+  - one product_id with application="test2": version 1.0.01 only — RELEASED
+
+All fixtures use unique product_ids per invocation for full test isolation.
 
 Requires:
   FIREFLY_FIRMWARE_BUCKET to be set and the full OTA stack deployed.
-  FIRMWARE_TYPE_MAP on func-api-ota-get must include a mapping for the
-  'test' application (e.g. {"test": "FireFly Test", ...}).
+  FIRMWARE_TYPE_MAP on func-api-ota-get must include mappings for both
+  'test' and 'test2' applications
+  (e.g. {"test": "FireFly Test", "test2": "FireFly Test 2"}).
 """
 
 import requests
@@ -196,3 +201,53 @@ def test_latest_revoked_with_nothing_newer_returns_409(api_url, revoked_version_
         timeout=10,
     )
     assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# Application isolation — same product_id, two different applications
+# ---------------------------------------------------------------------------
+
+def test_test_application_receives_next_version(api_url, multi_application_ota_items):
+    """
+    product has test/v1, v2, v3 and test2/v1. A device on test/v1
+    should receive test/v2 — not v3, and not any test2 firmware.
+    """
+    d = multi_application_ota_items
+    resp = requests.get(
+        f"{api_url}/ota/{d['product_id']}/test",
+        params={"current_version": d["v1"]},
+        timeout=10,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["version"] == d["v2"]
+
+
+def test_test2_application_at_latest_returns_same_version(api_url, multi_application_ota_items):
+    """
+    test2 has only v1. A device already on v1 should receive 200 with v1
+    (no update available). test's v2 and v3 must not be returned.
+    """
+    d = multi_application_ota_items
+    resp = requests.get(
+        f"{api_url}/ota/{d['product_id']}/test2",
+        params={"current_version": d["v1"]},
+        timeout=10,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["version"] == d["v1"]
+
+
+def test_test2_application_does_not_receive_test_versions(api_url, multi_application_ota_items):
+    """
+    Querying the test2 application must never return firmware released
+    under the test application, even though they share the same product_id.
+    """
+    d = multi_application_ota_items
+    resp = requests.get(
+        f"{api_url}/ota/{d['product_id']}/test2",
+        params={"current_version": "0.0.01"},
+        timeout=10,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["version"] not in (d["v2"], d["v3"])
