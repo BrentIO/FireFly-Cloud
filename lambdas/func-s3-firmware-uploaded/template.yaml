@@ -37,12 +37,16 @@ Resources:
               # S3 access for incoming/processing/processed/errors
               - Effect: Allow
                 Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${FirmwareBucketName}
+              - Effect: Allow
+                Action:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:DeleteObject
                   - s3:HeadObject
                 Resource:
-                  - !Sub arn:aws:s3:::${FirmwareBucketName}
                   - !Sub arn:aws:s3:::${FirmwareBucketName}/*
 
               # DynamoDB write access to the unified firmware table
