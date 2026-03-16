@@ -52,6 +52,7 @@ def lambda_handler(event, context):
         response = firmware_table.query(
             KeyConditionExpression=Key("pk").eq(pk),
             FilterExpression=Attr("release_status").eq("RELEASED"),
+            ConsistentRead=True,
         )
         items = response.get("Items", [])
 
