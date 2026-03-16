@@ -33,44 +33,62 @@ jobs:
         run: pip install aws-sam-cli
 
       - name: Empty S3 firmware bucket
+        env:
+          TARGET_ENV: ${{ inputs.target_env }}
         run: |
-          BUCKET=$(aws cloudformation describe-stack-resource \
-            --stack-name firefly-s3-firmware \
-            --logical-resource-id S3Bucket \
-            --query "StackResourceDetail.PhysicalResourceId" \
-            --output text 2>/dev/null || true)
-          if [ -z "$BUCKET" ] || [ "$BUCKET" = "None" ]; then
-            echo "Stack firefly-s3-firmware not found, skipping"
-            exit 0
-          fi
-          echo "Checking bucket contents: $BUCKET"
-          KEY_COUNT=$(aws s3api list-objects-v2 --bucket "$BUCKET" --max-items 1 --output json | jq -r '.KeyCount')
-          if [ "$KEY_COUNT" != "0" ] && [ "${{ inputs.target_env }}" = "production" ]; then
-            echo "ERROR: Production firmware bucket '$BUCKET' is not empty. Refusing to empty."
-            exit 1
-          fi
-          echo "Emptying bucket: $BUCKET"
-          aws s3 rm "s3://$BUCKET" --recursive || true
-          echo "Deleting versioned objects..."
-          while true; do
-            RAW=$(aws s3api list-object-versions --bucket "$BUCKET" \
-              --max-items 500 --output json)
-            FILTERED=$(echo "$RAW" | jq '{Objects: [(.Versions // [])[] | select(.VersionId != null) | {Key:.Key,VersionId:.VersionId}]}')
-            COUNT=$(echo "$FILTERED" | jq '.Objects | length')
-            if [ "$COUNT" = "0" ]; then break; fi
-            echo "$FILTERED" > /tmp/batch.json
-            aws s3api delete-objects --bucket "$BUCKET" --delete file:///tmp/batch.json
-          done
-          echo "Deleting delete markers..."
-          while true; do
-            RAW=$(aws s3api list-object-versions --bucket "$BUCKET" \
-              --max-items 500 --output json)
-            FILTERED=$(echo "$RAW" | jq '{Objects: [(.DeleteMarkers // [])[] | select(.VersionId != null) | {Key:.Key,VersionId:.VersionId}]}')
-            COUNT=$(echo "$FILTERED" | jq '.Objects | length')
-            if [ "$COUNT" = "0" ]; then break; fi
-            echo "$FILTERED" > /tmp/batch.json
-            aws s3api delete-objects --bucket "$BUCKET" --delete file:///tmp/batch.json
-          done
+          python3 << 'PYEOF'
+          import json, subprocess, sys, os, tempfile
+
+          r = subprocess.run(
+            ['aws', 'cloudformation', 'describe-stack-resource',
+             '--stack-name', 'firefly-s3-firmware',
+             '--logical-resource-id', 'S3Bucket',
+             '--query', 'StackResourceDetail.PhysicalResourceId',
+             '--output', 'text'],
+            capture_output=True, text=True)
+          bucket = r.stdout.strip()
+          if not bucket or bucket == 'None':
+            print('Stack firefly-s3-firmware not found, skipping')
+            sys.exit(0)
+
+          print(f'Checking bucket contents: {bucket}')
+          r2 = subprocess.run(
+            ['aws', 's3api', 'list-objects-v2', '--bucket', bucket,
+             '--max-items', '1', '--output', 'json'],
+            capture_output=True, text=True, check=True)
+          key_count = json.loads(r2.stdout).get('KeyCount', 0)
+          if key_count > 0 and os.environ.get('TARGET_ENV') == 'production':
+            print(f"ERROR: Production firmware bucket '{bucket}' is not empty. Refusing to empty.")
+            sys.exit(1)
+
+          print(f'Emptying bucket: {bucket}')
+          subprocess.run(['aws', 's3', 'rm', f's3://{bucket}', '--recursive'])
+
+          for field in ('Versions', 'DeleteMarkers'):
+            print(f'Deleting {field}...')
+            while True:
+              r3 = subprocess.run(
+                ['aws', 's3api', 'list-object-versions',
+                 '--bucket', bucket, '--max-items', '500', '--output', 'json'],
+                capture_output=True, text=True, check=True)
+              data = json.loads(r3.stdout)
+              items = [{'Key': x['Key'], 'VersionId': x['VersionId']}
+                       for x in (data.get(field) or []) if x.get('VersionId')]
+              if not items:
+                break
+              with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump({'Objects': items}, f)
+                fname = f.name
+              r4 = subprocess.run(
+                ['aws', 's3api', 'delete-objects', '--bucket', bucket,
+                 '--delete', f'file://{fname}'],
+                text=True)
+              os.unlink(fname)
+              if r4.returncode != 0:
+                sys.exit(r4.returncode)
+
+          print('Bucket emptied successfully')
+          PYEOF
 
       - name: Delete s3-firmware
         run: |
