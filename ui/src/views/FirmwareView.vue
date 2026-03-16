@@ -253,7 +253,7 @@ async function onDetailChanged() {
 <template>
   <AppLayout>
     <!-- Toolbar -->
-    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+    <div class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-950 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-4 mb-0 flex items-center justify-between flex-wrap gap-3">
       <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Firmware</h1>
 
       <div class="flex items-center gap-3 flex-wrap">
@@ -293,7 +293,7 @@ async function onDetailChanged() {
 
         <!-- Hide Action Required toggle -->
         <div class="flex items-center gap-1.5 cursor-pointer select-none" @click="hideActionRequired = !hideActionRequired">
-          <span class="text-sm text-gray-600 dark:text-gray-400">Hide Action Required</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Show Action Required</span>
           <button
             type="button"
             role="switch"
@@ -484,7 +484,13 @@ async function onDetailChanged() {
                         <button
                           @click="requestMenuTransition(item, VALID_TRANSITIONS[item.release_status])"
                           class="w-full text-left px-4 py-2 text-sm transition-colors"
-                          :class="active ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'"
+                          :class="[
+                            VALID_TRANSITIONS[item.release_status] === 'RELEASED'
+                              ? active ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'text-green-600 dark:text-green-400'
+                              : VALID_TRANSITIONS[item.release_status] === 'REVOKED'
+                                ? active ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'text-red-600 dark:text-red-400'
+                                : active ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'
+                          ]"
                         >
                           {{ TRANSITION_BUTTON_LABELS[VALID_TRANSITIONS[item.release_status]] }}
                         </button>
