@@ -12,8 +12,6 @@ import requests
 
 NONEXISTENT_PRODUCT = "firefly-does-not-exist"
 NONEXISTENT_APPLICATION = "nonexistent"
-TEST_PRODUCT_ID = "firefly-integration-test"
-TEST_APPLICATION = "test"
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +40,7 @@ def test_ota_not_found_has_message(api_url):
 
 def test_ota_returns_200_for_released_firmware(api_url, released_firmware_item):
     resp = requests.get(
-        f"{api_url}/ota/{TEST_PRODUCT_ID}/{TEST_APPLICATION}",
+        f"{api_url}/ota/{released_firmware_item['product_id']}/{released_firmware_item['application']}",
         timeout=10,
     )
     assert resp.status_code == 200
@@ -50,7 +48,7 @@ def test_ota_returns_200_for_released_firmware(api_url, released_firmware_item):
 
 def test_ota_manifest_has_type(api_url, released_firmware_item):
     resp = requests.get(
-        f"{api_url}/ota/{TEST_PRODUCT_ID}/{TEST_APPLICATION}",
+        f"{api_url}/ota/{released_firmware_item['product_id']}/{released_firmware_item['application']}",
         timeout=10,
     )
     assert "type" in resp.json()
@@ -58,7 +56,7 @@ def test_ota_manifest_has_type(api_url, released_firmware_item):
 
 def test_ota_manifest_has_version(api_url, released_firmware_item):
     resp = requests.get(
-        f"{api_url}/ota/{TEST_PRODUCT_ID}/{TEST_APPLICATION}",
+        f"{api_url}/ota/{released_firmware_item['product_id']}/{released_firmware_item['application']}",
         timeout=10,
     )
     assert "version" in resp.json()
@@ -66,7 +64,7 @@ def test_ota_manifest_has_version(api_url, released_firmware_item):
 
 def test_ota_manifest_has_url(api_url, released_firmware_item):
     resp = requests.get(
-        f"{api_url}/ota/{TEST_PRODUCT_ID}/{TEST_APPLICATION}",
+        f"{api_url}/ota/{released_firmware_item['product_id']}/{released_firmware_item['application']}",
         timeout=10,
     )
     assert "url" in resp.json()
@@ -74,7 +72,7 @@ def test_ota_manifest_has_url(api_url, released_firmware_item):
 
 def test_ota_manifest_url_is_https(api_url, released_firmware_item):
     resp = requests.get(
-        f"{api_url}/ota/{TEST_PRODUCT_ID}/{TEST_APPLICATION}",
+        f"{api_url}/ota/{released_firmware_item['product_id']}/{released_firmware_item['application']}",
         timeout=10,
     )
     assert resp.json()["url"].startswith("https://")
@@ -82,14 +80,14 @@ def test_ota_manifest_url_is_https(api_url, released_firmware_item):
 
 def test_ota_manifest_version_matches_released(api_url, released_firmware_item):
     resp = requests.get(
-        f"{api_url}/ota/{TEST_PRODUCT_ID}/{TEST_APPLICATION}",
+        f"{api_url}/ota/{released_firmware_item['product_id']}/{released_firmware_item['application']}",
         timeout=10,
     )
     assert resp.json()["version"] == released_firmware_item["version"]
 
 
 def test_ota_returns_404_after_revoke(api_url, released_firmware_item):
-    """After the test item is revoked in cleanup, the OTA endpoint should return 404."""
+    """After the test item is revoked, the OTA endpoint should return 404."""
     zip_name = released_firmware_item["zip_name"]
     # Revoke the firmware
     requests.patch(
@@ -98,7 +96,7 @@ def test_ota_returns_404_after_revoke(api_url, released_firmware_item):
         timeout=10,
     )
     resp = requests.get(
-        f"{api_url}/ota/{TEST_PRODUCT_ID}/{TEST_APPLICATION}",
+        f"{api_url}/ota/{released_firmware_item['product_id']}/{released_firmware_item['application']}",
         timeout=10,
     )
     assert resp.status_code == 404

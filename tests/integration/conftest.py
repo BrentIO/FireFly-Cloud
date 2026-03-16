@@ -31,13 +31,13 @@ TEST_PRODUCT_ID = "firefly-integration-test"
 TEST_APPLICATION = "test"
 
 
-def _create_test_zip(version: str) -> bytes:
+def _create_test_zip(version: str, product_id: str = TEST_PRODUCT_ID) -> bytes:
     """Build a minimal valid firmware ZIP containing manifest.json and one file."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
     sha256 = hashlib.sha256(payload).hexdigest()
 
     manifest = {
-        "product_id": TEST_PRODUCT_ID,
+        "product_id": product_id,
         "version": version,
         "class": "CONTROLLER",
         "application": TEST_APPLICATION,
@@ -54,12 +54,12 @@ def _create_test_zip(version: str) -> bytes:
     return buf.getvalue()
 
 
-def _upload_and_wait(version: str, timeout: int = 60) -> dict:
+def _upload_and_wait(version: str, product_id: str = TEST_PRODUCT_ID, timeout: int = 60) -> dict:
     """Upload a firmware ZIP to S3 and poll the API until the record appears."""
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping upload-dependent test")
 
-    zip_bytes = _create_test_zip(version)
+    zip_bytes = _create_test_zip(version, product_id)
     s3 = boto3.client("s3")
     s3.put_object(
         Bucket=FIRMWARE_BUCKET,
@@ -71,7 +71,7 @@ def _upload_and_wait(version: str, timeout: int = 60) -> dict:
     while time.monotonic() < deadline:
         resp = requests.get(
             f"{API_URL}/firmware",
-            params={"product_id": TEST_PRODUCT_ID, "application": TEST_APPLICATION},
+            params={"product_id": product_id, "application": TEST_APPLICATION},
             timeout=10,
         )
         if resp.status_code == 200:
@@ -129,14 +129,17 @@ def fresh_firmware_item():
 def released_firmware_item():
     """
     A firmware record walked to RELEASED state for a single test.
+    Uses a unique product_id per invocation so this fixture is fully isolated
+    from stale data left by previous test runs or other concurrent fixtures.
     Cleaned up after the test by transitioning to REVOKED (which sets the DynamoDB TTL).
 
     Requires FIREFLY_FIRMWARE_BUCKET to be set and the full OTA stack to be deployed,
     including the public S3 bucket. The FIRMWARE_TYPE_MAP on func-api-ota-get must
     include a mapping for the test application (e.g. {"test": "FireFly Test", ...}).
     """
+    product_id = f"firefly-inttest-{int(time.time())}"
     version = f"2026.03.r{int(time.time())}"
-    item = _upload_and_wait(version)
+    item = _upload_and_wait(version, product_id)
     zip_name = item.get("zip_name")
 
     # Walk to RELEASED
