@@ -8,6 +8,7 @@ import zipfile
 import uuid
 import time
 from urllib.parse import unquote_plus
+from botocore.exceptions import ClientError
 
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
@@ -118,7 +119,20 @@ def lambda_handler(event, context):
         logger.debug(f"Processing upload: original='{original_filename}', assigned='{uuid_name}'")
 
         try:
-            move_object(bucket, incoming_key, processing_key)
+            try:
+                move_object(bucket, incoming_key, processing_key)
+            except ClientError as e:
+                # NoSuchKey (or its masked form, AccessDenied) means the incoming
+                # file is already gone — this is a duplicate S3 event delivery.
+                # Return cleanly; the first invocation already handled the file.
+                error_code = e.response.get("Error", {}).get("Code", "")
+                if error_code in ("NoSuchKey", "AccessDenied", "404"):
+                    logger.warning(
+                        f"Incoming key '{incoming_key}' not found — likely a duplicate "
+                        f"S3 event, skipping. Error: {e}"
+                    )
+                    return
+                raise
             logger.debug(f"Moved '{incoming_key}' to '{processing_key}'")
 
             head = s3.head_object(Bucket=bucket, Key=processing_key)
@@ -196,10 +210,8 @@ def lambda_handler(event, context):
             try:
                 move_object(bucket, processing_key, error_key)
                 logger.debug(f"Moved '{processing_key}' to '{error_key}'")
-            except Exception:
-                pass
-
-            raise
+            except Exception as move_err:
+                logger.warning(f"Could not move '{processing_key}' to '{error_key}': {move_err}")
 
     except Exception:
         logger.exception("Unhandled exception")

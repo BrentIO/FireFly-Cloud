@@ -4,6 +4,7 @@ import json
 import boto3
 import os
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
@@ -55,6 +56,16 @@ def lambda_handler(event, context):
         prefix = "errors/" if current_status == "ERROR" else "processed/"
         s3_key = f"{prefix}{zip_name}"
 
+        try:
+            s3.head_object(Bucket=S3_FIRMWARE_PRIVATE_BUCKET_NAME, Key=s3_key)
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if error_code in ("404", "NoSuchKey"):
+                logger.error(f"Firmware file not found in storage: bucket='{S3_FIRMWARE_PRIVATE_BUCKET_NAME}' key='{s3_key}'")
+                return _response(500, {"message": "A service exception occurred, please check the service logs for more detail."})
+            logger.exception(f"Service error checking firmware file: bucket='{S3_FIRMWARE_PRIVATE_BUCKET_NAME}' key='{s3_key}'")
+            return _response(500, {"message": "A service exception occurred, please check the service logs for more detail."})
+
         url = s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": S3_FIRMWARE_PRIVATE_BUCKET_NAME, "Key": s3_key},
@@ -70,4 +81,4 @@ def lambda_handler(event, context):
 
     except Exception:
         logger.exception("Unhandled exception")
-        return _response(500, {"message": "Internal server error"})
+        return _response(500, {"message": "A service exception occurred, please check the service logs for more detail."})
