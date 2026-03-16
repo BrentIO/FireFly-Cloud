@@ -45,20 +45,28 @@ jobs:
           fi
           echo "Emptying bucket: $BUCKET"
           aws s3 rm "s3://$BUCKET" --recursive || true
-          VERSIONS=$(aws s3api list-object-versions --bucket "$BUCKET" \
-            --query 'Versions[].{Key:Key,VersionId:VersionId}' --output json)
-          if [ "$VERSIONS" != "null" ] && [ "$VERSIONS" != "[]" ] && [ -n "$VERSIONS" ]; then
-            echo "Deleting versioned objects..."
-            aws s3api delete-objects --bucket "$BUCKET" \
-              --delete "{\"Objects\": $VERSIONS}"
-          fi
-          MARKERS=$(aws s3api list-object-versions --bucket "$BUCKET" \
-            --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output json)
-          if [ "$MARKERS" != "null" ] && [ "$MARKERS" != "[]" ] && [ -n "$MARKERS" ]; then
-            echo "Deleting delete markers..."
-            aws s3api delete-objects --bucket "$BUCKET" \
-              --delete "{\"Objects\": $MARKERS}"
-          fi
+          echo "Deleting versioned objects..."
+          while true; do
+            BATCH=$(aws s3api list-object-versions --bucket "$BUCKET" \
+              --max-items 500 \
+              --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+              --output json)
+            OBJECTS=$(echo "$BATCH" | jq -r '.Objects')
+            if [ "$OBJECTS" = "null" ] || [ "$OBJECTS" = "[]" ]; then break; fi
+            echo "$BATCH" > /tmp/batch.json
+            aws s3api delete-objects --bucket "$BUCKET" --delete file:///tmp/batch.json
+          done
+          echo "Deleting delete markers..."
+          while true; do
+            BATCH=$(aws s3api list-object-versions --bucket "$BUCKET" \
+              --max-items 500 \
+              --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
+              --output json)
+            OBJECTS=$(echo "$BATCH" | jq -r '.Objects')
+            if [ "$OBJECTS" = "null" ] || [ "$OBJECTS" = "[]" ]; then break; fi
+            echo "$BATCH" > /tmp/batch.json
+            aws s3api delete-objects --bucket "$BUCKET" --delete file:///tmp/batch.json
+          done
 
       - name: Delete s3-firmware
         run: |

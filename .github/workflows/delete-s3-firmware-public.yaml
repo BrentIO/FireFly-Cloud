@@ -32,6 +32,20 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Empty S3 firmware public bucket
+        run: |
+          BUCKET=$(aws cloudformation describe-stack-resource \
+            --stack-name firefly-s3-firmware-public \
+            --logical-resource-id FirmwarePublicBucket \
+            --query "StackResourceDetail.PhysicalResourceId" \
+            --output text 2>/dev/null || true)
+          if [ -z "$BUCKET" ] || [ "$BUCKET" = "None" ]; then
+            echo "Stack firefly-s3-firmware-public not found, skipping"
+            exit 0
+          fi
+          echo "Emptying bucket: $BUCKET"
+          aws s3 rm "s3://$BUCKET" --recursive || true
+
       - name: Delete s3-firmware-public
         run: |
           sam delete \
