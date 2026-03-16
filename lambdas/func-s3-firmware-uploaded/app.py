@@ -130,7 +130,7 @@ def lambda_handler(event, context):
 
             zip_sha256 = sha256_file(zip_path)
 
-            extract_dir = os.path.join(TMP_DIR, "unzipped")
+            extract_dir = os.path.join(TMP_DIR, uuid_name.replace(".zip", ""))
             os.makedirs(extract_dir, exist_ok=True)
 
             with zipfile.ZipFile(zip_path, "r") as z:
