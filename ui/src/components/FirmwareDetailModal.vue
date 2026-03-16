@@ -223,10 +223,10 @@ function transitionButtonClass(nextStatus) {
                 <div class="flex items-start justify-between p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                   <div class="flex flex-col gap-1">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {{ item.application }}
+                      {{ item.product_id }} ({{ formatClass(item.class) }}) &mdash; {{ item.branch }}
                     </h2>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                      {{ item.product_id }} &mdash; {{ item.branch }}
+                      {{ item.application }}
                     </p>
                   </div>
                   <button
@@ -366,26 +366,23 @@ function transitionButtonClass(nextStatus) {
                     </div>
                   </div>
 
-                  <!-- Delete button -->
-                  <div
-                    v-if="!NON_DELETABLE_STATES.has(item.release_status)"
-                    class="border-t border-gray-200 dark:border-gray-700 pt-4"
-                  >
-                    <button
-                      @click="requestDelete"
-                      class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
                 </div>
 
                 <!-- Footer -->
-                <div
-                  v-if="item.release_status !== 'DELETED'"
-                  class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end"
-                >
+                <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between gap-4">
+                  <!-- Left: Delete -->
                   <button
+                    v-if="!NON_DELETABLE_STATES.has(item.release_status)"
+                    @click="requestDelete"
+                    class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <div v-else />
+
+                  <!-- Right: Download ZIP -->
+                  <button
+                    v-if="item.release_status !== 'DELETED'"
                     @click="handleDownload"
                     :disabled="downloadLoading"
                     class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"

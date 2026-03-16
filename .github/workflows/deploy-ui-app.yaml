@@ -53,6 +53,7 @@ jobs:
         working-directory: ui
         env:
           VITE_API_URL: ${{ vars.API_URL }}
+          VITE_COMMIT_SHA: ${{ github.sha }}
         run: npm run build
 
       - name: Sync to S3
