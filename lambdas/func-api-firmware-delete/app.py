@@ -3,6 +3,7 @@ from shared.logging_config import configure_logger
 import json
 import boto3
 import os
+import time
 from boto3.dynamodb.conditions import Key
 
 logging_config = get_appconfig(profile="logging")
@@ -21,6 +22,9 @@ ERROR_PREFIX = "errors/"
 
 # These states indicate the S3 file has already been removed
 ALREADY_REMOVED_STATES = {"DELETED", "REVOKED", "RELEASED"}
+
+TTL_DAYS = 10
+TTL_SECONDS = TTL_DAYS * 24 * 3600
 
 
 def _response(status_code, body):
@@ -62,8 +66,17 @@ def lambda_handler(event, context):
 
         s3.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
 
-        # DynamoDB status update (DELETED) is handled asynchronously
-        # by func-s3-firmware-deleted, which is triggered by the S3 delete event above.
+        if release_status == "ERROR":
+            # ERROR records have no lifecycle events that would trigger func-s3-firmware-deleted,
+            # so update DynamoDB directly here rather than relying on the async S3 event.
+            expires_at = int(time.time()) + TTL_SECONDS
+            firmware_table.update_item(
+                Key={"pk": item["pk"], "version": item["version"]},
+                UpdateExpression="SET #ttl = :ttl, release_status = :rs",
+                ExpressionAttributeNames={"#ttl": "ttl"},
+                ExpressionAttributeValues={":ttl": expires_at, ":rs": "DELETED"},
+            )
+
         return _response(202, {"message": "Deletion initiated"})
 
     except Exception:
