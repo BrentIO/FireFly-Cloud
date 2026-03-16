@@ -20,12 +20,15 @@ import ConfirmModal from '../components/ConfirmModal.vue'
 import { listFirmware, patchFirmwareStatus, deleteFirmware } from '../api/firmware.js'
 import { useToast } from '../composables/useToast.js'
 import {
+  STATUS_LABELS,
   VALID_TRANSITIONS,
   ROLLBACK_TRANSITIONS,
   TRANSITION_BUTTON_LABELS,
   TRANSITIONS_REQUIRING_CONFIRM,
   NON_DELETABLE_STATES,
 } from '../utils/formatters.js'
+
+const ACTION_REQUIRED_STATES = new Set(['PROCESSING', 'READY_TO_TEST', 'TESTING', 'ERROR'])
 
 const route = useRoute()
 const router = useRouter()
@@ -38,6 +41,7 @@ const loading = ref(false)
 // ── Toolbar toggles ───────────────────────────────────────────────────────────
 const showDeleted = ref(false)
 const showReleased = ref(false)
+const hideActionRequired = ref(true)
 
 // ── Text filters ──────────────────────────────────────────────────────────────
 const filterApplication = ref('')
@@ -80,10 +84,13 @@ const filteredItems = computed(() => {
   let items = allItems.value
 
   if (!showDeleted.value) {
-    items = items.filter((i) => i.release_status !== 'DELETED')
+    items = items.filter((i) => i.release_status !== 'DELETED' && i.release_status !== 'REVOKED')
   }
   if (!showReleased.value) {
     items = items.filter((i) => i.release_status !== 'RELEASED')
+  }
+  if (!hideActionRequired.value) {
+    items = items.filter((i) => !ACTION_REQUIRED_STATES.has(i.release_status))
   }
   if (filterApplication.value.trim()) {
     const q = filterApplication.value.trim().toLowerCase()
@@ -145,7 +152,7 @@ const pageNumbers = computed(() => {
 
 // Reset to page 1 when filters change
 watch(
-  [showDeleted, showReleased, filterApplication, filterProductId, filterVersion, pageSize],
+  [showDeleted, showReleased, hideActionRequired, filterApplication, filterProductId, filterVersion, pageSize],
   () => {
     currentPage.value = 1
   }
@@ -189,7 +196,7 @@ async function executeMenuTransition(item, nextStatus) {
   confirmOpen.value = false
   try {
     await patchFirmwareStatus(item.zip_name, nextStatus)
-    success(`Status updated to ${nextStatus}.`)
+    success(`Status updated to ${STATUS_LABELS[nextStatus] || nextStatus}.`)
     await fetchFirmware()
   } catch (err) {
     error(`Failed to update status: ${err.message}`, err)
@@ -249,42 +256,57 @@ async function onDetailChanged() {
     <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
       <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Firmware</h1>
 
-      <div class="flex items-center gap-4 flex-wrap">
-        <!-- Show Deleted toggle -->
-        <label class="flex items-center gap-2 cursor-pointer select-none">
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Show Deleted/Revoked toggle -->
+        <div class="flex items-center gap-1.5 cursor-pointer select-none" @click="showDeleted = !showDeleted">
           <span class="text-sm text-gray-600 dark:text-gray-400">Show Deleted</span>
           <button
             type="button"
             role="switch"
             :aria-checked="showDeleted"
-            @click="showDeleted = !showDeleted"
-            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
             :class="showDeleted ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'"
           >
             <span
-              class="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform"
-              :class="showDeleted ? 'translate-x-4.5' : 'translate-x-0.5'"
+              class="pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform"
+              :class="showDeleted ? 'translate-x-5' : 'translate-x-0.5'"
             />
           </button>
-        </label>
+        </div>
 
         <!-- Show Released toggle -->
-        <label class="flex items-center gap-2 cursor-pointer select-none">
+        <div class="flex items-center gap-1.5 cursor-pointer select-none" @click="showReleased = !showReleased">
           <span class="text-sm text-gray-600 dark:text-gray-400">Show Released</span>
           <button
             type="button"
             role="switch"
             :aria-checked="showReleased"
-            @click="showReleased = !showReleased"
-            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
             :class="showReleased ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'"
           >
             <span
-              class="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform"
-              :class="showReleased ? 'translate-x-4.5' : 'translate-x-0.5'"
+              class="pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform"
+              :class="showReleased ? 'translate-x-5' : 'translate-x-0.5'"
             />
           </button>
-        </label>
+        </div>
+
+        <!-- Hide Action Required toggle -->
+        <div class="flex items-center gap-1.5 cursor-pointer select-none" @click="hideActionRequired = !hideActionRequired">
+          <span class="text-sm text-gray-600 dark:text-gray-400">Hide Action Required</span>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="hideActionRequired"
+            class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            :class="hideActionRequired ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'"
+          >
+            <span
+              class="pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform"
+              :class="hideActionRequired ? 'translate-x-5' : 'translate-x-0.5'"
+            />
+          </button>
+        </div>
 
         <!-- Refresh -->
         <button
