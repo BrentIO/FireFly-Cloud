@@ -40,7 +40,7 @@ revoked_version_ota_items (function)
 multi_application_ota_items (module)
     One product_id with two applications:
       application="test":       v1/v2/v3 RELEASED
-      application="Controller": v1 RELEASED
+      application="test2": v1 RELEASED
     Used to verify that OTA responses are scoped to the requested application.
 """
 
@@ -496,7 +496,7 @@ def multi_application_ota_items():
     """
     Creates one product_id with firmware for two different applications:
       - application="test":       versions v1, v2, v3 — all RELEASED
-      - application="Controller": version v1 only — RELEASED
+      - application="test2": version v1 only — RELEASED
 
     Used to verify that the OTA endpoint scopes results to the requested
     application and does not leak firmware across applications on the same
@@ -512,7 +512,7 @@ def multi_application_ota_items():
     test_v1 = _upload_and_wait(OTA_SEQ_V1, product_id, application="test")
     test_v2 = _upload_and_wait(OTA_SEQ_V2, product_id, application="test")
     test_v3 = _upload_and_wait(OTA_SEQ_V3, product_id, application="test")
-    ctrl_v1 = _upload_and_wait(OTA_SEQ_V1, product_id, application="Controller")
+    ctrl_v1 = _upload_and_wait(OTA_SEQ_V1, product_id, application="test2")
 
     for item in (test_v1, test_v2, test_v3, ctrl_v1):
         _release_item(item["zip_name"])
