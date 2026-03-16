@@ -43,7 +43,7 @@ const { toggleTheme, isDark } = useTheme()
     <NavDrawer :open="navOpen" @close="navOpen = false" />
 
     <!-- Page content -->
-    <main class="flex-1 overflow-y-auto p-4 sm:p-6">
+    <main class="flex-1 overflow-hidden flex flex-col p-4 sm:p-6">
       <slot />
     </main>
   </div>

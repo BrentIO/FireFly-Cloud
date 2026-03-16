@@ -253,7 +253,7 @@ async function onDetailChanged() {
 <template>
   <AppLayout>
     <!-- Toolbar -->
-    <div class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-950 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-4 mb-0 flex items-center justify-between flex-wrap gap-3">
+    <div class="flex-shrink-0 flex items-center justify-between pb-4 flex-wrap gap-3">
       <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Firmware</h1>
 
       <div class="flex items-center gap-3 flex-wrap">
@@ -321,12 +321,12 @@ async function onDetailChanged() {
     </div>
 
     <!-- Table card -->
-    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-      <div class="overflow-x-auto">
+    <div class="flex flex-col flex-1 min-h-0 bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
+      <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0">
         <table class="w-full text-sm">
-          <thead>
+          <thead class="sticky top-0 z-10">
             <!-- Filter row -->
-            <tr class="border-b border-gray-200 dark:border-gray-700">
+            <tr class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
               <td class="px-4 py-2">
                 <input
                   v-model="filterApplication"
