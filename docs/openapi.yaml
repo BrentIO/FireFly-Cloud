@@ -140,33 +140,66 @@ paths:
       summary: Get OTA firmware manifest
       description: |
         Returns an [esp32FOTA](https://github.com/BrentIO/esp32FOTA)-compatible
-        manifest for the latest `RELEASED` firmware matching the given `product_id`
-        and `application`. The response includes URLs to download the firmware
-        binaries from the CloudFront distribution.
+        manifest for the next `RELEASED` firmware version the device should install.
+        The `current_version` query parameter is required.
 
-        If multiple `RELEASED` builds exist for the same product and application,
-        the most recently processed build is returned.
+        The endpoint returns the oldest `RELEASED` version whose version string is
+        strictly greater than `current_version`. If the device is already on the
+        latest released version, `200 OK` is returned with the same version manifest
+        (the esp32FOTA library uses `semver_compare` to detect no-update; it treats
+        any non-200 response as an error). Returns `409 Conflict` if the device's
+        current version is no longer `RELEASED` (revoked) and no newer version exists.
 
-        Returns `404 Not Found` if no released firmware exists for the given
-        `product_id` and `application` combination.
+        Returns `404 Not Found` if no `RELEASED` firmware exists at all for the
+        given `product_id` and `application` combination.
+
+        See the [OTA Update Flow](/cloud/ota_update_flow) for full scenario documentation.
       operationId: getOtaManifest
       parameters:
         - $ref: '#/components/parameters/ProductIdPath'
         - $ref: '#/components/parameters/ApplicationPath'
+        - name: current_version
+          in: query
+          required: true
+          description: |
+            The firmware version string currently running on the device (e.g. `2026.03.01`).
+            Used to determine the next version in the sequential update chain.
+          schema:
+            $ref: '#/components/schemas/Version'
       responses:
         '200':
-          description: OTA manifest for the latest released firmware
+          description: |
+            OTA manifest. If `version` matches `current_version`, the device is
+            already up to date and no download will occur.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OtaManifest'
               example:
                 type: "FireFly Controller"
-                version: "2026.03.001"
-                url: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/Controller.ino.bin"
-                littlefs: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/www.bin"
+                version: "2026.03.01"
+                url: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/Controller.ino.bin"
+                littlefs: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/www.bin"
+        '400':
+          description: Missing required query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "current_version is required"
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            Device's current version is no longer RELEASED (revoked) and no newer
+            RELEASED version is available. Manual intervention is required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Current version '2026.03.01' is no longer released and no newer version is available"
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -525,11 +558,11 @@ components:
         url:
           type: string
           description: CloudFront URL to the main application firmware binary.
-          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/Controller.ino.bin"
+          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/Controller.ino.bin"
         littlefs:
           type: string
           description: CloudFront URL to the LittleFS partition image. Omitted if no LittleFS image is present in the firmware.
-          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.001/www.bin"
+          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/www.bin"
 
     DownloadResponse:
       type: object

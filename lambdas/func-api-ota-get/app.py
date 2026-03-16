@@ -45,7 +45,16 @@ def lambda_handler(event, context):
         product_id = path_params.get("product_id")
         application = path_params.get("application")
 
-        logger.debug(f"GET OTA product_id='{product_id}' application='{application}'")
+        query_params = event.get("queryStringParameters") or {}
+        current_version = query_params.get("current_version")
+
+        if not current_version:
+            return _response(400, {"message": "current_version is required"})
+
+        logger.debug(
+            f"GET OTA product_id='{product_id}' application='{application}' "
+            f"current_version='{current_version}'"
+        )
 
         pk = f"{product_id}#{application}"
 
@@ -61,8 +70,24 @@ def lambda_handler(event, context):
                 "message": f"No released firmware found for product_id='{product_id}' application='{application}'"
             })
 
-        # Select the most recently processed build.
-        item = max(items, key=lambda x: x.get("uploaded_at", 0))
+        # Find the oldest RELEASED version strictly greater than current_version.
+        # Version strings use YYYY.MM.bb format which sorts correctly lexicographically.
+        later = [i for i in items if i.get("version", "") > current_version]
+        if later:
+            item = min(later, key=lambda x: x.get("version", ""))
+        else:
+            # No newer version — check if current_version is still RELEASED.
+            current_item = next((i for i in items if i.get("version") == current_version), None)
+            if current_item:
+                # Device is up to date. Return the same version manifest so the
+                # esp32FOTA library receives 200 OK and semver_compare returns 0 (no update).
+                item = current_item
+            else:
+                # current_version is no longer RELEASED (revoked) and nothing newer exists.
+                return _response(409, {
+                    "message": f"Current version '{current_version}' is no longer released and no newer version is available"
+                })
+
         version = item["version"]
         files = item.get("files", [])
 
