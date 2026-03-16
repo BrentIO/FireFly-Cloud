@@ -32,6 +32,38 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Empty S3 firmware public bucket
+        env:
+          TARGET_ENV: ${{ inputs.target_env }}
+        run: |
+          python3 << 'PYEOF'
+          import subprocess, sys, os
+          import boto3
+          from botocore.exceptions import ClientError
+
+          cf = boto3.client('cloudformation')
+          try:
+            r = cf.describe_stack_resource(
+              StackName='firefly-s3-firmware-public',
+              LogicalResourceId='FirmwarePublicBucket')
+            bucket = r['StackResourceDetail']['PhysicalResourceId']
+          except ClientError as e:
+            if e.response['Error']['Code'] in ('ValidationError', 'ResourceNotFoundException'):
+              print('Stack firefly-s3-firmware-public not found, skipping')
+              sys.exit(0)
+            raise
+
+          print(f'Checking bucket contents: {bucket}')
+          s3 = boto3.client('s3')
+          resp = s3.list_objects_v2(Bucket=bucket, MaxKeys=1)
+          if resp.get('KeyCount', 0) > 0 and os.environ.get('TARGET_ENV') == 'production':
+            print(f"ERROR: Production firmware public bucket '{bucket}' is not empty. Refusing to empty.")
+            sys.exit(1)
+
+          print(f'Emptying bucket: {bucket}')
+          subprocess.run(['aws', 's3', 'rm', f's3://{bucket}', '--recursive'])
+          PYEOF
+
       - name: Delete s3-firmware-public
         run: |
           sam delete \
