@@ -53,24 +53,22 @@ jobs:
           aws s3 rm "s3://$BUCKET" --recursive || true
           echo "Deleting versioned objects..."
           while true; do
-            BATCH=$(aws s3api list-object-versions --bucket "$BUCKET" \
-              --max-items 500 \
-              --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
-              --output json)
-            OBJECTS=$(echo "$BATCH" | jq -r '.Objects')
-            if [ "$OBJECTS" = "null" ] || [ "$OBJECTS" = "[]" ]; then break; fi
-            echo "$BATCH" > /tmp/batch.json
+            RAW=$(aws s3api list-object-versions --bucket "$BUCKET" \
+              --max-items 500 --output json)
+            FILTERED=$(echo "$RAW" | jq '{Objects: [(.Versions // [])[] | select(.VersionId != null) | {Key:.Key,VersionId:.VersionId}]}')
+            COUNT=$(echo "$FILTERED" | jq '.Objects | length')
+            if [ "$COUNT" = "0" ]; then break; fi
+            echo "$FILTERED" > /tmp/batch.json
             aws s3api delete-objects --bucket "$BUCKET" --delete file:///tmp/batch.json
           done
           echo "Deleting delete markers..."
           while true; do
-            BATCH=$(aws s3api list-object-versions --bucket "$BUCKET" \
-              --max-items 500 \
-              --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
-              --output json)
-            OBJECTS=$(echo "$BATCH" | jq -r '.Objects')
-            if [ "$OBJECTS" = "null" ] || [ "$OBJECTS" = "[]" ]; then break; fi
-            echo "$BATCH" > /tmp/batch.json
+            RAW=$(aws s3api list-object-versions --bucket "$BUCKET" \
+              --max-items 500 --output json)
+            FILTERED=$(echo "$RAW" | jq '{Objects: [(.DeleteMarkers // [])[] | select(.VersionId != null) | {Key:.Key,VersionId:.VersionId}]}')
+            COUNT=$(echo "$FILTERED" | jq '.Objects | length')
+            if [ "$COUNT" = "0" ]; then break; fi
+            echo "$FILTERED" > /tmp/batch.json
             aws s3api delete-objects --bucket "$BUCKET" --delete file:///tmp/batch.json
           done
 
