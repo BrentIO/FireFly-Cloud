@@ -38,7 +38,7 @@ export const VALID_TRANSITIONS = {
 }
 
 export const TRANSITION_BUTTON_LABELS = {
-  READY_TO_TEST: 'Move Back to Ready to Test',
+  READY_TO_TEST: 'Move Back to "Ready to Test"',
   TESTING: 'Move to Testing',
   RELEASED: 'Release',
   REVOKED: 'Revoke',

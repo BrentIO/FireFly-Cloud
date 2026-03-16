@@ -81,11 +81,13 @@ const commitSha = import.meta.env.VITE_COMMIT_SHA || null
             <!-- Spacer -->
             <div class="flex-1" />
 
-            <!-- Commit SHA + Logout -->
-            <div class="px-3 py-4 border-t border-gray-200 dark:border-gray-700 space-y-1">
-              <p v-if="commitSha" class="px-3 text-xs font-mono text-gray-400 dark:text-gray-500 select-all">
-                Commit: {{ commitSha.slice(0, 8) }}
-              </p>
+            <!-- Commit SHA -->
+            <p v-if="commitSha" class="px-6 pb-2 text-[10px] font-mono text-gray-400 dark:text-gray-600 select-all">
+              Commit: {{ commitSha.slice(0, 8) }}
+            </p>
+
+            <!-- Logout -->
+            <div class="px-3 py-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 @click="logout()"
                 class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
