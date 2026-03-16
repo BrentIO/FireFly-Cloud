@@ -52,7 +52,7 @@ const commitSha = import.meta.env.VITE_COMMIT_SHA || null
           >
             <!-- Header -->
             <div class="flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-700">
-              <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">FireFly Management Console</span>
+              <span />
               <button
                 @click="emit('close')"
                 class="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -84,7 +84,7 @@ const commitSha = import.meta.env.VITE_COMMIT_SHA || null
             <!-- Commit SHA + Logout -->
             <div class="px-3 py-4 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <p v-if="commitSha" class="px-3 text-xs font-mono text-gray-400 dark:text-gray-500 select-all">
-                {{ commitSha.slice(0, 8) }}
+                Commit: {{ commitSha.slice(0, 8) }}
               </p>
               <button
                 @click="logout()"

@@ -21,6 +21,7 @@ import {
   formatBytes,
   formatClass,
   formatAbsoluteDate,
+  STATUS_LABELS,
   VALID_TRANSITIONS,
   ROLLBACK_TRANSITIONS,
   TRANSITION_BUTTON_LABELS,
@@ -113,7 +114,7 @@ async function executeTransition(nextStatus) {
   confirmOpen.value = false
   try {
     await patchFirmwareStatus(props.zipName, nextStatus)
-    success(`Status updated to ${nextStatus}.`)
+    success(`Status updated to ${STATUS_LABELS[nextStatus] || nextStatus}.`)
     await loadItem()
     emit('changed')
   } catch (err) {
