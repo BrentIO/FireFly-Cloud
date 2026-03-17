@@ -9,7 +9,7 @@ const { toggleTheme, isDark } = useTheme()
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
+  <div class="h-dvh flex flex-col bg-gray-50 dark:bg-gray-950">
     <!-- Header -->
     <header class="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 h-14 flex items-center">
       <div class="flex items-center justify-between w-full">
