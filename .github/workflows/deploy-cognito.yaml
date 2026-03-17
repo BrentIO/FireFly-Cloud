@@ -48,7 +48,20 @@ jobs:
             --output text)
           echo "presignup_arn=$ARN" >> $GITHUB_OUTPUT
 
+      - name: Delete stack if in ROLLBACK_COMPLETE
+        run: |
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
+            echo "Stack is in ROLLBACK_COMPLETE — deleting before redeploy"
+            aws cloudformation delete-stack --stack-name firefly-cognito
+            aws cloudformation wait stack-delete-complete --stack-name firefly-cognito
+          fi
+
       - name: Deploy cognito
+        id: deploy
         run: |
           aws cloudformation deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
@@ -63,6 +76,14 @@ jobs:
               UiCallbackUrl=https://${{ vars.UI_DOMAIN_NAME }}/callback \
               UiLogoutUrl=https://${{ vars.UI_DOMAIN_NAME }}/login \
               PreSignUpLambdaArn=${{ steps.lookup-presignup.outputs.presignup_arn }}
+
+      - name: Print stack events on failure
+        if: failure() && steps.deploy.outcome == 'failure'
+        run: |
+          aws cloudformation describe-stack-events \
+            --stack-name firefly-cognito \
+            --query "StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED'].{Resource:LogicalResourceId,Status:ResourceStatus,Reason:ResourceStatusReason}" \
+            --output table
 
       - name: Create Route 53 alias for Cognito custom domain
         run: |
