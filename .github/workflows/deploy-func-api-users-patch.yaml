@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-firmware-delete
+name: 🚀 Deploy func-api-users-patch
 on:
   workflow_dispatch:
     inputs:
@@ -23,7 +23,7 @@ on:
         default: false
 
 jobs:
-  deploy-func-api-firmware-delete:
+  deploy-func-api-users-patch:
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
@@ -42,7 +42,7 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
-      - name: Look up API Gateway ID for firefly-api-gateway
+      - name: Look up API Gateway ID
         id: lookup-api
         run: |
           API_ID=$(aws cloudformation describe-stacks \
@@ -60,19 +60,27 @@ jobs:
             --output text)
           echo "authorizer_id=$AUTH_ID" >> $GITHUB_OUTPUT
 
-      - name: Deploy func-api-firmware-delete
+      - name: Look up Cognito User Pool ID
+        id: lookup-cognito
+        run: |
+          POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" \
+            --output text)
+          echo "user_pool_id=$POOL_ID" >> $GITHUB_OUTPUT
+
+      - name: Deploy func-api-users-patch
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file lambdas/func-api-firmware-delete/template.yaml \
-            --stack-name firefly-func-api-firmware-delete \
+            --template-file lambdas/func-api-users-patch/template.yaml \
+            --stack-name firefly-func-api-users-patch \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
-              DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
-              FirmwareBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
+              CognitoUserPoolId=${{ steps.lookup-cognito.outputs.user_pool_id }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
@@ -80,7 +88,7 @@ jobs:
 
   run-integration-tests:
     if: inputs.run_tests
-    needs: deploy-func-api-firmware-delete
+    needs: deploy-func-api-users-patch
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:

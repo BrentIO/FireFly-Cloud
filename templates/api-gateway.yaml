@@ -19,6 +19,14 @@ Parameters:
     Type: String
     Description: Full UI origin URL for CORS (e.g., https://example.com)
 
+  CognitoUserPoolId:
+    Type: String
+    Description: ID of the Cognito User Pool (for JWT authorizer)
+
+  CognitoUserPoolClientId:
+    Type: String
+    Description: App client ID of the Cognito User Pool (for JWT authorizer audience)
+
 Resources:
 
   ApiAccessLogGroup:
@@ -115,6 +123,19 @@ Resources:
       RouteKey: OPTIONS /{proxy+}
       Target: !Sub integrations/${FuncApiOptionsHandlerIntegration.IntegrationId}
 
+  CognitoJwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref ApiGateway
+      AuthorizerType: JWT
+      IdentitySource:
+        - $request.header.Authorization
+      Name: cognito-jwt-authorizer
+      JwtConfiguration:
+        Audience:
+          - !Ref CognitoUserPoolClientId
+        Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+
   FuncApiOptionsHandlerPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -131,3 +152,7 @@ Outputs:
   ApiId:
     Description: ID of the HTTP API
     Value: !Ref ApiGateway
+
+  AuthorizerId:
+    Description: ID of the Cognito JWT authorizer
+    Value: !Ref CognitoJwtAuthorizer

@@ -19,6 +19,10 @@ Parameters:
     Type: String
     Description: Name of the public S3 bucket for OTA firmware delivery
 
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
   EnvironmentName:
     Type: String
 
@@ -102,6 +106,8 @@ Resources:
     Properties:
       ApiId: !Ref ApiId
       RouteKey: PATCH /firmware/{zip_name}/status
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
       Target: !Sub integrations/${FuncApiFirmwareStatusPatchIntegration.IntegrationId}
 
   FuncApiFirmwareStatusPatchPermission:

@@ -18,7 +18,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 const route = useRoute()
-const { logout } = useAuth()
+const { logout, isSuperUser } = useAuth()
 const commitSha = import.meta.env.VITE_COMMIT_SHA || null
 </script>
 
@@ -75,6 +75,20 @@ const commitSha = import.meta.env.VITE_COMMIT_SHA || null
                 "
               >
                 Firmware
+              </RouterLink>
+
+              <RouterLink
+                v-if="isSuperUser"
+                to="/users"
+                @click="emit('close')"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                :class="
+                  route.path.startsWith('/users')
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                "
+              >
+                Users
               </RouterLink>
             </nav>
 

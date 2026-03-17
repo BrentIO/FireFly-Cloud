@@ -97,7 +97,11 @@ const emit = defineEmits(['confirm', 'cancel'])
                   type="button"
                   @click="emit('confirm')"
                   class="px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors min-h-[44px]"
-                  :class="variant === 'success' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'"
+                  :class="{
+                    'bg-green-600 hover:bg-green-700': variant === 'success',
+                    'bg-amber-500 hover:bg-amber-600': variant === 'warning',
+                    'bg-red-600 hover:bg-red-700':     variant === 'danger' || !['success','warning'].includes(variant),
+                  }"
                 >
                   {{ confirmLabel }}
                 </button>

@@ -1,0 +1,55 @@
+name: 🚀 Deploy cognito
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+
+jobs:
+  deploy-cognito:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Look up pre-signup Lambda ARN
+        id: lookup-presignup
+        run: |
+          ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-func-cognito-pre-signup \
+            --query "Stacks[0].Outputs[?OutputKey=='FuncCognitoPreSignupArn'].OutputValue" \
+            --output text)
+          echo "presignup_arn=$ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy cognito
+        run: |
+          aws cloudformation deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file templates/cognito.yaml \
+            --stack-name firefly-cognito \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              CognitoUserPoolDomainPrefix=${{ vars.COGNITO_USER_POOL_DOMAIN_PREFIX }} \
+              GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID }} \
+              GoogleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }} \
+              UiCallbackUrl=${{ vars.UI_CALLBACK_URL }} \
+              UiLogoutUrl=${{ vars.UI_LOGOUT_URL }} \
+              PreSignUpLambdaArn=${{ steps.lookup-presignup.outputs.presignup_arn }}

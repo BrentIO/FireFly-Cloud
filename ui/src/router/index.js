@@ -1,16 +1,25 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginView from '../views/LoginView.vue'
+import LoginView    from '../views/LoginView.vue'
+import CallbackView from '../views/CallbackView.vue'
 import FirmwareView from '../views/FirmwareView.vue'
+import UsersView    from '../views/UsersView.vue'
+import { useAuth }  from '../composables/useAuth.js'
 
 const routes = [
   {
     path: '/',
-    redirect: '/login',
+    redirect: '/firmware',
   },
   {
     path: '/login',
     name: 'login',
     component: LoginView,
+    meta: { public: true },
+  },
+  {
+    path: '/callback',
+    name: 'callback',
+    component: CallbackView,
     meta: { public: true },
   },
   {
@@ -23,6 +32,11 @@ const routes = [
     name: 'firmware-detail',
     component: FirmwareView,
   },
+  {
+    path: '/users',
+    name: 'users',
+    component: UsersView,
+  },
 ]
 
 const router = createRouter({
@@ -30,16 +44,14 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, from, next) => {
-  const isAuthenticated = !!sessionStorage.getItem('firefly_authenticated')
+router.beforeEach(async (to) => {
+  if (to.meta.public) return true
 
-  if (!to.meta.public && !isAuthenticated) {
-    next('/login')
-  } else if (to.path === '/login' && isAuthenticated) {
-    next('/firmware')
-  } else {
-    next()
-  }
+  const auth = useAuth()
+  const ok   = await auth.ensureAuthenticated()
+
+  if (!ok) return '/login'
+  return true
 })
 
 export default router
