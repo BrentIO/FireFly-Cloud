@@ -33,10 +33,9 @@ jobs:
       - name: Look up ACM certificate ARN
         id: lookup-cert
         run: |
-          CERT_ARN=$(aws acm list-certificates \
-            --region ${{ secrets.AWS_REGION }} \
-            --certificate-statuses ISSUED \
-            --query "CertificateSummaryList[?DomainName=='${{ vars.CERTIFICATE_DOMAIN_NAME }}'].CertificateArn" \
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-acm-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
             --output text)
           echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
 
