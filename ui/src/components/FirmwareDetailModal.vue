@@ -56,6 +56,7 @@ const confirmTitle = ref('')
 const confirmMessage = ref('')
 const confirmDetails = ref(null)
 const confirmVariant = ref('danger')
+const confirmLabel = ref('Confirm')
 const confirmAction = ref(null)
 
 async function loadItem() {
@@ -103,6 +104,7 @@ function requestTransition(nextStatus) {
       Commit: item.value.commit,
     } : null
     confirmVariant.value = nextStatus === 'RELEASED' ? 'success' : 'danger'
+    confirmLabel.value = TRANSITION_BUTTON_LABELS[nextStatus] || 'Confirm'
     confirmAction.value = () => executeTransition(nextStatus)
     confirmOpen.value = true
   } else {
@@ -133,6 +135,7 @@ function requestDelete() {
     'ZIP Name': item.value.zip_name,
   }
   confirmVariant.value = 'danger'
+  confirmLabel.value = 'Delete'
   confirmAction.value = () => executeDelete()
   confirmOpen.value = true
 }
@@ -416,6 +419,7 @@ function transitionButtonClass(nextStatus) {
     :message="confirmMessage"
     :details="confirmDetails"
     :variant="confirmVariant"
+    :confirm-label="confirmLabel"
     @confirm="handleConfirm"
     @cancel="handleCancel"
   />
