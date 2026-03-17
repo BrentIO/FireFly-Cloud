@@ -72,7 +72,12 @@ jobs:
                        for x in resp.get(field, []) if x.get('VersionId')]
               if not items:
                 break
-              s3.delete_objects(Bucket=bucket, Delete={'Objects': items})
+              result = s3.delete_objects(Bucket=bucket, Delete={'Objects': items})
+              errors = result.get('Errors', [])
+              if errors:
+                for err in errors:
+                  print(f"ERROR: Failed to delete {err['Key']} (VersionId={err.get('VersionId')}): {err['Code']} - {err['Message']}")
+                sys.exit(1)
 
           print('Bucket emptied successfully')
           PYEOF
