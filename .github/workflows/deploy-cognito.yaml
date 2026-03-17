@@ -34,6 +34,7 @@ jobs:
         id: lookup-cert
         run: |
           CERT_ARN=$(aws acm list-certificates \
+            --region us-east-1 \
             --certificate-statuses ISSUED \
             --query "CertificateSummaryList[?DomainName=='${{ vars.CERTIFICATE_DOMAIN_NAME }}'].CertificateArn" \
             --output text)
