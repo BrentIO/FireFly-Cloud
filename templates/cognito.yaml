@@ -5,11 +5,18 @@ Description: >
 
 Parameters:
 
-  CognitoUserPoolDomainPrefix:
+  AuthDomainName:
     Type: String
     Description: >
-      Unique prefix for the Cognito hosted UI domain.
-      Full domain will be: {prefix}.auth.{region}.amazoncognito.com
+      Custom domain for the Cognito hosted UI (e.g., auth.example.com).
+      A Route 53 alias record pointing to the Cognito-managed CloudFront
+      distribution must be created after the stack is deployed.
+
+  CertificateArn:
+    Type: String
+    Description: >
+      ARN of the ACM certificate covering AuthDomainName.
+      Must be in us-east-1.
 
   GoogleClientId:
     Type: String
@@ -133,8 +140,10 @@ Resources:
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
-      Domain: !Ref CognitoUserPoolDomainPrefix
+      Domain: !Ref AuthDomainName
       UserPoolId: !Ref UserPool
+      CustomDomainConfig:
+        CertificateArn: !Ref CertificateArn
 
   SuperUsersGroup:
     Type: AWS::Cognito::UserPoolGroup
@@ -158,7 +167,7 @@ Outputs:
       Name: firefly-cognito-user-pool-client-id
 
   UserPoolDomain:
-    Description: Cognito hosted UI domain (without https://)
-    Value: !Sub ${CognitoUserPoolDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+    Description: Cognito hosted UI custom domain (without https://)
+    Value: !Ref AuthDomainName
     Export:
       Name: firefly-cognito-user-pool-domain
