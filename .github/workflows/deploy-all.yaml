@@ -28,6 +28,12 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-acm-cognito:
+    uses: ./.github/workflows/deploy-acm-cognito.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-func-cognito-pre-signup:
     needs: deploy-dynamodb-users
     uses: ./.github/workflows/deploy-func-cognito-pre-signup.yaml
@@ -36,7 +42,9 @@ jobs:
       target_env: ${{ inputs.target_env }}
 
   deploy-cognito:
-    needs: deploy-func-cognito-pre-signup
+    needs:
+      - deploy-acm-cognito
+      - deploy-func-cognito-pre-signup
     uses: ./.github/workflows/deploy-cognito.yaml
     secrets: inherit
     with:
