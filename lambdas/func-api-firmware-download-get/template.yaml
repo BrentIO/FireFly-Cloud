@@ -15,6 +15,10 @@ Parameters:
     Type: String
     Description: Name of the private S3 firmware bucket
 
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
   EnvironmentName:
     Type: String
 
@@ -89,6 +93,8 @@ Resources:
     Properties:
       ApiId: !Ref ApiId
       RouteKey: GET /firmware/{zip_name}/download
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
       Target: !Sub integrations/${FuncApiFirmwareDownloadGetIntegration.IntegrationId}
 
   FuncApiFirmwareDownloadGetPermission:

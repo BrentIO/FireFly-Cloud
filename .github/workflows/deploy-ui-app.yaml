@@ -43,6 +43,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Look up Cognito Client ID
+        id: lookup-cognito
+        run: |
+          CLIENT_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
+            --output text)
+          echo "client_id=$CLIENT_ID" >> $GITHUB_OUTPUT
+
       - name: Install dependencies
         working-directory: ui
         run: npm ci
@@ -52,6 +61,9 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.API_URL }}
           VITE_COMMIT_SHA: ${{ github.sha }}
+          VITE_COGNITO_DOMAIN: https://${{ vars.AUTH_DOMAIN_NAME }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
+          VITE_COGNITO_REDIRECT_URI: https://${{ vars.UI_DOMAIN_NAME }}/callback
         run: npm run build
 
       - name: Sync to S3

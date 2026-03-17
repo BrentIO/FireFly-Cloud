@@ -252,6 +252,35 @@
                 "ssm:GetParameters"
             ],
             "Resource": "arn:aws:ssm:AWS_REGION:AWS_ACCOUNT_ID:parameter/firefly/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cognito-idp:CreateUserPool",
+                "cognito-idp:UpdateUserPool",
+                "cognito-idp:DeleteUserPool",
+                "cognito-idp:DescribeUserPool",
+                "cognito-idp:CreateUserPoolClient",
+                "cognito-idp:UpdateUserPoolClient",
+                "cognito-idp:DeleteUserPoolClient",
+                "cognito-idp:DescribeUserPoolClient",
+                "cognito-idp:CreateUserPoolDomain",
+                "cognito-idp:UpdateUserPoolDomain",
+                "cognito-idp:DeleteUserPoolDomain",
+                "cognito-idp:DescribeUserPoolDomain",
+                "cognito-idp:CreateGroup",
+                "cognito-idp:GetGroup",
+                "cognito-idp:DeleteGroup",
+                "cognito-idp:CreateIdentityProvider",
+                "cognito-idp:UpdateIdentityProvider",
+                "cognito-idp:DeleteIdentityProvider",
+                "cognito-idp:DescribeIdentityProvider",
+                "cognito-idp:GetUserPoolMfaConfig",
+                "cognito-idp:SetUserPoolMfaConfig",
+                "cognito-idp:TagResource",
+                "cognito-idp:UntagResource"
+            ],
+            "Resource": "*"
         }
     ]
 }

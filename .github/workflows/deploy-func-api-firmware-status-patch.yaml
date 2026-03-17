@@ -49,8 +49,16 @@ jobs:
             --stack-name firefly-api-gateway \
             --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
             --output text)
-
           echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+
+      - name: Look up Authorizer ID
+        id: lookup-auth
+        run: |
+          AUTH_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-api-gateway \
+            --query "Stacks[0].Outputs[?OutputKey=='AuthorizerId'].OutputValue" \
+            --output text)
+          echo "authorizer_id=$AUTH_ID" >> $GITHUB_OUTPUT
 
       - name: Deploy func-api-firmware-status-patch
         run: |
@@ -62,6 +70,7 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
+              AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               FirmwarePrivateBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               FirmwarePublicBucketName=${{ secrets.S3_FIRMWARE_PUBLIC_BUCKET_NAME }} \

@@ -13,6 +13,10 @@ Optional environment variables:
                            fixed TEST_PRODUCT_ID and '__UNKNOWN_PRODUCT__'. Records in
                            RELEASED state are transitioned to REVOKED first (sets DynamoDB
                            TTL); REVOKED/DELETED records are left for TTL auto-expiry.
+  FIREFLY_COGNITO_USER_POOL_ID   Cognito User Pool ID (required for auth tests)
+  FIREFLY_COGNITO_CLIENT_ID      Cognito App Client ID (required for auth tests)
+  FIREFLY_TEST_USER_EMAIL        Email of the test Cognito user (AdminCreateUser)
+  FIREFLY_TEST_USER_PASSWORD     Temporary password of the test Cognito user
 
 AWS credentials must be available via the standard boto3 credential chain
 (environment variables, ~/.aws/credentials, IAM role, etc.).
@@ -42,6 +46,10 @@ multi_application_ota_items (module)
       application="test":       v1/v2/v3 RELEASED
       application="test2": v1 RELEASED
     Used to verify that OTA responses are scoped to the requested application.
+
+auth_headers (session)
+    {"Authorization": "Bearer <access_token>"} for the test Cognito user.
+    Skipped when Cognito env vars are not set.
 """
 
 import hashlib
@@ -60,6 +68,11 @@ import requests
 API_URL = os.environ.get("FIREFLY_API_URL", "https://api.p5software.com")
 FIRMWARE_BUCKET = os.environ.get("FIREFLY_FIRMWARE_BUCKET")
 UI_URL = os.environ.get("FIREFLY_UI_URL", "")
+
+COGNITO_USER_POOL_ID = os.environ.get("FIREFLY_COGNITO_USER_POOL_ID")
+COGNITO_CLIENT_ID    = os.environ.get("FIREFLY_COGNITO_CLIENT_ID")
+TEST_USER_EMAIL      = os.environ.get("FIREFLY_TEST_USER_EMAIL")
+TEST_USER_PASSWORD   = os.environ.get("FIREFLY_TEST_USER_PASSWORD")
 
 # Unique product_id so test records are easily identifiable and filterable.
 TEST_PRODUCT_ID = "firefly-integration-test"
@@ -211,11 +224,13 @@ def _upload_and_wait(
         Body=zip_bytes,
     )
 
+    headers = _get_fixture_auth()
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         resp = requests.get(
             f"{API_URL}/firmware",
             params={"product_id": product_id, "application": application},
+            headers=headers,
             timeout=10,
         )
         if resp.status_code == 200:
@@ -247,11 +262,13 @@ def _upload_and_wait_for_error(
     s3 = boto3.client("s3")
     s3.put_object(Bucket=FIRMWARE_BUCKET, Key=f"incoming/{filename}", Body=zip_bytes)
 
+    headers = _get_fixture_auth()
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         resp = requests.get(
             f"{API_URL}/firmware",
             params={"product_id": scan_product_id},
+            headers=headers,
             timeout=10,
         )
         if resp.status_code == 200:
@@ -270,16 +287,58 @@ def _upload_and_wait_for_error(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _auth_session_headers() -> dict:
+    """
+    Return auth headers for intra-test API calls (state setup/teardown).
+
+    These calls happen inside fixtures, not directly in tests, so we
+    obtain a fresh token here using the same env vars as the auth_headers
+    fixture.  Returns an empty dict when auth env vars are absent so that
+    non-auth test runs still work.
+    """
+    if not all([COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID, TEST_USER_EMAIL, TEST_USER_PASSWORD]):
+        return {}
+    try:
+        import boto3 as _boto3
+        cognito = _boto3.client("cognito-idp")
+        resp = cognito.admin_initiate_auth(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            ClientId=COGNITO_CLIENT_ID,
+            AuthFlow="ADMIN_USER_PASSWORD_AUTH",
+            AuthParameters={
+                "USERNAME": TEST_USER_EMAIL,
+                "PASSWORD": TEST_USER_PASSWORD,
+            },
+        )
+        token = resp["AuthenticationResult"]["AccessToken"]
+        return {"Authorization": f"Bearer {token}"}
+    except Exception:
+        return {}
+
+# Lazy-loaded auth headers for fixture-internal calls (one token per session)
+_FIXTURE_AUTH: dict | None = None
+
+
+def _get_fixture_auth() -> dict:
+    global _FIXTURE_AUTH
+    if _FIXTURE_AUTH is None:
+        _FIXTURE_AUTH = _auth_session_headers()
+    return _FIXTURE_AUTH
+
+
 def _release_item(zip_name: str) -> None:
     """Walk a firmware item from READY_TO_TEST through to RELEASED."""
+    headers = _get_fixture_auth()
     requests.patch(
         f"{API_URL}/firmware/{zip_name}/status",
         json={"release_status": "TESTING"},
+        headers=headers,
         timeout=10,
     )
     requests.patch(
         f"{API_URL}/firmware/{zip_name}/status",
         json={"release_status": "RELEASED"},
+        headers=headers,
         timeout=10,
     )
 
@@ -288,15 +347,18 @@ def _revoke_item(zip_name: str) -> None:
     requests.patch(
         f"{API_URL}/firmware/{zip_name}/status",
         json={"release_status": "REVOKED"},
+        headers=_get_fixture_auth(),
         timeout=10,
     )
 
 
 def _cleanup_product_records(product_id: str) -> None:
     """Delete or revoke all firmware records for the given product_id via the API."""
+    headers = _get_fixture_auth()
     resp = requests.get(
         f"{API_URL}/firmware",
         params={"product_id": product_id},
+        headers=headers,
         timeout=10,
     )
     if resp.status_code != 200:
@@ -307,7 +369,7 @@ def _cleanup_product_records(product_id: str) -> None:
         if status == "RELEASED":
             _revoke_item(zip_name)
         elif status not in {"REVOKED", "DELETED"}:
-            requests.delete(f"{API_URL}/firmware/{zip_name}", timeout=10)
+            requests.delete(f"{API_URL}/firmware/{zip_name}", headers=headers, timeout=10)
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +386,39 @@ def ui_url() -> str:
     if not UI_URL:
         pytest.skip("FIREFLY_UI_URL not set — skipping CORS tests")
     return UI_URL
+
+
+@pytest.fixture(scope="session")
+def auth_headers() -> dict:
+    """
+    Return {"Authorization": "Bearer <access_token>"} for the test Cognito user.
+
+    Uses AdminInitiateAuth with ADMIN_USER_PASSWORD_AUTH flow — requires AWS
+    admin credentials (available in CI via IAM role or env vars) and the test
+    user to exist in the User Pool via AdminCreateUser.
+
+    Skipped when any required env var is absent.
+    """
+    if not all([COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID, TEST_USER_EMAIL, TEST_USER_PASSWORD]):
+        pytest.skip(
+            "Cognito auth env vars not set "
+            "(FIREFLY_COGNITO_USER_POOL_ID, FIREFLY_COGNITO_CLIENT_ID, "
+            "FIREFLY_TEST_USER_EMAIL, FIREFLY_TEST_USER_PASSWORD) "
+            "— skipping auth-dependent tests"
+        )
+
+    cognito = boto3.client("cognito-idp")
+    resp = cognito.admin_initiate_auth(
+        UserPoolId=COGNITO_USER_POOL_ID,
+        ClientId=COGNITO_CLIENT_ID,
+        AuthFlow="ADMIN_USER_PASSWORD_AUTH",
+        AuthParameters={
+            "USERNAME": TEST_USER_EMAIL,
+            "PASSWORD": TEST_USER_PASSWORD,
+        },
+    )
+    access_token = resp["AuthenticationResult"]["AccessToken"]
+    return {"Authorization": f"Bearer {access_token}"}
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -53,6 +53,20 @@ jobs:
             echo "ui_url=https://$UI_DOMAIN" >> $GITHUB_OUTPUT
           fi
 
+      - name: Look up Cognito User Pool ID and Client ID
+        id: lookup-cognito
+        run: |
+          POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+          CLIENT_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+          echo "user_pool_id=$POOL_ID" >> $GITHUB_OUTPUT
+          echo "client_id=$CLIENT_ID" >> $GITHUB_OUTPUT
+
       - name: Install test dependencies
         run: pip install -r tests/requirements.txt
 
@@ -63,3 +77,7 @@ jobs:
           FIREFLY_FIRMWARE_BUCKET: ${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}
           FIREFLY_UI_URL: ${{ steps.lookup-ui.outputs.ui_url }}
           FIREFLY_UI_BUCKET: ${{ secrets.S3_UI_BUCKET_NAME }}
+          FIREFLY_COGNITO_USER_POOL_ID: ${{ steps.lookup-cognito.outputs.user_pool_id }}
+          FIREFLY_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
+          FIREFLY_TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          FIREFLY_TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}

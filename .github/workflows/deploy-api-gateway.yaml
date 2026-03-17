@@ -55,6 +55,20 @@ jobs:
 
           echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
 
+      - name: Look up Cognito User Pool ID and Client ID
+        id: lookup-cognito
+        run: |
+          POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" \
+            --output text)
+          CLIENT_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
+            --output text)
+          echo "pool_id=$POOL_ID" >> $GITHUB_OUTPUT
+          echo "client_id=$CLIENT_ID" >> $GITHUB_OUTPUT
+
       - name: Build api-gateway
         run: sam build --template-file templates/api-gateway.yaml
 
@@ -71,6 +85,8 @@ jobs:
               CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
               HostedZoneId=${{ secrets.HOSTED_ZONE_ID }} \
               UiOrigin=https://${{ vars.UI_DOMAIN_NAME }} \
+              CognitoUserPoolId=${{ steps.lookup-cognito.outputs.pool_id }} \
+              CognitoUserPoolClientId=${{ steps.lookup-cognito.outputs.client_id }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

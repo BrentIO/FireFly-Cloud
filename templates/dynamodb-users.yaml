@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB table for FireFly user allowed list
+
+Resources:
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: firefly-users
+      BillingMode: PAY_PER_REQUEST
+      TableClass: STANDARD
+      DeletionProtectionEnabled: true
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+
+Outputs:
+
+  UsersTableName:
+    Description: Name of the users DynamoDB table
+    Value: !Ref UsersTable
+    Export:
+      Name: firefly-users-table-name
+
+  UsersTableArn:
+    Description: ARN of the users DynamoDB table
+    Value: !GetAtt UsersTable.Arn
+    Export:
+      Name: firefly-users-table-arn

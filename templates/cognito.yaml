@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Cognito User Pool with Google federated sign-in, invitation-only access,
+  and super_users group for administrative access control.
+
+Parameters:
+
+  AuthDomainName:
+    Type: String
+    Description: >
+      Custom domain for the Cognito hosted UI (e.g., auth.example.com).
+      A Route 53 alias record pointing to the Cognito-managed CloudFront
+      distribution must be created after the stack is deployed.
+
+  CertificateArn:
+    Type: String
+    Description: >
+      ARN of the ACM certificate covering AuthDomainName.
+      Must be in us-east-1.
+
+  GoogleClientId:
+    Type: String
+    NoEcho: true
+    Description: OAuth 2.0 Client ID from Google Cloud Console
+
+  GoogleClientSecret:
+    Type: String
+    NoEcho: true
+    Description: OAuth 2.0 Client Secret from Google Cloud Console
+
+  UiCallbackUrl:
+    Type: String
+    Description: >
+      Full callback URL for the SPA (e.g., https://app.example.com/callback).
+      Cognito redirects here after successful Google sign-in.
+
+  UiLogoutUrl:
+    Type: String
+    Description: >
+      Full URL Cognito redirects to after sign-out
+      (e.g., https://app.example.com/login).
+
+  PreSignUpLambdaArn:
+    Type: String
+    Description: ARN of the pre-signup Lambda that enforces the allowed list
+
+Resources:
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: firefly-user-pool
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      AdminCreateUserConfig:
+        # Prevents self-registration via the hosted UI sign-up page.
+        # Federated (Google) sign-in still works and goes through the
+        # pre-signup Lambda trigger.
+        AllowAdminCreateUserOnly: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+        - Name: environments
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+          StringAttributeConstraints:
+            MaxLength: "256"
+      LambdaConfig:
+        PreSignUp: !Ref PreSignUpLambdaArn
+      UserPoolTags:
+        Name: firefly-user-pool
+
+  PreSignUpLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PreSignUpLambdaArn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
+
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: openid email profile
+      AttributeMapping:
+        email: email
+        name: name
+        username: sub
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: GoogleIdentityProvider
+    Properties:
+      ClientName: firefly-web-client
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - !Ref UiCallbackUrl
+      LogoutURLs:
+        - !Ref UiLogoutUrl
+      SupportedIdentityProviders:
+        - Google
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref AuthDomainName
+      UserPoolId: !Ref UserPool
+      CustomDomainConfig:
+        CertificateArn: !Ref CertificateArn
+
+  SuperUsersGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: super_users
+      Description: Administrative users who can manage other users
+      UserPoolId: !Ref UserPool
+
+Outputs:
+
+  UserPoolId:
+    Description: ID of the Cognito User Pool
+    Value: !Ref UserPool
+    Export:
+      Name: firefly-cognito-user-pool-id
+
+  UserPoolClientId:
+    Description: App client ID for the SPA
+    Value: !Ref UserPoolClient
+    Export:
+      Name: firefly-cognito-user-pool-client-id
+
+  UserPoolDomain:
+    Description: Cognito hosted UI custom domain (without https://)
+    Value: !Ref AuthDomainName
+    Export:
+      Name: firefly-cognito-user-pool-domain

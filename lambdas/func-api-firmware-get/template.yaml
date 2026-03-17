@@ -11,6 +11,10 @@ Parameters:
     Type: String
     Description: Name of the DynamoDB firmware table
 
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
   EnvironmentName:
     Type: String
 
@@ -74,6 +78,8 @@ Resources:
     Properties:
       ApiId: !Ref ApiId
       RouteKey: GET /firmware
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
       Target: !Sub integrations/${FuncApiFirmwareGetIntegration.IntegrationId}
 
   FuncApiFirmwareGetRoute:
@@ -81,6 +87,8 @@ Resources:
     Properties:
       ApiId: !Ref ApiId
       RouteKey: GET /firmware/{zip_name}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
       Target: !Sub integrations/${FuncApiFirmwareGetIntegration.IntegrationId}
 
   FuncApiFirmwareListPermission:

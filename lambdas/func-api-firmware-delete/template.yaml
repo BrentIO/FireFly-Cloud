@@ -15,6 +15,10 @@ Parameters:
     Type: String
     Description: Name of the S3 bucket containing firmware ZIPs
 
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
   EnvironmentName:
     Type: String
 
@@ -84,6 +88,8 @@ Resources:
     Properties:
       ApiId: !Ref ApiId
       RouteKey: DELETE /firmware/{zip_name}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
       Target: !Sub integrations/${FuncApiFirmwareDeleteIntegration.IntegrationId}
 
   FuncApiFirmwareDeletePermission:

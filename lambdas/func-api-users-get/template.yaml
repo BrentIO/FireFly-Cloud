@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API GET /users
+
+Parameters:
+
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
+  CognitoUserPoolId:
+    Type: String
+    Description: ID of the Cognito User Pool
+
+  EnvironmentName:
+    Type: String
+
+Resources:
+
+  FuncApiUsersGetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-users-get-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: UsersGetPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:ListUsers
+                  - cognito-idp:ListUsersInGroup
+                Resource:
+                  - !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+
+  FuncApiUsersGet:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-users-get
+      Role: !GetAtt FuncApiUsersGetRole.Arn
+      CodeUri: .
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Timeout: 15
+      MemorySize: 128
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          APP_CONFIG_ENV: !Ref EnvironmentName
+
+  FuncApiUsersGetIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiUsersGet.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiUsersGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: GET /users
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
+      Target: !Sub integrations/${FuncApiUsersGetIntegration.IntegrationId}
+
+  FuncApiUsersGetPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiUsersGet
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/users
+
+Outputs:
+  FuncApiUsersGetArn:
+    Value: !GetAtt FuncApiUsersGet.Arn
+    Description: ARN of the users GET Lambda
