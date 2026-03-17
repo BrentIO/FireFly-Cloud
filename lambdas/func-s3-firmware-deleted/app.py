@@ -43,7 +43,9 @@ def mark_deleted_by_zip(filename: str) -> None:
         # RELEASED and REVOKED records are managed by func-api-firmware-status-patch.
         # Deletions of private bucket files for these statuses occur during normal
         # lifecycle expiry and should not alter the DynamoDB record.
-        if current_status in {"RELEASED", "REVOKED"}:
+        # DELETED records have already been processed (e.g. by func-api-firmware-delete
+        # for ERROR records, which updates DynamoDB synchronously before the S3 event fires).
+        if current_status in {"RELEASED", "REVOKED", "DELETED"}:
             logger.debug(f"Skipping update for pk='{pk}' version='{version}' (status: '{current_status}')")
             continue
 
