@@ -22,6 +22,26 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-dynamodb-users:
+    uses: ./.github/workflows/deploy-dynamodb-users.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-cognito-pre-signup:
+    needs: deploy-dynamodb-users
+    uses: ./.github/workflows/deploy-func-cognito-pre-signup.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-cognito:
+    needs: deploy-func-cognito-pre-signup
+    uses: ./.github/workflows/deploy-cognito.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-acm:
     uses: ./.github/workflows/deploy-acm-api-gateway.yaml
     secrets: inherit
@@ -29,7 +49,9 @@ jobs:
       target_env: ${{ inputs.target_env }}
 
   deploy-api-gateway:
-    needs: deploy-acm
+    needs:
+      - deploy-acm
+      - deploy-cognito
     uses: ./.github/workflows/deploy-api-gateway.yaml
     secrets: inherit
     with:
@@ -38,6 +60,43 @@ jobs:
   deploy-func-api-health-get:
     needs: deploy-api-gateway
     uses: ./.github/workflows/deploy-func-api-health-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-users-get:
+    needs:
+      - deploy-api-gateway
+      - deploy-cognito
+    uses: ./.github/workflows/deploy-func-api-users-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-users-post:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-users
+    uses: ./.github/workflows/deploy-func-api-users-post.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-users-delete:
+    needs:
+      - deploy-api-gateway
+      - deploy-cognito
+      - deploy-dynamodb-users
+    uses: ./.github/workflows/deploy-func-api-users-delete.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-users-patch:
+    needs:
+      - deploy-api-gateway
+      - deploy-cognito
+    uses: ./.github/workflows/deploy-func-api-users-patch.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
@@ -151,6 +210,7 @@ jobs:
   deploy-ui-app:
     needs:
       - deploy-cloudfront-ui
+      - deploy-cognito
     uses: ./.github/workflows/deploy-ui-app.yaml
     secrets: inherit
     with:
@@ -165,6 +225,11 @@ jobs:
       - deploy-func-api-health-get
       - deploy-func-api-ota-get
       - deploy-func-api-firmware-download-get
+      - deploy-func-api-users-get
+      - deploy-func-api-users-post
+      - deploy-func-api-users-delete
+      - deploy-func-api-users-patch
+      - deploy-ui-app
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:
