@@ -60,6 +60,22 @@ jobs:
             aws cloudformation wait stack-delete-complete --stack-name firefly-cognito
           fi
 
+      - name: Diagnose existing Cognito domain and orphaned user pools
+        run: |
+          echo "=== Checking if auth domain is already registered ==="
+          aws cognito-idp describe-user-pool-domain \
+            --domain ${{ vars.AUTH_DOMAIN_NAME }} \
+            --output table 2>/dev/null || echo "Domain not found"
+
+          echo "=== Listing all Cognito user pools ==="
+          aws cognito-idp list-user-pools --max-results 20 --output table
+
+          echo "=== ACM certificate details ==="
+          aws acm describe-certificate \
+            --certificate-arn ${{ steps.lookup-cert.outputs.cert_arn }} \
+            --query "Certificate.{Status:Status,Domain:DomainName,SANs:SubjectAlternativeNames}" \
+            --output table
+
       - name: Deploy cognito
         id: deploy
         run: |
