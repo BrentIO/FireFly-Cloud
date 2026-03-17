@@ -27,6 +27,10 @@ const props = defineProps({
     type: String,
     default: 'danger',
   },
+  confirmLabel: {
+    type: String,
+    default: 'Confirm',
+  },
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
@@ -47,7 +51,7 @@ const emit = defineEmits(['confirm', 'cancel'])
         <div class="fixed inset-0 bg-black/50 transition-opacity" />
       </TransitionChild>
 
-      <div class="fixed inset-0 z-10 overflow-y-auto">
+      <div class="fixed inset-0 z-10 overflow-y-auto" @click="emit('cancel')">
         <div class="flex min-h-full items-center justify-center p-4">
           <TransitionChild
             as="template"
@@ -60,6 +64,7 @@ const emit = defineEmits(['confirm', 'cancel'])
           >
             <DialogPanel
               class="relative w-full max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6"
+              @click.stop
             >
               <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 {{ title }}
@@ -84,17 +89,17 @@ const emit = defineEmits(['confirm', 'cancel'])
                 <button
                   type="button"
                   @click="emit('cancel')"
-                  class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  class="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   @click="emit('confirm')"
-                  class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                  class="px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors min-h-[44px]"
                   :class="variant === 'success' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'"
                 >
-                  Confirm
+                  {{ confirmLabel }}
                 </button>
               </div>
             </DialogPanel>

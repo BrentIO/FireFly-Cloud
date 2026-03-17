@@ -62,6 +62,7 @@ const confirmTitle = ref('')
 const confirmMessage = ref('')
 const confirmDetails = ref(null)
 const confirmVariant = ref('danger')
+const confirmLabel = ref('Confirm')
 const confirmAction = ref(null)
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -185,6 +186,7 @@ function requestMenuTransition(item, nextStatus) {
       Commit: item.commit,
     } : null
     confirmVariant.value = nextStatus === 'RELEASED' ? 'success' : 'danger'
+    confirmLabel.value = TRANSITION_BUTTON_LABELS[nextStatus] || 'Confirm'
     confirmAction.value = () => executeMenuTransition(item, nextStatus)
     confirmOpen.value = true
   } else {
@@ -214,6 +216,8 @@ function requestMenuDelete(item) {
     Commit: item.commit,
     'ZIP Name': item.zip_name,
   }
+  confirmVariant.value = 'danger'
+  confirmLabel.value = 'Delete'
   confirmAction.value = () => executeMenuDelete(item)
   confirmOpen.value = true
 }
@@ -565,7 +569,7 @@ async function onDetailChanged() {
           <label class="text-xs text-gray-500 dark:text-gray-400">Rows per page</label>
           <select
             v-model="pageSize"
-            class="text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            class="text-base sm:text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option :value="10">10</option>
             <option :value="50">50</option>
@@ -590,6 +594,7 @@ async function onDetailChanged() {
       :message="confirmMessage"
       :details="confirmDetails"
       :variant="confirmVariant"
+      :confirm-label="confirmLabel"
       @confirm="handleConfirm"
       @cancel="handleConfirmCancel"
     />
