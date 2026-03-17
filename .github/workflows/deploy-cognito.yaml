@@ -61,6 +61,7 @@ jobs:
           fi
 
       - name: Diagnose existing Cognito domain and orphaned user pools
+        continue-on-error: true
         run: |
           echo "=== Checking if auth domain is already registered ==="
           aws cognito-idp describe-user-pool-domain \
@@ -68,13 +69,13 @@ jobs:
             --output table 2>/dev/null || echo "Domain not found"
 
           echo "=== Listing all Cognito user pools ==="
-          aws cognito-idp list-user-pools --max-results 20 --output table
+          aws cognito-idp list-user-pools --max-results 20 --output table 2>/dev/null || echo "ListUserPools not permitted"
 
           echo "=== ACM certificate details ==="
           aws acm describe-certificate \
             --certificate-arn ${{ steps.lookup-cert.outputs.cert_arn }} \
             --query "Certificate.{Status:Status,Domain:DomainName,SANs:SubjectAlternativeNames}" \
-            --output table
+            --output table 2>/dev/null || echo "DescribeCertificate not permitted (check IAM)"
 
       - name: Deploy cognito
         id: deploy
