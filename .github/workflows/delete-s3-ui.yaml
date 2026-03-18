@@ -48,6 +48,30 @@ jobs:
           fi
           rm -f "$STDERR"
 
+      - name: Abort S3 UI multipart uploads
+        run: |
+          python3 << 'PYEOF'
+          import boto3
+          from botocore.exceptions import ClientError
+
+          s3 = boto3.client('s3')
+          bucket = '${{ secrets.S3_UI_BUCKET_NAME }}'
+          try:
+            while True:
+              resp = s3.list_multipart_uploads(Bucket=bucket, MaxUploads=100)
+              uploads = resp.get('Uploads', [])
+              if not uploads:
+                break
+              for u in uploads:
+                s3.abort_multipart_upload(Bucket=bucket, Key=u['Key'], UploadId=u['UploadId'])
+                print(f'  Aborted: {u["Key"]}')
+          except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchBucket':
+              print('Bucket does not exist, skipping')
+            else:
+              raise
+          PYEOF
+
       - name: Delete s3-ui
         run: |
           sam delete \
