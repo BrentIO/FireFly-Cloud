@@ -43,14 +43,12 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
-      - name: Look up ACM Certificate ARN for CERTIFICATE_DOMAIN_NAME
+      - name: Look up Certificate ARN for firefly-acm-api-gateway
         id: lookup-cert
         run: |
-          CERT_DOMAIN="${{ vars.CERTIFICATE_DOMAIN_NAME }}"
-
-          CERT_ARN=$(aws acm list-certificates \
-            --certificate-statuses ISSUED \
-            --query "CertificateSummaryList[?DomainName=='${CERT_DOMAIN}'].CertificateArn" \
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-acm-api-gateway \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
             --output text)
 
           echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
