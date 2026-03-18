@@ -28,6 +28,36 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Remove Route 53 alias for Cognito custom domain
+        run: |
+          CF_DOMAIN=$(aws cognito-idp describe-user-pool-domain \
+            --domain ${{ vars.AUTH_DOMAIN_NAME }} \
+            --query 'DomainDescription.CloudFrontDistribution' \
+            --output text 2>/dev/null)
+
+          if [ -z "$CF_DOMAIN" ] || [ "$CF_DOMAIN" = "None" ]; then
+            echo "No active Cognito domain found for ${{ vars.AUTH_DOMAIN_NAME }}, skipping Route 53 cleanup"
+            exit 0
+          fi
+
+          echo "Removing Route 53 alias: ${{ vars.AUTH_DOMAIN_NAME }} -> $CF_DOMAIN"
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id ${{ secrets.HOSTED_ZONE_ID }} \
+            --change-batch "{
+              \"Changes\": [{
+                \"Action\": \"DELETE\",
+                \"ResourceRecordSet\": {
+                  \"Name\": \"${{ vars.AUTH_DOMAIN_NAME }}\",
+                  \"Type\": \"A\",
+                  \"AliasTarget\": {
+                    \"HostedZoneId\": \"Z2FDTNDATAQYW2\",
+                    \"DNSName\": \"$CF_DOMAIN\",
+                    \"EvaluateTargetHealth\": false
+                  }
+                }
+              }]
+            }" || echo "Route 53 record not found or already deleted, continuing"
+
       - name: Delete cognito
         run: |
           aws cloudformation delete-stack \
