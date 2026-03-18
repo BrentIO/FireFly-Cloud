@@ -80,7 +80,12 @@
                 "acm:DescribeCertificate",
                 "acm:GetCertificate"
             ],
-            "Resource": "arn:aws:acm:AWS_REGION:AWS_ACCOUNT_ID:certificate/firefly-*"
+            "Resource": "arn:aws:acm:*:AWS_ACCOUNT_ID:certificate/*",
+            "Condition": {
+                "StringLike": {
+                    "aws:ResourceTag/Name": "firefly-*"
+                }
+            }
         },
         {
             "Effect": "Allow",
