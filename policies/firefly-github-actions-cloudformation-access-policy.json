@@ -125,7 +125,8 @@
             "Action": [
                 "cognito-idp:DescribeUserPoolDomain",
                 "cognito-idp:AdminInitiateAuth",
-                "cognito-idp:DeleteUserPool"
+                "cognito-idp:DeleteUserPool",
+                "cognito-idp:ListUserPools"
             ],
             "Resource": "*"
         },
