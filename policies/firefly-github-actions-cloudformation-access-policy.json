@@ -124,8 +124,12 @@
             "Effect": "Allow",
             "Action": [
                 "cognito-idp:DescribeUserPoolDomain",
+                "cognito-idp:DescribeUserPool",
                 "cognito-idp:AdminInitiateAuth",
+                "cognito-idp:AdminCreateUser",
+                "cognito-idp:AdminSetUserPassword",
                 "cognito-idp:DeleteUserPool",
+                "cognito-idp:DeleteUserPoolDomain",
                 "cognito-idp:ListUserPools"
             ],
             "Resource": "*"
