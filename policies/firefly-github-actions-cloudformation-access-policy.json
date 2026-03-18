@@ -116,6 +116,13 @@
         {
             "Effect": "Allow",
             "Action": [
+                "dynamodb:DescribeTable"
+            ],
+            "Resource": "arn:aws:dynamodb:AWS_REGION:AWS_ACCOUNT_ID:table/firefly-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "cognito-idp:DescribeUserPoolDomain",
                 "cognito-idp:AdminInitiateAuth"
             ],
