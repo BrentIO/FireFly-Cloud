@@ -60,16 +60,57 @@ jobs:
             aws cloudformation wait stack-delete-complete --stack-name firefly-cognito
           fi
 
-      - name: Diagnose existing Cognito domain and orphaned user pools
+      - name: Delete orphaned user pools
+        run: |
+          python3 << 'PYEOF'
+          import boto3
+          from botocore.exceptions import ClientError
+
+          cognito = boto3.client("cognito-idp")
+          cf = boto3.client("cloudformation")
+
+          # Get the pool ID currently tracked by the stack (if it exists and is healthy)
+          current_pool_id = None
+          try:
+              outputs = cf.describe_stacks(StackName="firefly-cognito")["Stacks"][0].get("Outputs", [])
+              for o in outputs:
+                  if o["OutputKey"] == "UserPoolId":
+                      current_pool_id = o["OutputValue"]
+          except ClientError:
+              pass
+
+          paginator = cognito.get_paginator("list_user_pools")
+          for page in paginator.paginate(MaxResults=60):
+              for pool in page["UserPools"]:
+                  if pool["Name"] != "firefly-user-pool":
+                      continue
+                  pool_id = pool["Id"]
+                  if pool_id == current_pool_id:
+                      print(f"Keeping active pool: {pool_id}")
+                      continue
+                  print(f"Deleting orphaned pool: {pool_id}")
+                  try:
+                      detail = cognito.describe_user_pool(UserPoolId=pool_id)["UserPool"]
+                      domain = detail.get("Domain")
+                      if domain:
+                          cognito.delete_user_pool_domain(Domain=domain, UserPoolId=pool_id)
+                          print(f"  Deleted domain: {domain}")
+                  except ClientError as e:
+                      print(f"  Warning during domain deletion: {e}")
+                  try:
+                      cognito.delete_user_pool(UserPoolId=pool_id)
+                      print(f"  Pool deleted")
+                  except ClientError as e:
+                      print(f"  Warning during pool deletion: {e}")
+          PYEOF
+
+      - name: Diagnose existing Cognito domain
         continue-on-error: true
         run: |
           echo "=== Checking if auth domain is already registered ==="
           aws cognito-idp describe-user-pool-domain \
             --domain ${{ vars.AUTH_DOMAIN_NAME }} \
             --output table 2>/dev/null || echo "Domain not found"
-
-          echo "=== Listing all Cognito user pools ==="
-          aws cognito-idp list-user-pools --max-results 20 --output table 2>/dev/null || echo "ListUserPools not permitted"
 
           echo "=== ACM certificate details ==="
           aws acm describe-certificate \

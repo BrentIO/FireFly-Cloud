@@ -76,14 +76,31 @@ jobs:
           aws cloudformation wait stack-delete-complete \
             --stack-name firefly-cognito
 
-      - name: Delete retained Cognito User Pool
+      - name: Delete all retained firefly-user-pool pools
         run: |
-          USER_POOL_ID="${{ steps.lookup.outputs.user_pool_id }}"
-          if [ -z "$USER_POOL_ID" ] || [ "$USER_POOL_ID" = "None" ]; then
-            echo "No User Pool ID found, skipping"
-            exit 0
-          fi
+          python3 << 'PYEOF'
+          import boto3
+          from botocore.exceptions import ClientError
 
-          echo "Deleting Cognito User Pool: $USER_POOL_ID"
-          aws cognito-idp delete-user-pool --user-pool-id "$USER_POOL_ID"
-          echo "User Pool deleted"
+          cognito = boto3.client("cognito-idp")
+          paginator = cognito.get_paginator("list_user_pools")
+          for page in paginator.paginate(MaxResults=60):
+              for pool in page["UserPools"]:
+                  if pool["Name"] != "firefly-user-pool":
+                      continue
+                  pool_id = pool["Id"]
+                  print(f"Deleting pool: {pool_id}")
+                  try:
+                      detail = cognito.describe_user_pool(UserPoolId=pool_id)["UserPool"]
+                      domain = detail.get("Domain")
+                      if domain:
+                          cognito.delete_user_pool_domain(Domain=domain, UserPoolId=pool_id)
+                          print(f"  Deleted domain: {domain}")
+                  except ClientError as e:
+                      print(f"  Warning during domain deletion: {e}")
+                  try:
+                      cognito.delete_user_pool(UserPoolId=pool_id)
+                      print(f"  Pool deleted")
+                  except ClientError as e:
+                      print(f"  Warning during pool deletion: {e}")
+          PYEOF
