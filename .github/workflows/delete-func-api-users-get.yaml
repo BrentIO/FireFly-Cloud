@@ -1,0 +1,41 @@
+name: ⚠️ Delete func-api-users-get
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+
+jobs:
+  delete-func-api-users-get:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Delete func-api-users-get
+        run: |
+          sam delete \
+            --stack-name firefly-func-api-users-get \
+            --region ${{ secrets.AWS_REGION }} \
+            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
+            --no-prompts
