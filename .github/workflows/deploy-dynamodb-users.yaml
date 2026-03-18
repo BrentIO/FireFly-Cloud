@@ -31,9 +31,106 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Deploy dynamodb-users
+        env:
+          ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }}
         run: |
-          aws cloudformation deploy \
-            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file templates/dynamodb-users.yaml \
-            --stack-name firefly-dynamodb-users \
-            --no-fail-on-empty-changeset
+          python3 << 'PYEOF'
+          import boto3, json, os, subprocess, sys, time
+          from botocore.exceptions import ClientError
+
+          STACK    = 'firefly-dynamodb-users'
+          TABLE    = 'firefly-users'
+          ROLE     = os.environ['ROLE_ARN']
+          TEMPLATE = 'templates/dynamodb-users.yaml'
+
+          cf  = boto3.client('cloudformation')
+          ddb = boto3.client('dynamodb')
+
+          # Check whether the CloudFormation stack already exists
+          try:
+            resp = cf.describe_stacks(StackName=STACK)
+            stack_exists = resp['Stacks'][0]['StackStatus'] != 'DELETE_COMPLETE'
+          except ClientError as e:
+            stack_exists = False
+            if 'does not exist' not in str(e):
+              raise
+
+          if stack_exists:
+            print(f'Stack {STACK} exists — running normal deploy')
+            r = subprocess.run([
+              'aws', 'cloudformation', 'deploy',
+              '--role-arn', ROLE,
+              '--template-file', TEMPLATE,
+              '--stack-name', STACK,
+              '--no-fail-on-empty-changeset',
+            ])
+            sys.exit(r.returncode)
+
+          # Stack does not exist — check whether the table already exists
+          try:
+            ddb.describe_table(TableName=TABLE)
+            table_exists = True
+          except ClientError as e:
+            table_exists = False
+            if e.response['Error']['Code'] != 'ResourceNotFoundException':
+              raise
+
+          if not table_exists:
+            print(f'Table {TABLE} does not exist — creating stack normally')
+            r = subprocess.run([
+              'aws', 'cloudformation', 'deploy',
+              '--role-arn', ROLE,
+              '--template-file', TEMPLATE,
+              '--stack-name', STACK,
+              '--no-fail-on-empty-changeset',
+            ])
+            sys.exit(r.returncode)
+
+          # Table exists but stack does not — import the table into a new stack
+          print(f'Table {TABLE} exists but stack {STACK} does not — importing')
+
+          with open(TEMPLATE) as f:
+            template_body = f.read()
+
+          CS_NAME = 'import-users-table'
+
+          cf.create_change_set(
+            StackName=STACK,
+            ChangeSetName=CS_NAME,
+            ChangeSetType='IMPORT',
+            RoleARN=ROLE,
+            TemplateBody=template_body,
+            ResourcesToImport=[{
+              'ResourceType': 'AWS::DynamoDB::Table',
+              'LogicalResourceId': 'UsersTable',
+              'ResourceIdentifier': {'TableName': TABLE},
+            }],
+          )
+
+          print('Waiting for changeset to be ready...')
+          while True:
+            resp   = cf.describe_change_set(StackName=STACK, ChangeSetName=CS_NAME)
+            status = resp['Status']
+            if status == 'CREATE_COMPLETE':
+              break
+            if status in ('FAILED', 'DELETE_COMPLETE'):
+              print(f'Changeset failed: {resp.get("StatusReason")}')
+              cf.delete_change_set(StackName=STACK, ChangeSetName=CS_NAME)
+              sys.exit(1)
+            time.sleep(3)
+
+          print('Executing changeset...')
+          cf.execute_change_set(StackName=STACK, ChangeSetName=CS_NAME)
+
+          print('Waiting for import to complete...')
+          while True:
+            resp   = cf.describe_stacks(StackName=STACK)
+            status = resp['Stacks'][0]['StackStatus']
+            if status == 'IMPORT_COMPLETE':
+              print('Import complete')
+              break
+            if 'FAILED' in status or 'ROLLBACK' in status:
+              print(f'Import failed with status: {status}')
+              sys.exit(1)
+            time.sleep(5)
+          PYEOF
