@@ -84,6 +84,30 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  delete-func-api-users-get:
+    uses: ./.github/workflows/delete-func-api-users-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-api-users-post:
+    uses: ./.github/workflows/delete-func-api-users-post.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-api-users-delete:
+    uses: ./.github/workflows/delete-func-api-users-delete.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-api-users-patch:
+    uses: ./.github/workflows/delete-func-api-users-patch.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   delete-api-gateway:
     needs:
       - delete-func-api-health-get
@@ -92,6 +116,10 @@ jobs:
       - delete-func-api-firmware-delete
       - delete-func-api-ota-get
       - delete-func-api-firmware-download-get
+      - delete-func-api-users-get
+      - delete-func-api-users-post
+      - delete-func-api-users-delete
+      - delete-func-api-users-patch
     uses: ./.github/workflows/delete-api-gateway.yaml
     secrets: inherit
     with:
@@ -117,6 +145,40 @@ jobs:
       - delete-cloudfront
       - delete-cloudfront-ui
     uses: ./.github/workflows/delete-acm-api-gateway.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-cognito:
+    needs:
+      - delete-api-gateway
+    uses: ./.github/workflows/delete-cognito.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-cognito-pre-signup:
+    needs:
+      - delete-cognito
+    uses: ./.github/workflows/delete-func-cognito-pre-signup.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-acm-cognito:
+    needs:
+      - delete-cognito
+    uses: ./.github/workflows/delete-acm-cognito.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-dynamodb-users:
+    needs:
+      - delete-func-cognito-pre-signup
+      - delete-func-api-users-delete
+      - delete-func-api-users-post
+    uses: ./.github/workflows/delete-dynamodb-users.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
