@@ -62,6 +62,19 @@ jobs:
 
           print(f'Emptying bucket: {bucket}')
           subprocess.run(['aws', 's3', 'rm', f's3://{bucket}', '--recursive'])
+
+          # Abort incomplete multipart uploads
+          print('Aborting incomplete multipart uploads...')
+          while True:
+            resp = s3.list_multipart_uploads(Bucket=bucket, MaxUploads=100)
+            uploads = resp.get('Uploads', [])
+            if not uploads:
+              break
+            for u in uploads:
+              s3.abort_multipart_upload(Bucket=bucket, Key=u['Key'], UploadId=u['UploadId'])
+              print(f'  Aborted: {u["Key"]}')
+
+          print('Bucket emptied successfully')
           PYEOF
 
       - name: Delete s3-firmware-public
