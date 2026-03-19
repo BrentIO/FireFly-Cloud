@@ -183,7 +183,7 @@ def test_revoked_current_version_does_not_return_latest(api_url, revoked_version
     assert resp.json()["version"] != d["v3"]
 
 
-def test_latest_revoked_with_nothing_newer_returns_409(api_url, revoked_version_ota_items):
+def test_latest_revoked_with_nothing_newer_returns_409(api_url, auth_headers, revoked_version_ota_items):
     """
     Device is on v3 (RELEASED). After v3 is revoked, calling with current_version=v3
     should return 409 — running revoked firmware with no newer release available.
@@ -193,6 +193,7 @@ def test_latest_revoked_with_nothing_newer_returns_409(api_url, revoked_version_
     requests.patch(
         f"{api_url}/firmware/{d['v3_item']['zip_name']}/status",
         json={"release_status": "REVOKED"},
+        headers=auth_headers,
         timeout=10,
     )
     resp = requests.get(
