@@ -23,6 +23,9 @@ Resources:
       KeySchema:
         - AttributeName: email
           KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
 
 Outputs:
 

@@ -11,6 +11,7 @@ Admin-created users (test users, first super user bootstrap) always pass through
 import boto3
 import logging
 import os
+import time
 
 from boto3.dynamodb.conditions import Key
 
@@ -53,6 +54,13 @@ def lambda_handler(event, context):
         logger.warning(f"Pre-signup blocked: {email} not in allowed list")
         raise Exception(
             "Sign-in is not permitted: this account has not been granted access."
+        )
+
+    expires_at = item.get("expires_at")
+    if expires_at is not None and int(expires_at) < int(time.time()):
+        logger.warning(f"Pre-signup blocked: invitation for {email} has expired")
+        raise Exception(
+            "Sign-in is not permitted: this invitation has expired. Please ask a super user to re-invite you."
         )
 
     environments = item.get("environments", [])

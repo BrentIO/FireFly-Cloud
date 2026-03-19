@@ -70,12 +70,6 @@ Resources:
           AttributeDataType: String
           Mutable: true
           Required: false
-        - Name: environments
-          AttributeDataType: String
-          Mutable: true
-          Required: false
-          StringAttributeConstraints:
-            MaxLength: "256"
       LambdaConfig:
         PreSignUp: !Ref PreSignUpLambdaArn
       UserPoolTags:

@@ -4,7 +4,18 @@ import {
   ArrowPathIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  EllipsisVerticalIcon,
 } from '@heroicons/vue/24/outline'
+import {
+  Dialog,
+  DialogPanel,
+  TransitionRoot,
+  TransitionChild,
+  Menu,
+  MenuButton,
+  MenuItems,
+  MenuItem,
+} from '@headlessui/vue'
 import { useAuth } from '../composables/useAuth.js'
 import { useToast } from '../composables/useToast.js'
 import ConfirmModal from '../components/ConfirmModal.vue'
@@ -12,13 +23,13 @@ import AppLayout from '../components/AppLayout.vue'
 import { listUsers, inviteUser, deleteUser, patchUser } from '../api/users.js'
 
 const { isSuperUser } = useAuth()
-const { showToast } = useToast()
+const { success: successToast, error: errorToast } = useToast()
 
 const users   = ref([])
 const loading = ref(true)
 
-// ── Invite form ───────────────────────────────────────────────────────────────
-const showInviteForm   = ref(false)
+// ── Invite modal ──────────────────────────────────────────────────────────────
+const showInviteModal  = ref(false)
 const inviteEmail      = ref('')
 const inviteEnvs       = ref([])
 const inviteSubmitting = ref(false)
@@ -48,7 +59,7 @@ async function load() {
     const data = await listUsers()
     users.value = data.users
   } catch (e) {
-    showToast(e.message, 'error')
+    errorToast(e.message)
   } finally {
     loading.value = false
   }
@@ -106,11 +117,11 @@ function toggleSort(key) {
 }
 
 // ── Invite ────────────────────────────────────────────────────────────────────
-function openInviteForm() {
+function openInviteModal() {
   inviteEmail.value    = ''
   inviteEnvs.value     = []
   inviteError.value    = null
-  showInviteForm.value = true
+  showInviteModal.value = true
 }
 
 async function submitInvite() {
@@ -124,11 +135,11 @@ async function submitInvite() {
   inviteSubmitting.value = true
   try {
     await inviteUser({ email, environments: inviteEnvs.value })
-    showToast(`${email} has been added to the allowed list.`, 'success')
-    showInviteForm.value = false
+    showInviteModal.value = false
+    successToast(`${email} invited.`)
     await load()
   } catch (e) {
-    showToast(e.message, 'error')
+    errorToast(e.message)
   } finally {
     inviteSubmitting.value = false
   }
@@ -136,8 +147,9 @@ async function submitInvite() {
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 function promptDelete(user) {
-  confirmTitle.value   = 'Delete user'
-  confirmMsg.value     = `Remove ${user.email} from FireFly? They will lose access immediately.`
+  const label = user.status === 'INVITED' ? 'Cancel invitation for' : 'Delete'
+  confirmTitle.value   = user.status === 'INVITED' ? 'Cancel invitation' : 'Delete user'
+  confirmMsg.value     = `${label} ${user.email}? They will lose access immediately.`
   confirmVariant.value = 'danger'
   confirmAction.value  = () => doDelete(user.email)
   confirmOpen.value    = true
@@ -146,17 +158,19 @@ function promptDelete(user) {
 async function doDelete(email) {
   try {
     await deleteUser(email)
-    showToast(`${email} has been deleted.`, 'success')
+    successToast(`${email} has been deleted.`)
     await load()
   } catch (e) {
-    showToast(e.message, 'error')
+    errorToast(e.message)
   }
 }
 
 // ── Super toggle ──────────────────────────────────────────────────────────────
 function promptSuperToggle(user) {
   confirmTitle.value   = user.is_super ? 'Remove super user' : 'Grant super user'
-  confirmMsg.value     = `${user.is_super ? 'Remove super status from' : 'Grant super status to'} ${user.email}?`
+  confirmMsg.value     = user.is_super
+    ? `Remove super user status from ${user.email}?`
+    : `Grant super user status to ${user.email}?`
   confirmVariant.value = 'warning'
   confirmAction.value  = () => doSuperToggle(user)
   confirmOpen.value    = true
@@ -165,13 +179,12 @@ function promptSuperToggle(user) {
 async function doSuperToggle(user) {
   try {
     await patchUser(user.email, { is_super: !user.is_super })
-    showToast(
-      user.is_super ? `${user.email} is no longer a super user.` : `${user.email} is now a super user.`,
-      'success'
+    successToast(
+      user.is_super ? `${user.email} is no longer a super user.` : `${user.email} is now a super user.`
     )
     await load()
   } catch (e) {
-    showToast(e.message, 'error')
+    errorToast(e.message)
   }
 }
 
@@ -190,7 +203,7 @@ function onConfirm() {
       <div class="flex items-center gap-3">
         <button
           v-if="isSuperUser"
-          @click="openInviteForm"
+          @click="openInviteModal"
           class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
         >
           Invite User
@@ -206,58 +219,6 @@ function onConfirm() {
       </div>
     </div>
 
-    <!-- Invite form -->
-    <div
-      v-if="showInviteForm"
-      class="flex-shrink-0 mb-4 bg-white dark:bg-gray-900 rounded-xl ring-1 ring-black/10 dark:ring-white/10 p-5 space-y-4"
-    >
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Invite a new user</h3>
-
-      <div class="space-y-1">
-        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Email</label>
-        <input
-          v-model="inviteEmail"
-          type="email"
-          placeholder="user@example.com"
-          class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      <div class="space-y-1">
-        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Environments</label>
-        <div class="flex gap-4">
-          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-            <input type="checkbox" value="dev"        v-model="inviteEnvs" class="rounded" /> dev
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-            <input type="checkbox" value="production" v-model="inviteEnvs" class="rounded" /> production
-          </label>
-        </div>
-      </div>
-
-      <p v-if="inviteError" class="text-xs text-red-600 dark:text-red-400">{{ inviteError }}</p>
-
-      <div class="flex gap-3">
-        <button
-          @click="submitInvite"
-          :disabled="inviteSubmitting"
-          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
-        >
-          {{ inviteSubmitting ? 'Adding…' : 'Add User' }}
-        </button>
-        <button
-          @click="showInviteForm = false"
-          class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-
-      <p class="text-xs text-gray-500 dark:text-gray-400">
-        After adding the user, tell them to sign in using the "Sign in with Google" button.
-      </p>
-    </div>
-
     <!-- Table card -->
     <div class="flex flex-col flex-1 min-h-0 bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
       <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0">
@@ -269,7 +230,7 @@ function onConfirm() {
                 @click="toggleSort('email')"
               >
                 Email
-                <ChevronUpIcon   v-if="sortKey === 'email' && sortDir === 'asc'"  class="inline w-3 h-3 ml-0.5" />
+                <ChevronUpIcon   v-if="sortKey === 'email' && sortDir === 'asc'"   class="inline w-3 h-3 ml-0.5" />
                 <ChevronDownIcon v-else-if="sortKey === 'email' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
               <th
@@ -277,14 +238,14 @@ function onConfirm() {
                 @click="toggleSort('name')"
               >
                 Name
-                <ChevronUpIcon   v-if="sortKey === 'name' && sortDir === 'asc'"  class="inline w-3 h-3 ml-0.5" />
+                <ChevronUpIcon   v-if="sortKey === 'name' && sortDir === 'asc'"   class="inline w-3 h-3 ml-0.5" />
                 <ChevronDownIcon v-else-if="sortKey === 'name' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
               <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap select-none">
                 Environments
               </th>
               <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap select-none">
-                Super User
+                Status
               </th>
               <th class="px-4 py-3"></th>
             </tr>
@@ -297,7 +258,7 @@ function onConfirm() {
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-40" /></td>
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28" /></td>
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16" /></td>
-                <td class="px-4 py-3"><div class="h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse w-12" /></td>
+                <td class="px-4 py-3"><div class="h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse w-20" /></td>
                 <td class="px-4 py-3"></td>
               </tr>
             </template>
@@ -312,7 +273,7 @@ function onConfirm() {
             <!-- Data rows -->
             <tr
               v-else
-              v-for="user in paginatedUsers"
+              v-for="(user, index) in paginatedUsers"
               :key="user.email"
               class="border-b border-gray-100 dark:border-gray-800 odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
             >
@@ -320,34 +281,71 @@ function onConfirm() {
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ user.name || '—' }}</td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <span
-                  v-for="env in (user.environments ? user.environments.split(',') : [])"
+                  v-for="env in (Array.isArray(user.environments) ? user.environments : [])"
                   :key="env"
                   class="inline-block mr-1 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                 >{{ env.trim() }}</span>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
-                <span
-                  v-if="user.is_super"
-                  class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"
-                >
-                  Super
-                </span>
-              </td>
-              <td class="px-4 py-3 whitespace-nowrap text-right">
-                <div class="flex items-center justify-end gap-2">
-                  <button
-                    @click="promptSuperToggle(user)"
-                    class="px-3 py-1 text-xs font-medium rounded-lg border transition-colors text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+                <div class="flex items-center gap-1.5">
+                  <span
+                    v-if="user.is_super"
+                    class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300"
                   >
-                    {{ user.is_super ? 'Revoke super' : 'Make super' }}
-                  </button>
-                  <button
-                    @click="promptDelete(user)"
-                    class="px-3 py-1 text-xs font-medium rounded-lg border transition-colors text-red-700 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/30"
+                    Super User
+                  </span>
+                  <span
+                    v-if="user.status === 'INVITED'"
+                    class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300"
                   >
-                    Delete
-                  </button>
+                    Invited
+                  </span>
                 </div>
+              </td>
+
+              <!-- Ellipsis actions menu -->
+              <td class="px-4 py-3 whitespace-nowrap text-right" @click.stop>
+                <Menu as="div" class="relative inline-block text-left">
+                  <MenuButton
+                    class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label="Actions"
+                  >
+                    <EllipsisVerticalIcon class="w-5 h-5" />
+                  </MenuButton>
+
+                  <MenuItems
+                    :class="[
+                      'absolute right-0 z-50 w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700',
+                      index >= paginatedUsers.length - 2 ? 'bottom-full mb-1 origin-bottom-right' : 'mt-1 origin-top-right',
+                    ]"
+                  >
+                    <!-- Super user toggle (only for signed-in users) -->
+                    <div v-if="user.status !== 'INVITED'" class="py-1">
+                      <MenuItem v-slot="{ active }">
+                        <button
+                          @click="promptSuperToggle(user)"
+                          class="w-full text-left px-4 py-2 text-sm transition-colors"
+                          :class="active ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'text-amber-700 dark:text-amber-400'"
+                        >
+                          {{ user.is_super ? 'Revoke Super User' : 'Make Super User' }}
+                        </button>
+                      </MenuItem>
+                    </div>
+
+                    <!-- Delete / Cancel invitation -->
+                    <div class="py-1">
+                      <MenuItem v-slot="{ active }">
+                        <button
+                          @click="promptDelete(user)"
+                          class="w-full text-left px-4 py-2 text-sm transition-colors"
+                          :class="active ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'text-red-600 dark:text-red-400'"
+                        >
+                          {{ user.status === 'INVITED' ? 'Cancel Invitation' : 'Delete' }}
+                        </button>
+                      </MenuItem>
+                    </div>
+                  </MenuItems>
+                </Menu>
               </td>
             </tr>
           </tbody>
@@ -406,6 +404,81 @@ function onConfirm() {
         </div>
       </div>
     </div>
+
+    <!-- Invite modal -->
+    <TransitionRoot :show="showInviteModal" as="template">
+      <Dialog as="div" class="relative z-50" @close="showInviteModal = false">
+        <TransitionChild
+          as="template"
+          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
+          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
+        >
+          <div class="fixed inset-0 bg-black/50 transition-opacity" />
+        </TransitionChild>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto" @click="showInviteModal = false">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild
+              as="template"
+              enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
+              leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
+            >
+              <DialogPanel
+                class="relative w-full max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6 space-y-4"
+                @click.stop
+              >
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Invite a new user</h3>
+
+                <div class="space-y-1">
+                  <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Email</label>
+                  <input
+                    v-model="inviteEmail"
+                    type="email"
+                    placeholder="user@example.com"
+                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    @keydown.enter="submitInvite"
+                  />
+                </div>
+
+                <div class="space-y-1">
+                  <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Environments</label>
+                  <div class="flex gap-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                      <input type="checkbox" value="dev"        v-model="inviteEnvs" class="rounded" /> dev
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                      <input type="checkbox" value="production" v-model="inviteEnvs" class="rounded" /> production
+                    </label>
+                  </div>
+                </div>
+
+                <p v-if="inviteError" class="text-xs text-red-600 dark:text-red-400">{{ inviteError }}</p>
+
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                  The invitation expires in 24 hours. Tell the user to sign in using "Sign in with Google" before then.
+                </p>
+
+                <div class="flex gap-3 justify-end">
+                  <button
+                    @click="showInviteModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    @click="submitInvite"
+                    :disabled="inviteSubmitting"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
+                  >
+                    {{ inviteSubmitting ? 'Inviting…' : 'Invite User' }}
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
 
     <!-- Confirm modal -->
     <ConfirmModal
