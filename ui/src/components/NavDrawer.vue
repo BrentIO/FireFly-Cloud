@@ -18,7 +18,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 const route = useRoute()
-const { logout, isSuperUser } = useAuth()
+const { logout, isSuperUser, userName } = useAuth()
 const commitSha = import.meta.env.VITE_COMMIT_SHA || null
 </script>
 
@@ -52,7 +52,8 @@ const commitSha = import.meta.env.VITE_COMMIT_SHA || null
           >
             <!-- Header -->
             <div class="flex items-center justify-between px-4 h-14 border-b border-gray-200 dark:border-gray-700">
-              <span />
+              <span v-if="userName" class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ userName }}</span>
+              <span v-else />
               <button
                 @click="emit('close')"
                 class="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
