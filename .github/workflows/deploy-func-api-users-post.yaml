@@ -60,6 +60,15 @@ jobs:
             --output text)
           echo "authorizer_id=$AUTH_ID" >> $GITHUB_OUTPUT
 
+      - name: Look up Cognito User Pool ID
+        id: lookup-cognito
+        run: |
+          POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" \
+            --output text)
+          echo "user_pool_id=$POOL_ID" >> $GITHUB_OUTPUT
+
       - name: Deploy func-api-users-post
         run: |
           sam deploy \
@@ -71,6 +80,7 @@ jobs:
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
+              CognitoUserPoolId=${{ steps.lookup-cognito.outputs.user_pool_id }} \
               DynamoDbUsersTableName=${{ vars.DYNAMODB_USERS_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \

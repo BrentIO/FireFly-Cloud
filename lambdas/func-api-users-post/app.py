@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -18,9 +18,12 @@ from boto3.dynamodb.conditions import Key
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+cognito = boto3.client("cognito-idp")
 dynamodb = boto3.resource("dynamodb")
 TABLE_NAME = os.environ["DYNAMODB_USERS_TABLE_NAME"]
+USER_POOL_ID = os.environ["COGNITO_USER_POOL_ID"]
 SUPER_GROUP = "super_users"
+INVITE_TTL_HOURS = 24
 
 users_table = dynamodb.Table(TABLE_NAME)
 
@@ -53,13 +56,35 @@ def _is_super_user(event):
 
 
 def _get_caller_email(event):
+    """
+    Return the caller's email address from the JWT claims.
+
+    Cognito access tokens for Google-federated users do not include an email
+    claim, so fall back to an AdminGetUser lookup using the username claim.
+    """
     claims = (
         event.get("requestContext", {})
         .get("authorizer", {})
         .get("jwt", {})
         .get("claims", {})
     )
-    return claims.get("email", "").lower()
+    email = claims.get("email", "").lower().strip()
+    if email:
+        return email
+
+    username = claims.get("username", "").strip()
+    if not username:
+        return ""
+
+    try:
+        resp = cognito.admin_get_user(UserPoolId=USER_POOL_ID, Username=username)
+        for attr in resp.get("UserAttributes", []):
+            if attr["Name"] == "email":
+                return attr["Value"].lower().strip()
+    except Exception:
+        logger.warning("Could not look up caller email for username: %s", username)
+
+    return username  # last resort: store the Cognito username
 
 
 def lambda_handler(event, context):
@@ -95,14 +120,16 @@ def lambda_handler(event, context):
             )
 
         caller_email = _get_caller_email(event)
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
+        expires_at = int((now + timedelta(hours=INVITE_TTL_HOURS)).timestamp())
 
         users_table.put_item(
             Item={
                 "email": email,
                 "environments": environments,
                 "invited_by": caller_email,
-                "created_at": now,
+                "created_at": now.isoformat(),
+                "expires_at": expires_at,
             },
             # Fail if user already exists
             ConditionExpression="attribute_not_exists(email)",

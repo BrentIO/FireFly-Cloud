@@ -81,6 +81,7 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               CognitoUserPoolId=${{ steps.lookup-cognito.outputs.user_pool_id }} \
+              DynamoDbUsersTableName=${{ vars.DYNAMODB_USERS_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \

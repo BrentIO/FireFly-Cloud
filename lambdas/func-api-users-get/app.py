@@ -1,11 +1,18 @@
 """
-GET /users — list all Cognito users with super-user status.
+GET /users — list all users: Cognito accounts merged with invited-only DynamoDB records.
+
 Requires the caller to be in the super_users group.
+
+Response includes:
+  - Users who have signed in (from Cognito), with environments sourced from DynamoDB
+  - Users who were invited but have not yet signed in (DynamoDB-only), status = "INVITED"
+  - Expired invitations (expires_at in the past) are excluded
 """
 
 import json
 import logging
 import os
+import time
 
 import boto3
 
@@ -13,8 +20,12 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 cognito = boto3.client("cognito-idp")
+dynamodb = boto3.resource("dynamodb")
 USER_POOL_ID = os.environ["COGNITO_USER_POOL_ID"]
+TABLE_NAME = os.environ["DYNAMODB_USERS_TABLE_NAME"]
 SUPER_GROUP = "super_users"
+
+users_table = dynamodb.Table(TABLE_NAME)
 
 
 def _response(status_code, body):
@@ -53,14 +64,51 @@ def _get_super_user_emails():
     return super_emails
 
 
+def _scan_dynamodb_users():
+    """
+    Return all non-expired DynamoDB user records keyed by email.
+
+    Records with an expires_at timestamp in the past are excluded so that
+    expired invitations are not surfaced in the list.
+    """
+    now = int(time.time())
+    result = {}
+    paginator = dynamodb.meta.client.get_paginator("scan")
+    for page in paginator.paginate(TableName=TABLE_NAME):
+        for item in page.get("Items", []):
+            email = item.get("email", "").lower()
+            if not email:
+                continue
+            expires_at = item.get("expires_at")
+            if expires_at is not None and int(expires_at) < now:
+                continue  # expired invitation
+            result[email] = item
+    return result
+
+
+def _normalize_environments(raw):
+    """Return environments as a sorted list regardless of storage type."""
+    if isinstance(raw, set):
+        return sorted(raw)
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str) and raw:
+        return [e.strip() for e in raw.split(",") if e.strip()]
+    return []
+
+
 def lambda_handler(event, context):
     try:
         if not _is_super_user(event):
             return _response(403, {"message": "Forbidden"})
 
         super_emails = _get_super_user_emails()
+        db_users = _scan_dynamodb_users()
 
         users = []
+        cognito_emails = set()
+
+        # Cognito users (have signed in at least once)
         paginator = cognito.get_paginator("list_users")
         for page in paginator.paginate(UserPoolId=USER_POOL_ID):
             for user in page.get("Users", []):
@@ -68,16 +116,34 @@ def lambda_handler(event, context):
                 email = attrs.get("email", "").lower()
                 if not email:
                     continue
+                cognito_emails.add(email)
+                db_item = db_users.get(email, {})
                 users.append(
                     {
                         "email": email,
                         "name": attrs.get("name"),
-                        "environments": attrs.get("custom:environments", ""),
+                        "environments": _normalize_environments(db_item.get("environments")),
                         "is_super": email in super_emails,
                         "status": user.get("UserStatus"),
                         "created": user.get("UserCreateDate"),
+                        "invited_by": db_item.get("invited_by"),
                     }
                 )
+
+        # DynamoDB-only users (invited but not yet signed in)
+        for email, db_item in db_users.items():
+            if email in cognito_emails:
+                continue
+            users.append(
+                {
+                    "email": email,
+                    "environments": _normalize_environments(db_item.get("environments")),
+                    "is_super": False,
+                    "status": "INVITED",
+                    "created": db_item.get("created_at"),
+                    "invited_by": db_item.get("invited_by"),
+                }
+            )
 
         users.sort(key=lambda u: u["email"])
         return _response(200, {"users": users})
