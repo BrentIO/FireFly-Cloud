@@ -136,6 +136,7 @@
                 "cognito-idp:DescribeUserPool",
                 "cognito-idp:AdminCreateUser",
                 "cognito-idp:AdminSetUserPassword",
+                "cognito-idp:AdminDeleteUser",
                 "cognito-idp:DeleteUserPoolDomain"
             ],
             "Resource": "arn:aws:cognito-idp:AWS_REGION:AWS_ACCOUNT_ID:userpool/*",
