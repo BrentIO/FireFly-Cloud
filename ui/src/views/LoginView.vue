@@ -6,7 +6,7 @@ const { startLogin } = useAuth()
 
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-    <div class="w-full max-w-sm">
+    <div class="w-full max-w-sm sm:max-w-xl">
       <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-8">
         <div class="text-center mb-8">
           <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">FireFly Management Console</h1>
