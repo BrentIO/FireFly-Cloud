@@ -137,7 +137,6 @@ def lambda_handler(event, context):
             users.append(
                 {
                     "email": email,
-                    "name": None,
                     "environments": _normalize_environments(db_item.get("environments")),
                     "is_super": False,
                     "status": "INVITED",
