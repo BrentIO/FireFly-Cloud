@@ -4,14 +4,14 @@
         {
             "Effect": "Allow",
             "Action": [
-                "cloudformation:CreateStack",
-                "cloudformation:UpdateStack",
-                "cloudformation:DeleteStack",
                 "cloudformation:CreateChangeSet",
+                "cloudformation:CreateStack",
                 "cloudformation:DeleteChangeSet",
+                "cloudformation:DeleteStack",
                 "cloudformation:DescribeChangeSet",
                 "cloudformation:ExecuteChangeSet",
-                "cloudformation:ListChangeSets"
+                "cloudformation:ListChangeSets",
+                "cloudformation:UpdateStack"
             ],
             "Resource": [
                 "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-*/*"
@@ -20,12 +20,18 @@
         {
             "Effect": "Allow",
             "Action": [
-                "cloudformation:DescribeStacks",
+                "cloudformation:DescribeStackResource",
                 "cloudformation:DescribeStackEvents",
                 "cloudformation:DescribeStackResources",
-                "cloudformation:GetTemplate",
+                "cloudformation:DescribeStacks",
+                "cloudformation:GetTemplate"
+            ],
+            "Resource": "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-*/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "cloudformation:GetTemplateSummary",
-                "cloudformation:DescribeStackResource",
                 "cloudformation:ListStacks"
             ],
             "Resource": "*"
@@ -33,14 +39,14 @@
         {
             "Effect": "Allow",
             "Action": [
-                "s3:PutObject",
-                "s3:GetObject",
+                "s3:AbortMultipartUpload",
                 "s3:DeleteObject",
                 "s3:DeleteObjectVersion",
+                "s3:GetObject",
                 "s3:ListBucket",
-                "s3:ListBucketVersions",
                 "s3:ListBucketMultipartUploads",
-                "s3:AbortMultipartUpload"
+                "s3:ListBucketVersions",
+                "s3:PutObject"
             ],
             "Resource": [
                 "arn:aws:s3:::SAM_DEPLOYMENT_BUCKET_NAME",
@@ -94,7 +100,7 @@
             "Action": [
                 "cloudfront:CreateInvalidation"
             ],
-            "Resource": "*"
+            "Resource": "arn:aws:cloudfront::AWS_ACCOUNT_ID:distribution/*"
         },
         {
             "Effect": "Allow",
@@ -116,28 +122,21 @@
         {
             "Effect": "Allow",
             "Action": [
-                "dynamodb:DescribeTable"
-            ],
-            "Resource": "arn:aws:dynamodb:AWS_REGION:AWS_ACCOUNT_ID:table/firefly-*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "cognito-idp:ListUserPools",
-                "cognito-idp:DescribeUserPoolDomain"
+                "cognito-idp:DescribeUserPoolDomain",
+                "cognito-idp:ListUserPools"
             ],
             "Resource": "*"
         },
         {
             "Effect": "Allow",
             "Action": [
-                "cognito-idp:AdminInitiateAuth",
-                "cognito-idp:DeleteUserPool",
-                "cognito-idp:DescribeUserPool",
                 "cognito-idp:AdminCreateUser",
-                "cognito-idp:AdminSetUserPassword",
                 "cognito-idp:AdminDeleteUser",
-                "cognito-idp:DeleteUserPoolDomain"
+                "cognito-idp:AdminInitiateAuth",
+                "cognito-idp:AdminSetUserPassword",
+                "cognito-idp:DeleteUserPool",
+                "cognito-idp:DeleteUserPoolDomain",
+                "cognito-idp:DescribeUserPool"
             ],
             "Resource": "arn:aws:cognito-idp:AWS_REGION:AWS_ACCOUNT_ID:userpool/*",
             "Condition": {
@@ -160,6 +159,13 @@
                 "route53:GetChange"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:DescribeTable"
+            ],
+            "Resource": "arn:aws:dynamodb:AWS_REGION:AWS_ACCOUNT_ID:table/firefly-*"
         }
     ]
 }
