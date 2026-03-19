@@ -107,7 +107,8 @@ def test_ota_manifest_version_matches_released(api_url, released_firmware_item):
     assert resp.json()["version"] == released_firmware_item["version"]
 
 
-def test_ota_returns_409_after_revoke_with_nothing_newer(api_url, auth_headers, released_firmware_item):
+def test_ota_returns_409_after_revoke_with_nothing_newer(api_url, auth_headers, fresh_released_firmware_item):
+    released_firmware_item = fresh_released_firmware_item
     """
     After the only released firmware is revoked, a device still running that version
     has no viable update path — the endpoint returns 409 Conflict.
