@@ -13,7 +13,8 @@ onMounted(async () => {
   const errParam = params.get('error')
 
   if (errParam) {
-    error.value = params.get('error_description') || errParam
+    const desc = params.get('error_description') || errParam
+    error.value = desc.replace(/^PreSignUp failed with error\s+/, '').replace(/\.{2,}$/, '.')
     return
   }
 
