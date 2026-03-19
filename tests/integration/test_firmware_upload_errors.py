@@ -29,16 +29,16 @@ def _unique_filename(label: str) -> str:
     return f"error-{label}-{uuid.uuid4().hex[:8]}.zip"
 
 
-def _delete_error_record(zip_name: str) -> None:
+def _delete_error_record(zip_name: str, auth_headers: dict) -> None:
     """Best-effort cleanup of an ERROR record via the API."""
-    requests.delete(f"{API_URL}/firmware/{zip_name}", timeout=10)
+    requests.delete(f"{API_URL}/firmware/{zip_name}", headers=auth_headers, timeout=10)
 
 
 # ---------------------------------------------------------------------------
 # Scenario 1: corrupt ZIP (not a valid ZIP file at all)
 # ---------------------------------------------------------------------------
 
-def test_corrupt_zip_creates_error_record(api_url):
+def test_corrupt_zip_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("corrupt")
     item = _upload_and_wait_for_error(
         _create_corrupt_zip(), filename, scan_product_id="__UNKNOWN_PRODUCT__"
@@ -48,10 +48,10 @@ def test_corrupt_zip_creates_error_record(api_url):
         assert "error" in item
         assert item["original_name"] == filename
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
-def test_corrupt_zip_error_message_is_non_empty(api_url):
+def test_corrupt_zip_error_message_is_non_empty(api_url, auth_headers):
     filename = _unique_filename("corrupt-msg")
     item = _upload_and_wait_for_error(
         _create_corrupt_zip(), filename, scan_product_id="__UNKNOWN_PRODUCT__"
@@ -59,14 +59,14 @@ def test_corrupt_zip_error_message_is_non_empty(api_url):
     try:
         assert item["error"]
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
 # ---------------------------------------------------------------------------
 # Scenario 2: valid ZIP but manifest.json is absent
 # ---------------------------------------------------------------------------
 
-def test_missing_manifest_creates_error_record(api_url):
+def test_missing_manifest_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("no-manifest")
     item = _upload_and_wait_for_error(
         _create_zip_missing_manifest(), filename, scan_product_id="__UNKNOWN_PRODUCT__"
@@ -76,10 +76,10 @@ def test_missing_manifest_creates_error_record(api_url):
         assert "error" in item
         assert item["original_name"] == filename
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
-def test_missing_manifest_error_mentions_manifest(api_url):
+def test_missing_manifest_error_mentions_manifest(api_url, auth_headers):
     filename = _unique_filename("no-manifest-msg")
     item = _upload_and_wait_for_error(
         _create_zip_missing_manifest(), filename, scan_product_id="__UNKNOWN_PRODUCT__"
@@ -87,14 +87,14 @@ def test_missing_manifest_error_mentions_manifest(api_url):
     try:
         assert "manifest" in item["error"].lower()
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
 # ---------------------------------------------------------------------------
 # Scenario 3: manifest.json present but missing a required field
 # ---------------------------------------------------------------------------
 
-def test_invalid_manifest_missing_field_creates_error_record(api_url):
+def test_invalid_manifest_missing_field_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("bad-manifest")
     item = _upload_and_wait_for_error(
         _create_zip_invalid_manifest(missing_field="class"),
@@ -106,10 +106,10 @@ def test_invalid_manifest_missing_field_creates_error_record(api_url):
         assert "error" in item
         assert item["original_name"] == filename
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
-def test_invalid_manifest_error_identifies_missing_field(api_url):
+def test_invalid_manifest_error_identifies_missing_field(api_url, auth_headers):
     filename = _unique_filename("bad-manifest-msg")
     item = _upload_and_wait_for_error(
         _create_zip_invalid_manifest(missing_field="class"),
@@ -119,14 +119,14 @@ def test_invalid_manifest_error_identifies_missing_field(api_url):
     try:
         assert "class" in item["error"]
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
 # ---------------------------------------------------------------------------
 # Scenario 4: manifest references a file that is not in the ZIP
 # ---------------------------------------------------------------------------
 
-def test_missing_file_creates_error_record(api_url):
+def test_missing_file_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("missing-file")
     item = _upload_and_wait_for_error(
         _create_zip_missing_file(),
@@ -138,10 +138,10 @@ def test_missing_file_creates_error_record(api_url):
         assert "error" in item
         assert item["original_name"] == filename
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
-def test_missing_file_error_identifies_filename(api_url):
+def test_missing_file_error_identifies_filename(api_url, auth_headers):
     filename = _unique_filename("missing-file-msg")
     item = _upload_and_wait_for_error(
         _create_zip_missing_file(),
@@ -151,14 +151,14 @@ def test_missing_file_error_identifies_filename(api_url):
     try:
         assert "firmware.bin" in item["error"]
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
 # ---------------------------------------------------------------------------
 # Scenario 5: file is present but its content does not match the SHA256
 # ---------------------------------------------------------------------------
 
-def test_sha256_mismatch_creates_error_record(api_url):
+def test_sha256_mismatch_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("sha256-mismatch")
     item = _upload_and_wait_for_error(
         _create_zip_sha256_mismatch(),
@@ -170,10 +170,10 @@ def test_sha256_mismatch_creates_error_record(api_url):
         assert "error" in item
         assert item["original_name"] == filename
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)
 
 
-def test_sha256_mismatch_error_identifies_filename(api_url):
+def test_sha256_mismatch_error_identifies_filename(api_url, auth_headers):
     filename = _unique_filename("sha256-mismatch-msg")
     item = _upload_and_wait_for_error(
         _create_zip_sha256_mismatch(),
@@ -183,4 +183,4 @@ def test_sha256_mismatch_error_identifies_filename(api_url):
     try:
         assert "firmware.bin" in item["error"]
     finally:
-        _delete_error_record(item["zip_name"])
+        _delete_error_record(item["zip_name"], auth_headers)

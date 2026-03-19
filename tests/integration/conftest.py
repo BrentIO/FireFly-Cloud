@@ -237,7 +237,7 @@ def _upload_and_wait(
             for item in resp.json().get("items", []):
                 if item.get("version") == version:
                     return item
-        time.sleep(3)
+        time.sleep(1)
 
     pytest.fail(f"Firmware version '{version}' did not appear in API within {timeout}s")
 
@@ -278,7 +278,7 @@ def _upload_and_wait_for_error(
                     and item.get("original_name") == filename
                 ):
                     return item
-        time.sleep(3)
+        time.sleep(1)
 
     pytest.fail(f"ERROR record for '{filename}' did not appear in API within {timeout}s")
 
@@ -473,17 +473,41 @@ def fresh_firmware_item():
         requests.delete(f"{API_URL}/firmware/{zip_name}", timeout=10)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def released_firmware_item():
     """
-    A firmware record walked to RELEASED state for a single test.
-    Uses a unique product_id per invocation so this fixture is fully isolated
-    from stale data left by previous test runs or other concurrent fixtures.
-    Cleaned up after the test by transitioning to REVOKED (which sets the DynamoDB TTL).
+    A firmware record walked to RELEASED state, shared across all tests in the module.
+    Uses a unique product_id so it is isolated from stale data left by other runs.
+    Cleaned up after the module by transitioning to REVOKED (which sets the DynamoDB TTL).
+
+    Use this fixture for read-only OTA tests. Tests that mutate the release status
+    (e.g. revoking the item) must use fresh_released_firmware_item instead.
 
     Requires FIREFLY_FIRMWARE_BUCKET to be set and the full OTA stack to be deployed,
     including the public S3 bucket. The FIRMWARE_TYPE_MAP on func-api-ota-get must
     include a mapping for the test application (e.g. {"test": "FireFly Test", ...}).
+    """
+    product_id = f"firefly-inttest-{int(time.time())}"
+    _created_product_ids.add(product_id)
+    version = f"2026.03.r{int(time.time())}"
+    item = _upload_and_wait(version, product_id)
+    zip_name = item.get("zip_name")
+
+    _release_item(zip_name)
+    yield item
+
+    _revoke_item(zip_name)
+
+
+@pytest.fixture
+def fresh_released_firmware_item():
+    """
+    A firmware record walked to RELEASED state for a single test that mutates it.
+    Uses a unique product_id per invocation for full isolation.
+    Cleaned up after the test by transitioning to REVOKED (which sets the DynamoDB TTL).
+
+    Use this fixture when the test will change the release status (e.g. revoke the item).
+    Read-only tests should use released_firmware_item instead.
     """
     product_id = f"firefly-inttest-{int(time.time())}"
     _created_product_ids.add(product_id)
@@ -545,15 +569,57 @@ def multi_version_ota_items():
         _revoke_item(item["zip_name"])
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def revoked_version_ota_items():
     """
-    Creates an isolated product with three versions:
+    Creates an isolated product with three versions, shared across all tests in the module:
       - v1: REVOKED (represents firmware the device may have already installed)
       - v2, v3: RELEASED
 
     Used to verify that a device on a revoked version still receives the next
-    sequential RELEASED version.
+    sequential RELEASED version. Tests that further mutate v2/v3 status must use
+    fresh_revoked_version_ota_items instead.
+    """
+    if not FIRMWARE_BUCKET:
+        pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping OTA sequencing tests")
+
+    ts = int(time.time())
+    product_id = f"firefly-inttest-rev-{ts}"
+    _created_product_ids.add(product_id)
+
+    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_id)
+    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_id)
+    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_id)
+
+    for item in (item_v1, item_v2, item_v3):
+        _release_item(item["zip_name"])
+
+    _revoke_item(item_v1["zip_name"])
+
+    yield {
+        "product_id": product_id,
+        "v1": OTA_SEQ_V1,
+        "v2": OTA_SEQ_V2,
+        "v3": OTA_SEQ_V3,
+        "v1_item": item_v1,
+        "v2_item": item_v2,
+        "v3_item": item_v3,
+    }
+
+    # v1 is already revoked; revoke v2 and v3.
+    for item in (item_v2, item_v3):
+        _revoke_item(item["zip_name"])
+
+
+@pytest.fixture
+def fresh_revoked_version_ota_items():
+    """
+    Creates an isolated product with three versions for a single test that mutates state:
+      - v1: REVOKED
+      - v2, v3: RELEASED
+
+    Use this fixture when the test will further change v2 or v3 status (e.g. revoking v3).
+    Read-only tests should use revoked_version_ota_items instead.
     """
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping OTA sequencing tests")
