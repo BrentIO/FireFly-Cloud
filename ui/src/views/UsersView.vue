@@ -11,7 +11,6 @@ const { showToast } = useToast()
 
 const users   = ref([])
 const loading = ref(true)
-const error   = ref(null)
 
 // Invite form
 const showInviteForm  = ref(false)
@@ -32,12 +31,11 @@ const confirmAction = ref(null)
 
 async function load() {
   loading.value = true
-  error.value   = null
   try {
     const data = await listUsers()
     users.value = data.users
   } catch (e) {
-    error.value = e.message
+    showToast(e.message, 'error')
   } finally {
     loading.value = false
   }
@@ -80,7 +78,7 @@ async function submitInvite() {
     showInviteForm.value = false
     await load()
   } catch (e) {
-    inviteError.value = e.message
+    showToast(e.message, 'error')
   } finally {
     inviteSubmitting.value = false
   }
@@ -210,11 +208,8 @@ function onConfirm() {
         </p>
       </div>
 
-      <!-- Loading / error -->
+      <!-- Loading / user table -->
       <div v-if="loading" class="text-sm text-gray-500 dark:text-gray-400">Loading users…</div>
-      <div v-else-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</div>
-
-      <!-- User table -->
       <div
         v-else-if="users.length"
         class="bg-white dark:bg-gray-900 rounded-xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden"
