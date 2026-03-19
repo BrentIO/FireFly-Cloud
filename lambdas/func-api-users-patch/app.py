@@ -44,7 +44,7 @@ def _is_super_user(event):
         groups = json.loads(groups_raw)
         return SUPER_GROUP in groups
     except (json.JSONDecodeError, TypeError):
-        return SUPER_GROUP in groups_raw.split()
+        return SUPER_GROUP in groups_raw.strip("[]").split()
 
 
 def _get_super_user_emails():
