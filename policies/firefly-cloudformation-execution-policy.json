@@ -4,52 +4,61 @@
         {
             "Effect": "Allow",
             "Action": [
+                "iam:AttachRolePolicy",
                 "iam:CreateRole",
                 "iam:DeleteRole",
-                "iam:AttachRolePolicy",
-                "iam:DetachRolePolicy",
-                "iam:PutRolePolicy",
                 "iam:DeleteRolePolicy",
-                "iam:TagRole",
+                "iam:DetachRolePolicy",
                 "iam:GetRole",
                 "iam:GetRolePolicy",
                 "iam:ListRolePolicies",
-                "iam:PassRole"
+                "iam:PassRole",
+                "iam:PutRolePolicy",
+                "iam:TagRole"
             ],
             "Resource": "arn:aws:iam::AWS_ACCOUNT_ID:role/firefly-func-*"
         },
         {
             "Effect": "Allow",
             "Action": [
-                "lambda:CreateFunction",
-                "lambda:UpdateFunctionCode",
-                "lambda:UpdateFunctionConfiguration",
-                "lambda:DeleteFunction",
                 "lambda:AddPermission",
+                "lambda:CreateFunction",
+                "lambda:DeleteFunction",
+                "lambda:GetFunction",
+                "lambda:GetFunctionConfiguration",
                 "lambda:RemovePermission",
                 "lambda:TagResource",
                 "lambda:UntagResource",
-                "lambda:GetFunction",
-                "lambda:GetFunctionConfiguration"
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration"
             ],
             "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:firefly-func-*"
         },
         {
             "Effect": "Allow",
             "Action": [
-                "apigateway:POST",
-                "apigateway:PATCH",
+                "lambda:DeleteLayerVersion",
+                "lambda:GetLayerVersion",
+                "lambda:PublishLayerVersion"
+            ],
+            "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:layer:firefly-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "apigateway:DELETE",
                 "apigateway:GET",
+                "apigateway:PATCH",
+                "apigateway:POST",
                 "apigateway:PUT"
             ],
             "Resource": [
                 "arn:aws:apigateway:AWS_REGION::/apis*",
                 "arn:aws:apigateway:AWS_REGION::/apis/*",
-                "arn:aws:apigateway:AWS_REGION::/tags/*",
-                "arn:aws:apigateway:AWS_REGION::/tags/arn*",
                 "arn:aws:apigateway:AWS_REGION::/domainnames",
-                "arn:aws:apigateway:AWS_REGION::/domainnames/*"
+                "arn:aws:apigateway:AWS_REGION::/domainnames/*",
+                "arn:aws:apigateway:AWS_REGION::/tags/*",
+                "arn:aws:apigateway:AWS_REGION::/tags/arn*"
             ]
         },
         {
@@ -66,33 +75,46 @@
         {
             "Effect": "Allow",
             "Action": [
-                "acm:AddTagsToCertificate",
-                "acm:RemoveTagsFromCertificate",
-                "acm:DescribeCertificate"
+                "acm:RequestCertificate"
             ],
             "Resource": "*"
         },
         {
             "Effect": "Allow",
             "Action": [
-                "execute-api:ManageConnections"
+                "acm:ListCertificates"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "acm:AddTagsToCertificate",
+                "acm:DeleteCertificate",
+                "acm:DescribeCertificate",
+                "acm:RemoveTagsFromCertificate"
+            ],
+            "Resource": "arn:aws:acm:*:AWS_ACCOUNT_ID:certificate/*",
+            "Condition": {
+                "ForAnyValue:StringLike": {
+                    "aws:ResourceTag/Name": "firefly-*"
+                }
+            }
         },
         {
             "Effect": "Allow",
             "Action": [
                 "s3:CreateBucket",
                 "s3:DeleteBucket",
-                "s3:PutBucketPolicy",
                 "s3:DeleteBucketPolicy",
-                "s3:PutBucketAcl",
-                "s3:PutBucketVersioning",
-                "s3:PutBucketPublicAccessBlock",
-                "s3:PutEncryptionConfiguration",
                 "s3:GetBucketLocation",
-                "s3:PutLifecycleConfiguration",
-                "s3:PutBucketNotification"
+                "s3:PutBucketAcl",
+                "s3:PutBucketNotification",
+                "s3:PutBucketPolicy",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:PutBucketVersioning",
+                "s3:PutEncryptionConfiguration",
+                "s3:PutLifecycleConfiguration"
             ],
             "Resource": [
                 "arn:aws:s3:::FIRMWARE_BUCKET_NAME_PREFIX*",
@@ -102,10 +124,10 @@
         {
             "Effect": "Allow",
             "Action": [
-                "s3:PutObject",
                 "s3:DeleteObject",
                 "s3:GetObject",
-                "s3:PutBucketNotification"
+                "s3:PutBucketNotification",
+                "s3:PutObject"
             ],
             "Resource": [
                 "arn:aws:s3:::FIRMWARE_BUCKET_NAME_PREFIX*/*",
@@ -126,37 +148,16 @@
         {
             "Effect": "Allow",
             "Action": [
-                "acm:RequestCertificate"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "acm:DeleteCertificate",
-                "acm:DescribeCertificate",
-                "acm:ListCertificates"
-            ],
-            "Resource": "*",
-            "Condition": {
-                "ForAnyValue:StringLike": {
-                    "aws:ResourceTag/Name": "firefly-*"
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
                 "route53:ChangeResourceRecordSets",
-                "route53:GetHostedZone"
+                "route53:GetHostedZone",
+                "route53:ListResourceRecordSets"
             ],
             "Resource": "arn:aws:route53:::hostedzone/HOSTED_ZONE_ID"
         },
         {
             "Effect": "Allow",
             "Action": [
-                "route53:GetChange",
-                "route53:ListResourceRecordSets"
+                "route53:GetChange"
             ],
             "Resource": "*"
         },
@@ -165,8 +166,8 @@
             "Action": [
                 "logs:CreateLogGroup",
                 "logs:CreateLogStream",
-                "logs:PutLogEvents",
                 "logs:DeleteLogGroup",
+                "logs:PutLogEvents",
                 "logs:PutRetentionPolicy"
             ],
             "Resource": [
@@ -178,23 +179,16 @@
         {
             "Effect": "Allow",
             "Action": [
-                "logs:DescribeLogGroups",
-                "logs:DescribeLogStreams",
                 "logs:CreateLogDelivery",
                 "logs:DeleteLogDelivery",
+                "logs:DeleteResourcePolicy",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
+                "logs:DescribeResourcePolicies",
                 "logs:GetLogDelivery",
                 "logs:ListLogDeliveries",
-                "logs:UpdateLogDelivery",
-                "logs:DescribeResourcePolicies"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "logs:DescribeResourcePolicies",
                 "logs:PutResourcePolicy",
-                "logs:DeleteResourcePolicy"
+                "logs:UpdateLogDelivery"
             ],
             "Resource": "*"
         },
@@ -204,46 +198,43 @@
                 "cloudformation:CreateChangeSet",
                 "cloudformation:DeleteChangeSet"
             ],
-            "Resource": "*"
+            "Resource": "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-*/*"
         },
         {
             "Effect": "Allow",
             "Action": [
                 "dynamodb:CreateTable",
-                "dynamodb:DescribeTable",
-                "dynamodb:UpdateTable",
                 "dynamodb:DeleteTable",
-                "dynamodb:UpdateTimeToLive",
-                "dynamodb:DescribeTimeToLive"
+                "dynamodb:DescribeTable",
+                "dynamodb:DescribeTimeToLive",
+                "dynamodb:UpdateTable",
+                "dynamodb:UpdateTimeToLive"
             ],
-            "Resource": "arn:aws:dynamodb:*:AWS_ACCOUNT_ID:table/firefly-*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "lambda:PublishLayerVersion",
-                "lambda:DeleteLayerVersion",
-                "lambda:GetLayerVersion"
-            ],
-            "Resource": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:layer:firefly-*"
+            "Resource": "arn:aws:dynamodb:AWS_REGION:AWS_ACCOUNT_ID:table/firefly-*"
         },
         {
             "Effect": "Allow",
             "Action": [
                 "cloudfront:CreateDistribution",
-                "cloudfront:UpdateDistribution",
                 "cloudfront:DeleteDistribution",
                 "cloudfront:GetDistribution",
                 "cloudfront:GetDistributionConfig",
+                "cloudfront:ListTagsForResource",
                 "cloudfront:TagResource",
                 "cloudfront:UntagResource",
-                "cloudfront:ListTagsForResource",
-                "cloudfront:CreateOriginAccessControl",
-                "cloudfront:UpdateOriginAccessControl",
-                "cloudfront:DeleteOriginAccessControl",
-                "cloudfront:GetOriginAccessControl"
+                "cloudfront:UpdateDistribution"
             ],
-            "Resource": "*"
+            "Resource": "arn:aws:cloudfront::AWS_ACCOUNT_ID:distribution/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateOriginAccessControl",
+                "cloudfront:DeleteOriginAccessControl",
+                "cloudfront:GetOriginAccessControl",
+                "cloudfront:UpdateOriginAccessControl"
+            ],
+            "Resource": "arn:aws:cloudfront::AWS_ACCOUNT_ID:origin-access-control/*"
         },
         {
             "Effect": "Allow",
@@ -256,31 +247,37 @@
         {
             "Effect": "Allow",
             "Action": [
-                "cognito-idp:CreateUserPool",
-                "cognito-idp:UpdateUserPool",
-                "cognito-idp:DeleteUserPool",
-                "cognito-idp:DescribeUserPool",
-                "cognito-idp:CreateUserPoolClient",
-                "cognito-idp:UpdateUserPoolClient",
-                "cognito-idp:DeleteUserPoolClient",
-                "cognito-idp:DescribeUserPoolClient",
-                "cognito-idp:CreateUserPoolDomain",
-                "cognito-idp:UpdateUserPoolDomain",
-                "cognito-idp:DeleteUserPoolDomain",
-                "cognito-idp:DescribeUserPoolDomain",
+                "cognito-idp:CreateUserPool"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "cognito-idp:CreateGroup",
-                "cognito-idp:GetGroup",
-                "cognito-idp:DeleteGroup",
                 "cognito-idp:CreateIdentityProvider",
-                "cognito-idp:UpdateIdentityProvider",
+                "cognito-idp:CreateUserPoolClient",
+                "cognito-idp:CreateUserPoolDomain",
+                "cognito-idp:DeleteGroup",
                 "cognito-idp:DeleteIdentityProvider",
+                "cognito-idp:DeleteUserPool",
+                "cognito-idp:DeleteUserPoolClient",
+                "cognito-idp:DeleteUserPoolDomain",
                 "cognito-idp:DescribeIdentityProvider",
+                "cognito-idp:DescribeUserPool",
+                "cognito-idp:DescribeUserPoolClient",
+                "cognito-idp:DescribeUserPoolDomain",
+                "cognito-idp:GetGroup",
                 "cognito-idp:GetUserPoolMfaConfig",
                 "cognito-idp:SetUserPoolMfaConfig",
                 "cognito-idp:TagResource",
-                "cognito-idp:UntagResource"
+                "cognito-idp:UntagResource",
+                "cognito-idp:UpdateIdentityProvider",
+                "cognito-idp:UpdateUserPool",
+                "cognito-idp:UpdateUserPoolClient",
+                "cognito-idp:UpdateUserPoolDomain"
             ],
-            "Resource": "*"
+            "Resource": "arn:aws:cognito-idp:AWS_REGION:AWS_ACCOUNT_ID:userpool/*"
         }
     ]
 }
