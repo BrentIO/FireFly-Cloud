@@ -123,16 +123,27 @@
         {
             "Effect": "Allow",
             "Action": [
-                "cognito-idp:DescribeUserPoolDomain",
-                "cognito-idp:DescribeUserPool",
-                "cognito-idp:AdminInitiateAuth",
-                "cognito-idp:AdminCreateUser",
-                "cognito-idp:AdminSetUserPassword",
-                "cognito-idp:DeleteUserPool",
-                "cognito-idp:DeleteUserPoolDomain",
-                "cognito-idp:ListUserPools"
+                "cognito-idp:ListUserPools",
+                "cognito-idp:DescribeUserPoolDomain"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cognito-idp:AdminInitiateAuth",
+                "cognito-idp:DeleteUserPool",
+                "cognito-idp:DescribeUserPool",
+                "cognito-idp:AdminCreateUser",
+                "cognito-idp:AdminSetUserPassword",
+                "cognito-idp:DeleteUserPoolDomain"
+            ],
+            "Resource": "arn:aws:cognito-idp:AWS_REGION:AWS_ACCOUNT_ID:userpool/*",
+            "Condition": {
+                "StringLike": {
+                    "aws:ResourceTag/Name": "firefly-*"
+                }
+            }
         },
         {
             "Effect": "Allow",
