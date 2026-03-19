@@ -198,7 +198,10 @@
                 "cloudformation:CreateChangeSet",
                 "cloudformation:DeleteChangeSet"
             ],
-            "Resource": "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-*/*"
+            "Resource": [
+                "arn:aws:cloudformation:AWS_REGION:AWS_ACCOUNT_ID:stack/firefly-*/*",
+                "arn:aws:cloudformation:AWS_REGION:aws:transform/Serverless-2016-10-31"
+            ]
         },
         {
             "Effect": "Allow",
