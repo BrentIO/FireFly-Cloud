@@ -421,6 +421,67 @@ def auth_headers() -> dict:
     return {"Authorization": f"Bearer {access_token}"}
 
 
+@pytest.fixture(scope="session")
+def super_auth_headers() -> dict:
+    """
+    Return {"Authorization": "Bearer <access_token>"} for the test Cognito user
+    after temporarily adding them to the super_users group.
+
+    Setup:  adds CI test user to super_users, then obtains a fresh access token
+            (so the token carries the super_users group claim).
+    Teardown: removes CI test user from super_users.
+
+    Skipped when any required Cognito env var is absent.
+    """
+    if not all([COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID, TEST_USER_EMAIL, TEST_USER_PASSWORD]):
+        pytest.skip(
+            "Cognito auth env vars not set "
+            "(FIREFLY_COGNITO_USER_POOL_ID, FIREFLY_COGNITO_CLIENT_ID, "
+            "FIREFLY_TEST_USER_EMAIL, FIREFLY_TEST_USER_PASSWORD) "
+            "— skipping super-user tests"
+        )
+
+    cognito = boto3.client("cognito-idp")
+    super_group = "super_users"
+
+    # Resolve the Cognito Username (may differ from email for federated users).
+    response = cognito.list_users(
+        UserPoolId=COGNITO_USER_POOL_ID,
+        Filter=f'email = "{TEST_USER_EMAIL}"',
+    )
+    users = response.get("Users", [])
+    if not users:
+        pytest.skip(f"Test user '{TEST_USER_EMAIL}' not found in Cognito user pool")
+    cognito_username = users[0]["Username"]
+
+    cognito.admin_add_user_to_group(
+        UserPoolId=COGNITO_USER_POOL_ID,
+        Username=cognito_username,
+        GroupName=super_group,
+    )
+
+    try:
+        # Obtain a fresh token after the group membership change so that the
+        # cognito:groups claim includes super_users.
+        resp = cognito.admin_initiate_auth(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            ClientId=COGNITO_CLIENT_ID,
+            AuthFlow="ADMIN_USER_PASSWORD_AUTH",
+            AuthParameters={
+                "USERNAME": TEST_USER_EMAIL,
+                "PASSWORD": TEST_USER_PASSWORD,
+            },
+        )
+        access_token = resp["AuthenticationResult"]["AccessToken"]
+        yield {"Authorization": f"Bearer {access_token}"}
+    finally:
+        cognito.admin_remove_user_from_group(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            Username=cognito_username,
+            GroupName=super_group,
+        )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_test_records():
     """

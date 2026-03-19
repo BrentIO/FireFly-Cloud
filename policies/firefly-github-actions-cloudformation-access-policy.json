@@ -130,13 +130,16 @@
         {
             "Effect": "Allow",
             "Action": [
+                "cognito-idp:AdminAddUserToGroup",
                 "cognito-idp:AdminCreateUser",
                 "cognito-idp:AdminDeleteUser",
                 "cognito-idp:AdminInitiateAuth",
+                "cognito-idp:AdminRemoveUserFromGroup",
                 "cognito-idp:AdminSetUserPassword",
                 "cognito-idp:DeleteUserPool",
                 "cognito-idp:DeleteUserPoolDomain",
-                "cognito-idp:DescribeUserPool"
+                "cognito-idp:DescribeUserPool",
+                "cognito-idp:ListUsers"
             ],
             "Resource": "arn:aws:cognito-idp:AWS_REGION:AWS_ACCOUNT_ID:userpool/*",
             "Condition": {
