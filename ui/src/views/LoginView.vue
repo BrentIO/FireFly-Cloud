@@ -9,8 +9,8 @@ const { startLogin } = useAuth()
     <div class="w-full max-w-sm">
       <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-8">
         <div class="text-center mb-8">
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">FireFly</h1>
-          <p class="text-sm text-gray-500 dark:text-gray-400">Firmware Management Console</p>
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">FireFly Management Console</h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Click an authentication provider to continue.</p>
         </div>
 
         <button
