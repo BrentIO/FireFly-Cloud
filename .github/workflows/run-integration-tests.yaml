@@ -71,6 +71,7 @@ jobs:
         run: pip install -r tests/requirements.txt
 
       - name: Run integration tests
+        id: run-tests
         run: pytest tests/integration/ -v
         env:
           FIREFLY_API_URL: ${{ steps.lookup-api.outputs.api_url }}
@@ -81,3 +82,30 @@ jobs:
           FIREFLY_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
           FIREFLY_TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           FIREFLY_TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: Delete CI test user
+        if: always() && steps.lookup-cognito.outputs.user_pool_id != ''
+        env:
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+        run: |
+          python3 << 'PYEOF'
+          import boto3, os
+          from botocore.exceptions import ClientError
+
+          pool_id = "${{ steps.lookup-cognito.outputs.user_pool_id }}"
+          email = os.environ.get("TEST_USER_EMAIL", "")
+
+          if not email:
+              print("TEST_USER_EMAIL not set — skipping CI test user deletion")
+              exit(0)
+
+          cognito = boto3.client("cognito-idp")
+          try:
+              cognito.admin_delete_user(UserPoolId=pool_id, Username=email)
+              print(f"Deleted CI test user: {email}")
+          except ClientError as e:
+              if e.response["Error"]["Code"] == "UserNotFoundException":
+                  print(f"CI test user not found, nothing to delete: {email}")
+              else:
+                  raise
+          PYEOF
