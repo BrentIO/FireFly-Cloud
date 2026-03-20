@@ -22,7 +22,7 @@ import ConfirmModal from '../components/ConfirmModal.vue'
 import AppLayout from '../components/AppLayout.vue'
 import { listUsers, inviteUser, deleteUser, patchUser } from '../api/users.js'
 
-const { isSuperUser } = useAuth()
+const { isSuperUser, userEmail } = useAuth()
 const { success: successToast, error: errorToast } = useToast()
 
 const users   = ref([])
@@ -192,6 +192,34 @@ function onConfirm() {
   confirmOpen.value = false
   if (confirmAction.value) confirmAction.value()
 }
+
+// ── Ellipsis menu positioning ─────────────────────────────────────────────────
+const menuStyle = ref({})
+
+function setMenuPosition(event) {
+  const btn = event.currentTarget
+  const rect = btn.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom
+  if (spaceBelow < 160) {
+    menuStyle.value = {
+      top: `${rect.top - 4}px`,
+      right: `${window.innerWidth - rect.right}px`,
+      transform: 'translateY(-100%)',
+    }
+  } else {
+    menuStyle.value = {
+      top: `${rect.bottom + 4}px`,
+      right: `${window.innerWidth - rect.right}px`,
+    }
+  }
+}
+
+// ── Current user's environments ───────────────────────────────────────────────
+const currentUserEnvironments = computed(() => {
+  const me = users.value.find(u => u.email === userEmail.value)
+  const envs = me?.environments ?? []
+  return envs.length ? envs : ['dev', 'production']
+})
 </script>
 
 <template>
@@ -309,15 +337,15 @@ function onConfirm() {
                   <MenuButton
                     class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     aria-label="Actions"
+                    @click="setMenuPosition"
                   >
                     <EllipsisVerticalIcon class="w-5 h-5" />
                   </MenuButton>
 
+                  <Teleport to="body">
                   <MenuItems
-                    :class="[
-                      'absolute right-0 z-50 w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700',
-                      index >= paginatedUsers.length - 2 ? 'bottom-full mb-1 origin-bottom-right' : 'mt-1 origin-top-right',
-                    ]"
+                    class="fixed z-[9999] w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700"
+                    :style="menuStyle"
                   >
                     <!-- Super user toggle (only for signed-in users) -->
                     <div v-if="user.status !== 'INVITED'" class="py-1">
@@ -345,6 +373,7 @@ function onConfirm() {
                       </MenuItem>
                     </div>
                   </MenuItems>
+                  </Teleport>
                 </Menu>
               </td>
             </tr>
@@ -443,10 +472,10 @@ function onConfirm() {
                 <div class="space-y-1">
                   <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Environments</label>
                   <div class="flex gap-4">
-                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input type="checkbox" value="dev"        v-model="inviteEnvs" class="rounded" /> dev
+                    <label v-if="currentUserEnvironments.includes('dev')" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                      <input type="checkbox" value="dev" v-model="inviteEnvs" class="rounded" /> dev
                     </label>
-                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <label v-if="currentUserEnvironments.includes('production')" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                       <input type="checkbox" value="production" v-model="inviteEnvs" class="rounded" /> production
                     </label>
                   </div>

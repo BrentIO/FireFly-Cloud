@@ -252,6 +252,27 @@ function closeDetail() {
 async function onDetailChanged() {
   await fetchFirmware()
 }
+
+// ── Ellipsis menu positioning ─────────────────────────────────────────────────
+const menuStyle = ref({})
+
+function setMenuPosition(event) {
+  const btn = event.currentTarget
+  const rect = btn.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom
+  if (spaceBelow < 160) {
+    menuStyle.value = {
+      top: `${rect.top - 4}px`,
+      right: `${window.innerWidth - rect.right}px`,
+      transform: 'translateY(-100%)',
+    }
+  } else {
+    menuStyle.value = {
+      top: `${rect.bottom + 4}px`,
+      right: `${window.innerWidth - rect.right}px`,
+    }
+  }
+}
 </script>
 
 <template>
@@ -446,15 +467,15 @@ async function onDetailChanged() {
                   <MenuButton
                     class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     aria-label="Actions"
+                    @click="setMenuPosition"
                   >
                     <EllipsisVerticalIcon class="w-5 h-5" />
                   </MenuButton>
 
+                  <Teleport to="body">
                   <MenuItems
-                    :class="[
-                      'absolute right-0 z-50 w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700',
-                      index >= paginatedItems.length - 2 ? 'bottom-full mb-1 origin-bottom-right' : 'mt-1 origin-top-right',
-                    ]"
+                    class="fixed z-[9999] w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700"
+                    :style="menuStyle"
                   >
                     <!-- Details -->
                     <div class="py-1">
@@ -514,6 +535,7 @@ async function onDetailChanged() {
                       </MenuItem>
                     </div>
                   </MenuItems>
+                  </Teleport>
                 </Menu>
               </td>
             </tr>

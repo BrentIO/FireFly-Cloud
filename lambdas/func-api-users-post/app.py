@@ -87,6 +87,27 @@ def _get_caller_email(event):
     return username  # last resort: store the Cognito username
 
 
+def _get_caller_environments(caller_email):
+    """
+    Return the set of environments the caller may grant.
+
+    Raises a LookupError if the caller has no DynamoDB record — every valid
+    user, including bootstrapped super users, must have a record in the table.
+    """
+    if not caller_email:
+        raise LookupError("Caller email could not be determined")
+    resp = users_table.get_item(Key={"email": caller_email})
+    item = resp.get("Item")
+    if not item:
+        raise LookupError(f"No user record found for caller: {caller_email}")
+    envs = item.get("environments", [])
+    if isinstance(envs, set):
+        return envs
+    if isinstance(envs, list):
+        return set(envs)
+    return set()
+
+
 def lambda_handler(event, context):
     try:
         if not _is_super_user(event):
@@ -120,6 +141,19 @@ def lambda_handler(event, context):
             )
 
         caller_email = _get_caller_email(event)
+
+        try:
+            caller_envs = _get_caller_environments(caller_email)
+        except LookupError as e:
+            logger.warning("Environment lookup failed for caller %s: %s", caller_email, e)
+            return _response(403, {"message": "Forbidden"})
+
+        unauthorized = [e for e in environments if e not in caller_envs]
+        if unauthorized:
+            return _response(
+                403,
+                {"message": f"You do not have access to environment(s): {unauthorized}"},
+            )
         now = datetime.now(timezone.utc)
         expires_at = int((now + timedelta(hours=INVITE_TTL_HOURS)).timestamp())
 
