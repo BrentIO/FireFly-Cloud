@@ -69,6 +69,15 @@ jobs:
             --output text)
           echo "user_pool_id=$POOL_ID" >> $GITHUB_OUTPUT
 
+      - name: Look up DynamoDB Users Table Name
+        id: lookup-dynamodb-users
+        run: |
+          TABLE_NAME=$(aws cloudformation describe-stacks \
+            --stack-name firefly-dynamodb-users \
+            --query "Stacks[0].Outputs[?OutputKey=='UsersTableName'].OutputValue" \
+            --output text)
+          echo "table_name=$TABLE_NAME" >> $GITHUB_OUTPUT
+
       - name: Deploy func-api-users-patch
         run: |
           sam deploy \
@@ -81,6 +90,7 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               CognitoUserPoolId=${{ steps.lookup-cognito.outputs.user_pool_id }} \
+              DynamoDbUsersTableName=${{ steps.lookup-dynamodb-users.outputs.table_name }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \

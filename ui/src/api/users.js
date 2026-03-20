@@ -15,9 +15,9 @@ export function deleteUser(email) {
   return apiFetch(`/users/${encodeURIComponent(email)}`, { method: 'DELETE' })
 }
 
-export function patchUser(email, { is_super }) {
+export function patchUser(email, patch) {
   return apiFetch(`/users/${encodeURIComponent(email)}`, {
     method: 'PATCH',
-    body: JSON.stringify({ is_super }),
+    body: JSON.stringify(patch),
   })
 }
