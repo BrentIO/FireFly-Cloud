@@ -94,12 +94,7 @@
                 "acm:DescribeCertificate",
                 "acm:RemoveTagsFromCertificate"
             ],
-            "Resource": "arn:aws:acm:*:AWS_ACCOUNT_ID:certificate/*",
-            "Condition": {
-                "ForAnyValue:StringLike": {
-                    "aws:ResourceTag/Name": "firefly-*"
-                }
-            }
+            "Resource": "arn:aws:acm:*:AWS_ACCOUNT_ID:certificate/*"
         },
         {
             "Effect": "Allow",
