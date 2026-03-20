@@ -104,15 +104,17 @@ jobs:
                       print(f"  Warning during pool deletion: {e}")
           PYEOF
 
-      - name: Delete orphaned auth domain
+      - name: Delete orphaned auth domain and wait for propagation
         run: |
           python3 << 'PYEOF'
           import boto3
+          import time
           from botocore.exceptions import ClientError
 
           cognito = boto3.client("cognito-idp")
           domain = "${{ vars.AUTH_DOMAIN_NAME }}"
 
+          # Delete domain if still registered
           try:
               resp = cognito.describe_user_pool_domain(Domain=domain)
               desc = resp.get("DomainDescription", {})
@@ -126,6 +128,21 @@ jobs:
                   print(f"Domain {domain} deleted")
           except ClientError as e:
               print(f"Warning during domain cleanup: {e}")
+
+          # Poll until the domain is fully gone (Cognito deletion is eventually consistent)
+          print(f"Waiting for domain {domain} to be fully deregistered...")
+          for attempt in range(20):
+              resp = cognito.describe_user_pool_domain(Domain=domain)
+              desc = resp.get("DomainDescription", {})
+              pool_id = desc.get("UserPoolId")
+              status = desc.get("Status", "")
+              if not pool_id and status not in ("DELETING", "ACTIVE", "CREATING"):
+                  print(f"Domain {domain} is clear (attempt {attempt + 1})")
+                  break
+              print(f"  Attempt {attempt + 1}: domain still present (pool={pool_id}, status={status}) — waiting 15s")
+              time.sleep(15)
+          else:
+              print(f"WARNING: domain {domain} did not clear after 5 minutes — proceeding anyway")
           PYEOF
 
       - name: Diagnose existing Cognito domain
