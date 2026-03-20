@@ -270,6 +270,7 @@
                 "cognito-idp:DescribeUserPool",
                 "cognito-idp:DescribeUserPoolClient",
                 "cognito-idp:DescribeUserPoolDomain",
+                "cognito-idp:AdminGetUser",
                 "cognito-idp:GetGroup",
                 "cognito-idp:GetUserPoolMfaConfig",
                 "cognito-idp:SetUserPoolMfaConfig",
