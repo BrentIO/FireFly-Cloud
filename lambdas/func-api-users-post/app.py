@@ -87,6 +87,32 @@ def _get_caller_email(event):
     return username  # last resort: store the Cognito username
 
 
+def _get_caller_environments(caller_email):
+    """
+    Return the set of environments the caller may grant, or None if unrestricted.
+
+    Returns None (unrestricted) when the caller has no DynamoDB record — this
+    covers bootstrapped super users who were added directly without going through
+    the invite flow.
+    """
+    if not caller_email:
+        return None
+    try:
+        resp = users_table.get_item(Key={"email": caller_email})
+        item = resp.get("Item")
+        if not item:
+            return None
+        envs = item.get("environments", [])
+        if isinstance(envs, set):
+            return envs
+        if isinstance(envs, list):
+            return set(envs)
+        return None
+    except Exception:
+        logger.warning("Could not look up caller environments for: %s", caller_email)
+        return None
+
+
 def lambda_handler(event, context):
     try:
         if not _is_super_user(event):
@@ -120,6 +146,15 @@ def lambda_handler(event, context):
             )
 
         caller_email = _get_caller_email(event)
+
+        caller_envs = _get_caller_environments(caller_email)
+        if caller_envs is not None:
+            unauthorized = [e for e in environments if e not in caller_envs]
+            if unauthorized:
+                return _response(
+                    403,
+                    {"message": f"You do not have access to environment(s): {unauthorized}"},
+                )
         now = datetime.now(timezone.utc)
         expires_at = int((now + timedelta(hours=INVITE_TTL_HOURS)).timestamp())
 
