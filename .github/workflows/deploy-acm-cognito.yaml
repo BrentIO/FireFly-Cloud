@@ -35,6 +35,19 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Delete stack if in ROLLBACK_FAILED
+        run: |
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name firefly-acm-cognito \
+            --region us-east-1 \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          if [ "$STATUS" = "ROLLBACK_FAILED" ]; then
+            echo "Stack is in ROLLBACK_FAILED — deleting before redeploy"
+            aws cloudformation delete-stack --stack-name firefly-acm-cognito --region us-east-1
+            aws cloudformation wait stack-delete-complete --stack-name firefly-acm-cognito --region us-east-1
+          fi
+
       - name: Build acm-cognito
         run: sam build --template-file templates/acm-cognito.yaml
 
