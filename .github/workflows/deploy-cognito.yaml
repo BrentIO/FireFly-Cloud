@@ -48,14 +48,14 @@ jobs:
             --output text)
           echo "presignup_arn=$ARN" >> $GITHUB_OUTPUT
 
-      - name: Delete stack if in ROLLBACK_COMPLETE
+      - name: Delete stack if in ROLLBACK_COMPLETE or UPDATE_ROLLBACK_COMPLETE
         run: |
           STATUS=$(aws cloudformation describe-stacks \
             --stack-name firefly-cognito \
             --query "Stacks[0].StackStatus" \
             --output text 2>/dev/null || echo "DOES_NOT_EXIST")
-          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
-            echo "Stack is in ROLLBACK_COMPLETE — deleting before redeploy"
+          if [ "$STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STATUS" = "UPDATE_ROLLBACK_COMPLETE" ]; then
+            echo "Stack is in $STATUS — deleting before redeploy"
             aws cloudformation delete-stack --stack-name firefly-cognito
             aws cloudformation wait stack-delete-complete --stack-name firefly-cognito
           fi
