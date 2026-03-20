@@ -14,8 +14,172 @@ tags:
     description: Firmware lifecycle management
   - name: OTA
     description: Over-the-air firmware update delivery
+  - name: Users
+    description: User and environment access management (super user only)
 
 paths:
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List users
+      description: |
+        Returns all active users (Cognito accounts and pending invitations).
+        Expired invitations are excluded. Super user access is required.
+      operationId: listUsers
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [Users]
+      summary: Invite a user
+      description: |
+        Adds a user to the allowed list and sends an invitation. The user must
+        sign in with Google within 24 hours before the invitation expires.
+
+        The caller may only grant environments they themselves have access to.
+        Super user access is required.
+      operationId: inviteUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteUserRequest'
+            example:
+              email: user@example.com
+              environments: [dev]
+      responses:
+        '201':
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                email: user@example.com
+                environments: [dev]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: User is already in the allowed list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "User 'user@example.com' is already in the allowed list"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{email}:
+    patch:
+      tags: [Users]
+      summary: Update a user
+      description: |
+        Updates a user's super user status and/or environment access. At least
+        one field must be provided.
+
+        - `is_super` — adds or removes the user from the Cognito `super_users`
+          group. The last super user cannot be demoted.
+        - `environments` — replaces the user's environment list. The caller may
+          only grant environments they themselves have access to.
+
+        Super user access is required.
+      operationId: patchUser
+      parameters:
+        - $ref: '#/components/parameters/UserEmail'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchUserRequest'
+            examples:
+              grant_super:
+                summary: Grant super user status
+                value:
+                  is_super: true
+              update_environments:
+                summary: Update environment access
+                value:
+                  environments: [dev, production]
+              both:
+                summary: Update both fields
+                value:
+                  is_super: false
+                  environments: [dev]
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchUserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found in Cognito (may not have signed in yet)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "User 'user@example.com' not found in Cognito"
+        '409':
+          description: Cannot demote the last super user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Cannot remove super status from the last super user. Promote another user first."
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [Users]
+      summary: Delete a user
+      description: |
+        Removes the user from both Cognito and the DynamoDB allowed list.
+        Access is revoked immediately. Super user access is required.
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/UserEmail'
+      responses:
+        '200':
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "user@example.com has been deleted"
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "User 'user@example.com' not found"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /health:
     get:
@@ -321,6 +485,16 @@ paths:
 components:
 
   parameters:
+    UserEmail:
+      name: email
+      in: path
+      required: true
+      description: Email address of the user
+      schema:
+        type: string
+        format: email
+        example: user@example.com
+
     ZipName:
       name: zip_name
       in: path
@@ -442,6 +616,112 @@ components:
         - REVOKED
         - DELETED
         - ERROR
+
+    # -------------------------------------------------------------------------
+    # Users schemas
+    # -------------------------------------------------------------------------
+
+    Environment:
+      type: string
+      description: Deployment environment identifier.
+      enum: [dev, production]
+      example: dev
+
+    UserRecord:
+      type: object
+      description: A user record returned by GET /users.
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          description: Display name from Google. Absent for INVITED users who have not yet signed in.
+          example: Jane Smith
+        environments:
+          type: array
+          description: Environments the user is permitted to access.
+          items:
+            $ref: '#/components/schemas/Environment'
+          example: [dev]
+        is_super:
+          type: boolean
+          description: Whether the user is a member of the super_users Cognito group.
+          example: false
+        status:
+          type: string
+          description: |
+            Cognito user status, or `INVITED` for users who have not yet signed in.
+          example: CONFIRMED
+        created:
+          type: string
+          description: ISO 8601 timestamp of when the user record was created.
+          example: "2026-03-01T12:00:00Z"
+        invited_by:
+          type: string
+          format: email
+          description: Email of the super user who invited this user.
+          example: admin@example.com
+
+    UserListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRecord'
+
+    InviteUserRequest:
+      type: object
+      required:
+        - email
+        - environments
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        environments:
+          type: array
+          description: Environments to grant the invited user access to.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Environment'
+          example: [dev]
+
+    PatchUserRequest:
+      type: object
+      description: At least one field must be provided.
+      properties:
+        is_super:
+          type: boolean
+          description: Grant (`true`) or revoke (`false`) super user status.
+          example: false
+        environments:
+          type: array
+          description: Replace the user's environment access list.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Environment'
+          example: [dev, production]
+
+    PatchUserResponse:
+      type: object
+      description: Echoes back only the fields that were updated.
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        is_super:
+          type: boolean
+          example: false
+        environments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Environment'
+          example: [dev, production]
 
     # -------------------------------------------------------------------------
     # Object schemas
@@ -602,6 +882,24 @@ components:
             $ref: '#/components/schemas/ReleaseStatus'
 
   responses:
+    BadRequest:
+      description: Missing or invalid request field
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+          example:
+            message: "email is required"
+
+    Forbidden:
+      description: Caller is not a super user, or is attempting to grant access to an environment they don't have
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+          example:
+            message: Forbidden
+
     NotFound:
       description: Firmware record not found
       content:
