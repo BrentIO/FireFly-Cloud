@@ -43,11 +43,11 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
-      - name: Look up Certificate ARN for firefly-acm-api-gateway
+      - name: Look up Certificate ARN for firefly-acm
         id: lookup-cert
         run: |
           CERT_ARN=$(aws cloudformation describe-stacks \
-            --stack-name firefly-acm-api-gateway \
+            --stack-name firefly-acm \
             --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
             --output text)
 

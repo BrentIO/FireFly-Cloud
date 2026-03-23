@@ -139,16 +139,6 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
-  delete-acm-api-gateway:
-    needs:
-      - delete-api-gateway
-      - delete-cloudfront-firmware
-      - delete-cloudfront-ui
-    uses: ./.github/workflows/delete-acm-api-gateway.yaml
-    secrets: inherit
-    with:
-      target_env: ${{ inputs.target_env }}
-
   delete-cognito:
     needs:
       - delete-api-gateway
@@ -165,10 +155,13 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
-  delete-acm-cognito:
+  delete-acm:
     needs:
+      - delete-api-gateway
+      - delete-cloudfront-firmware
+      - delete-cloudfront-ui
       - delete-cognito
-    uses: ./.github/workflows/delete-acm-cognito.yaml
+    uses: ./.github/workflows/delete-acm.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}

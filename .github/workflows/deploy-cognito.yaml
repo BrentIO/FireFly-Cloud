@@ -30,11 +30,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Look up ACM certificate ARN
+      - name: Look up Certificate ARN for firefly-acm
         id: lookup-cert
         run: |
           CERT_ARN=$(aws cloudformation describe-stacks \
-            --stack-name firefly-acm-cognito \
+            --stack-name firefly-acm \
             --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
             --output text)
           echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ACM certificate for FireFly API Gateway
+Description: ACM certificate for FireFly (must be in us-east-1 for CloudFront, Cognito, and API Gateway)
 
 Parameters:
   CertificateDomainName:
@@ -11,7 +11,7 @@ Parameters:
     Description: Route53 Hosted Zone ID
 
 Resources:
-  ApiCertificate:
+  Certificate:
     Type: AWS::CertificateManager::Certificate
     Properties:
       DomainName: !Ref CertificateDomainName
@@ -21,9 +21,9 @@ Resources:
           HostedZoneId: !Ref HostedZoneId
       Tags:
         - Key: Name
-          Value: firefly-api-certificate
+          Value: firefly-acm-certificate
 
 Outputs:
   CertificateArn:
-    Value: !Ref ApiCertificate
+    Value: !Ref Certificate
     Description: ARN of the ACM certificate

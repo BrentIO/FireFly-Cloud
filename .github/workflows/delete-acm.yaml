@@ -1,4 +1,4 @@
-name: ⚠️ Delete ACM Certificate for API Gateway
+name: ⚠️ Delete ACM Certificate
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
         type: string
 
 jobs:
-  delete-acm-api-gateway:
+  delete-acm:
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
@@ -26,16 +26,16 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: us-east-1
 
       - name: Install AWS SAM CLI
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
-      - name: Delete acm-api-gateway
+      - name: Delete acm
         run: |
           sam delete \
-            --stack-name firefly-acm-api-gateway \
-            --region ${{ secrets.AWS_REGION }} \
+            --stack-name firefly-acm \
+            --region us-east-1 \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
             --no-prompts

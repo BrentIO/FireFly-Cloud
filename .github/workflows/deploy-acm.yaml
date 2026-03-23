@@ -1,4 +1,4 @@
-name: 🚀 Deploy ACM Certificate for Cognito
+name: 🚀 Deploy ACM Certificate
 
 on:
   workflow_dispatch:
@@ -9,14 +9,22 @@ on:
         options:
           - dev
           - production
+      run_tests:
+        type: boolean
+        description: "Run integration tests after deploy"
+        default: true
   workflow_call:
     inputs:
       target_env:
         required: true
         type: string
+      run_tests:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
-  deploy-acm-cognito:
+  deploy-acm:
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
@@ -38,25 +46,25 @@ jobs:
       - name: Delete stack if in ROLLBACK_FAILED
         run: |
           STATUS=$(aws cloudformation describe-stacks \
-            --stack-name firefly-acm-cognito \
+            --stack-name firefly-acm \
             --region us-east-1 \
             --query "Stacks[0].StackStatus" \
             --output text 2>/dev/null || echo "DOES_NOT_EXIST")
           if [ "$STATUS" = "ROLLBACK_FAILED" ]; then
             echo "Stack is in ROLLBACK_FAILED — deleting before redeploy"
-            aws cloudformation delete-stack --stack-name firefly-acm-cognito --region us-east-1
-            aws cloudformation wait stack-delete-complete --stack-name firefly-acm-cognito --region us-east-1
+            aws cloudformation delete-stack --stack-name firefly-acm --region us-east-1
+            aws cloudformation wait stack-delete-complete --stack-name firefly-acm --region us-east-1
           fi
 
-      - name: Build acm-cognito
-        run: sam build --template-file templates/acm-cognito.yaml
+      - name: Build acm
+        run: sam build --template-file templates/acm.yaml
 
-      - name: Deploy acm-cognito
+      - name: Deploy acm
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file templates/acm-cognito.yaml \
-            --stack-name firefly-acm-cognito \
+            --template-file templates/acm.yaml \
+            --stack-name firefly-acm \
             --region us-east-1 \
             --parameter-overrides \
               CertificateDomainName=${{ vars.CERTIFICATE_DOMAIN_NAME }} \
@@ -64,3 +72,11 @@ jobs:
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+
+  run-integration-tests:
+    if: inputs.run_tests
+    needs: deploy-acm
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
