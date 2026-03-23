@@ -16,6 +16,8 @@ tags:
     description: Over-the-air firmware update delivery
   - name: Users
     description: User and environment access management (super user only)
+  - name: AppConfig
+    description: AWS AppConfig logging configuration management (super user only)
 
 paths:
 
@@ -178,6 +180,79 @@ paths:
                 $ref: '#/components/schemas/MessageResponse'
               example:
                 message: "User 'user@example.com' not found"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /appconfig:
+    get:
+      tags: [AppConfig]
+      summary: List AppConfig applications
+      description: |
+        Returns all AppConfig applications that have a `logging` configuration
+        profile in the current environment, along with each application's current
+        logging rules. Super user access is required.
+      operationId: listAppConfig
+      responses:
+        '200':
+          description: List of applications with logging configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConfigListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /appconfig/{application}:
+    patch:
+      tags: [AppConfig]
+      summary: Update logging configuration
+      description: |
+        Replaces the logging configuration for the specified AppConfig application.
+        A new hosted configuration version is created and immediately deployed
+        using the `AppConfig.AllAtOnce` deployment strategy.
+
+        Each rule is a single-key object mapping a function name prefix to a log
+        level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). When a function
+        name matches multiple prefixes the most verbose level is used.
+
+        Super user access is required.
+      operationId: patchAppConfig
+      parameters:
+        - name: application
+          in: path
+          required: true
+          description: AppConfig application name (matches the Lambda function name)
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchAppConfigRequest'
+            example:
+              logging:
+                - firefly-func-api: INFO
+                - firefly-func-s3: DEBUG
+      responses:
+        '200':
+          description: Logging configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchAppConfigResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Application not found or has no logging profile in this environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -722,6 +797,99 @@ components:
           items:
             $ref: '#/components/schemas/Environment'
           example: [dev, production]
+
+    # -------------------------------------------------------------------------
+    # AppConfig schemas
+    # -------------------------------------------------------------------------
+
+    LogLevel:
+      type: string
+      description: Python logging level.
+      enum: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
+      example: INFO
+
+    LoggingRule:
+      type: object
+      description: |
+        A single logging rule mapping a function name prefix to a log level.
+        The object must have exactly one key.
+      additionalProperties:
+        $ref: '#/components/schemas/LogLevel'
+      example:
+        firefly-func-api: INFO
+
+    AppConfigApplication:
+      type: object
+      description: An AppConfig application with its current logging configuration.
+      properties:
+        id:
+          type: string
+          description: AppConfig application ID.
+          example: abc1234xyz
+        name:
+          type: string
+          description: Application name (matches the Lambda function name).
+          example: firefly-func-api-firmware-get
+        environment_id:
+          type: string
+          description: AppConfig environment ID for the current deployment environment.
+          example: def5678uvw
+        profile_id:
+          type: string
+          description: AppConfig configuration profile ID for the logging profile.
+          example: ghi9012rst
+        logging:
+          type: array
+          description: Current logging rules. Null if no hosted configuration version exists.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LoggingRule'
+          example:
+            - firefly-func-api: INFO
+            - firefly-func-s3: DEBUG
+
+    AppConfigListResponse:
+      type: object
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppConfigApplication'
+
+    PatchAppConfigRequest:
+      type: object
+      required:
+        - logging
+      properties:
+        logging:
+          type: array
+          description: |
+            Replacement logging rules. An empty array clears all rules.
+          items:
+            $ref: '#/components/schemas/LoggingRule'
+          example:
+            - firefly-func-api: INFO
+            - firefly-func-s3: DEBUG
+
+    PatchAppConfigResponse:
+      type: object
+      properties:
+        application:
+          type: string
+          description: Application name that was updated.
+          example: firefly-func-api-firmware-get
+        version:
+          type: integer
+          description: Hosted configuration version number that was created and deployed.
+          example: 5
+        logging:
+          type: array
+          description: The new logging rules as stored.
+          items:
+            $ref: '#/components/schemas/LoggingRule'
+          example:
+            - firefly-func-api: INFO
+            - firefly-func-s3: DEBUG
 
     # -------------------------------------------------------------------------
     # Object schemas
