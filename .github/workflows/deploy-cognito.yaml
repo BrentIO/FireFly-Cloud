@@ -112,37 +112,52 @@ jobs:
           from botocore.exceptions import ClientError
 
           cognito = boto3.client("cognito-idp")
+          cf = boto3.client("cloudformation")
           domain = "${{ vars.AUTH_DOMAIN_NAME }}"
 
-          # Delete domain if still registered
+          # Get the pool ID currently tracked by the live CF stack (if any)
+          current_pool_id = None
+          try:
+              outputs = cf.describe_stacks(StackName="firefly-cognito")["Stacks"][0].get("Outputs", [])
+              for o in outputs:
+                  if o["OutputKey"] == "UserPoolId":
+                      current_pool_id = o["OutputValue"]
+          except ClientError:
+              pass
+
+          # Only delete the domain if it is attached to a *different* (orphaned) pool.
+          # If it is already on the current stack's pool, leave it — CF will manage it
+          # and the Route 53 alias already points to the correct CloudFront distribution.
           try:
               resp = cognito.describe_user_pool_domain(Domain=domain)
               desc = resp.get("DomainDescription", {})
               pool_id = desc.get("UserPoolId")
               status = desc.get("Status")
               if not pool_id:
-                  print(f"Domain {domain} not found or already unregistered")
+                  print(f"Domain {domain} not found or already unregistered — no action needed")
+              elif pool_id == current_pool_id:
+                  print(f"Domain {domain} is on current stack pool {pool_id} — skipping deletion")
               else:
-                  print(f"Found domain {domain} attached to pool {pool_id} (status={status}) — deleting")
+                  print(f"Domain {domain} is on orphaned pool {pool_id} (status={status}) — deleting")
                   cognito.delete_user_pool_domain(Domain=domain, UserPoolId=pool_id)
-                  print(f"Domain {domain} deleted")
+                  print(f"Domain {domain} deleted from orphaned pool")
+
+                  # Poll until the domain is fully gone
+                  print(f"Waiting for domain {domain} to be fully deregistered...")
+                  for attempt in range(20):
+                      resp = cognito.describe_user_pool_domain(Domain=domain)
+                      desc = resp.get("DomainDescription", {})
+                      pool_id = desc.get("UserPoolId")
+                      status = desc.get("Status", "")
+                      if not pool_id and status not in ("DELETING", "ACTIVE", "CREATING"):
+                          print(f"Domain {domain} is clear (attempt {attempt + 1})")
+                          break
+                      print(f"  Attempt {attempt + 1}: domain still present (pool={pool_id}, status={status}) — waiting 15s")
+                      time.sleep(15)
+                  else:
+                      print(f"WARNING: domain {domain} did not clear after 5 minutes — proceeding anyway")
           except ClientError as e:
               print(f"Warning during domain cleanup: {e}")
-
-          # Poll until the domain is fully gone (Cognito deletion is eventually consistent)
-          print(f"Waiting for domain {domain} to be fully deregistered...")
-          for attempt in range(20):
-              resp = cognito.describe_user_pool_domain(Domain=domain)
-              desc = resp.get("DomainDescription", {})
-              pool_id = desc.get("UserPoolId")
-              status = desc.get("Status", "")
-              if not pool_id and status not in ("DELETING", "ACTIVE", "CREATING"):
-                  print(f"Domain {domain} is clear (attempt {attempt + 1})")
-                  break
-              print(f"  Attempt {attempt + 1}: domain still present (pool={pool_id}, status={status}) — waiting 15s")
-              time.sleep(15)
-          else:
-              print(f"WARNING: domain {domain} did not clear after 5 minutes — proceeding anyway")
           PYEOF
 
       - name: Diagnose existing Cognito domain
@@ -223,6 +238,12 @@ jobs:
             --domain ${{ vars.AUTH_DOMAIN_NAME }} \
             --query 'DomainDescription.CloudFrontDistribution' \
             --output text)
+
+          if [ -z "$CF_DOMAIN" ] || [ "$CF_DOMAIN" = "None" ]; then
+            echo "ERROR: CloudFront distribution for Cognito domain '${{ vars.AUTH_DOMAIN_NAME }}' is not yet available."
+            echo "The Cognito custom domain may still be provisioning. Re-run this workflow once the domain is active."
+            exit 1
+          fi
 
           aws route53 change-resource-record-sets \
             --hosted-zone-id ${{ secrets.HOSTED_ZONE_ID }} \
