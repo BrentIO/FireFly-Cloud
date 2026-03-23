@@ -232,6 +232,72 @@ jobs:
             --query "StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED'].{Resource:LogicalResourceId,Status:ResourceStatus,Reason:ResourceStatusReason}" \
             --output table
 
+      - name: Ensure auth domain exists on current pool
+        run: |
+          python3 << 'PYEOF'
+          import boto3, sys, time
+          from botocore.exceptions import ClientError
+
+          cognito = boto3.client("cognito-idp")
+          cf = boto3.client("cloudformation")
+          domain = "${{ vars.AUTH_DOMAIN_NAME }}"
+          cert_arn = "${{ steps.lookup-cert.outputs.cert_arn }}"
+
+          # Get the pool ID from the live stack
+          pool_id = None
+          try:
+              outputs = cf.describe_stacks(StackName="firefly-cognito")["Stacks"][0].get("Outputs", [])
+              for o in outputs:
+                  if o["OutputKey"] == "UserPoolId":
+                      pool_id = o["OutputValue"]
+          except ClientError:
+              pass
+
+          if not pool_id:
+              print("No active firefly-cognito stack found — skipping domain check")
+              sys.exit(0)
+
+          resp = cognito.describe_user_pool_domain(Domain=domain)
+          desc = resp.get("DomainDescription", {})
+          existing_pool = desc.get("UserPoolId")
+          cf_dist = desc.get("CloudFrontDistribution", "")
+          status = desc.get("Status", "")
+
+          if existing_pool == pool_id and cf_dist and cf_dist != "None":
+              print(f"Domain {domain} exists on current pool (status={status}, cf={cf_dist}) — no action needed")
+              sys.exit(0)
+
+          if existing_pool == pool_id and (not cf_dist or cf_dist == "None"):
+              print(f"Domain {domain} is registered but CloudFront distribution is not yet provisioned (status={status}) — waiting...")
+          else:
+              print(f"Domain {domain} is missing from pool {pool_id} — creating")
+              try:
+                  cognito.create_user_pool_domain(
+                      Domain=domain,
+                      UserPoolId=pool_id,
+                      CustomDomainConfig={"CertificateArn": cert_arn},
+                  )
+                  print(f"Domain {domain} created — waiting for CloudFront distribution to provision")
+              except ClientError as e:
+                  print(f"Failed to create domain: {e}")
+                  sys.exit(1)
+
+          # Wait up to 30 minutes for the CloudFront distribution to become active
+          for attempt in range(60):
+              resp = cognito.describe_user_pool_domain(Domain=domain)
+              desc = resp.get("DomainDescription", {})
+              cf_dist = desc.get("CloudFrontDistribution", "")
+              status = desc.get("Status", "")
+              if cf_dist and cf_dist != "None" and status == "ACTIVE":
+                  print(f"Domain provisioned after {attempt + 1} attempts: {cf_dist}")
+                  sys.exit(0)
+              print(f"  Attempt {attempt + 1}/60: status={status}, cf={cf_dist} — waiting 30s")
+              time.sleep(30)
+
+          print("ERROR: Domain did not provision after 30 minutes")
+          sys.exit(1)
+          PYEOF
+
       - name: Create Route 53 alias for Cognito custom domain
         run: |
           CF_DOMAIN=$(aws cognito-idp describe-user-pool-domain \
