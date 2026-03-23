@@ -37,7 +37,7 @@ jobs:
           TARGET_ENV: ${{ inputs.target_env }}
         run: |
           python3 << 'PYEOF'
-          import subprocess, sys, os
+          import sys, os
           import boto3
           from botocore.exceptions import ClientError
 
@@ -54,41 +54,74 @@ jobs:
               sys.exit(0)
             raise
 
-          print(f'Checking bucket contents: {bucket}')
           s3 = boto3.client('s3')
-          resp = s3.list_objects_v2(Bucket=bucket, MaxKeys=1)
-          if resp.get('KeyCount', 0) > 0 and os.environ.get('TARGET_ENV') == 'production':
-            print(f"ERROR: Production firmware bucket '{bucket}' is not empty. Refusing to empty.")
-            sys.exit(1)
+
+          # Production guard: check for any content including non-current versions.
+          # list_objects_v2 only sees current objects, so use list_object_versions.
+          if os.environ.get('TARGET_ENV') == 'production':
+            resp = s3.list_object_versions(Bucket=bucket, MaxKeys=1)
+            if resp.get('Versions') or resp.get('DeleteMarkers'):
+              print(f"ERROR: Production firmware bucket '{bucket}' is not empty. Refusing to empty.")
+              sys.exit(1)
 
           print(f'Emptying bucket: {bucket}')
-          subprocess.run(['aws', 's3', 'rm', f's3://{bucket}', '--recursive'])
 
+          # Delete all object versions and delete markers using paginated API.
+          # aws s3 rm --recursive only adds delete markers in versioned buckets; using
+          # the versioned API directly ensures non-current versions are not missed.
+          # The VersionId filter is intentionally omitted — null-versioned objects
+          # (created while versioning is suspended) have VersionId="null" in the API
+          # but boto3 may deserialise that as Python None, which a truthiness check
+          # would silently drop.
           for field in ('Versions', 'DeleteMarkers'):
             print(f'Deleting {field}...')
+            kwargs = {}
             while True:
-              resp = s3.list_object_versions(Bucket=bucket, MaxKeys=500)
+              resp = s3.list_object_versions(Bucket=bucket, MaxKeys=1000, **kwargs)
               items = [{'Key': x['Key'], 'VersionId': x['VersionId']}
-                       for x in resp.get(field, []) if x.get('VersionId')]
-              if not items:
+                       for x in resp.get(field, [])]
+              if items:
+                result = s3.delete_objects(Bucket=bucket,
+                                           Delete={'Objects': items, 'Quiet': True})
+                errors = result.get('Errors', [])
+                if errors:
+                  for err in errors:
+                    print(f"ERROR: Failed to delete {err['Key']} "
+                          f"(VersionId={err.get('VersionId')}): "
+                          f"{err['Code']} - {err['Message']}")
+                  sys.exit(1)
+                print(f'  Deleted {len(items)} {field}')
+              if not resp.get('IsTruncated'):
                 break
-              result = s3.delete_objects(Bucket=bucket, Delete={'Objects': items})
-              errors = result.get('Errors', [])
-              if errors:
-                for err in errors:
-                  print(f"ERROR: Failed to delete {err['Key']} (VersionId={err.get('VersionId')}): {err['Code']} - {err['Message']}")
-                sys.exit(1)
+              kwargs = {
+                'KeyMarker': resp['NextKeyMarker'],
+                'VersionIdMarker': resp['NextVersionIdMarker'],
+              }
 
           # Abort incomplete multipart uploads
           print('Aborting incomplete multipart uploads...')
+          up_kwargs = {}
           while True:
-            resp = s3.list_multipart_uploads(Bucket=bucket, MaxUploads=100)
+            resp = s3.list_multipart_uploads(Bucket=bucket, MaxUploads=1000, **up_kwargs)
             uploads = resp.get('Uploads', [])
             if not uploads:
               break
             for u in uploads:
               s3.abort_multipart_upload(Bucket=bucket, Key=u['Key'], UploadId=u['UploadId'])
               print(f'  Aborted: {u["Key"]}')
+            if not resp.get('IsTruncated'):
+              break
+            up_kwargs = {
+              'KeyMarker': resp['NextKeyMarker'],
+              'UploadIdMarker': resp['NextUploadIdMarker'],
+            }
+
+          # Final verification — catch any objects that slipped through before
+          # handing off to sam delete, which will fail if the bucket is non-empty.
+          resp = s3.list_object_versions(Bucket=bucket, MaxKeys=1)
+          if resp.get('Versions') or resp.get('DeleteMarkers'):
+            print('ERROR: Bucket still contains versioned objects after cleanup. Aborting.')
+            sys.exit(1)
 
           print('Bucket emptied successfully')
           PYEOF
