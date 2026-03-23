@@ -95,13 +95,13 @@ jobs:
           # add Outputs back.
           print(f'Table {TABLE} exists but stack {STACK} does not — importing')
 
-          import yaml as _yaml
+          # Strip the Outputs section from the raw template text — yaml.safe_load
+          # cannot parse CloudFormation intrinsic tags like !Ref / !GetAtt.
           with open(TEMPLATE) as f:
-            template_obj = _yaml.safe_load(f)
+            template_text = f.read()
 
-          # Remove Outputs for the import changeset
-          import_template = {k: v for k, v in template_obj.items() if k != 'Outputs'}
-          import_template_body = _yaml.dump(import_template)
+          # Outputs is the last top-level section; truncate at '\nOutputs:'
+          import_template_body = template_text.split('\nOutputs:')[0]
 
           CS_NAME = 'import-users-table'
 
