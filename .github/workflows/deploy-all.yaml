@@ -103,6 +103,22 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-func-api-appconfig-get:
+    needs:
+      - deploy-api-gateway
+    uses: ./.github/workflows/deploy-func-api-appconfig-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-appconfig-patch:
+    needs:
+      - deploy-api-gateway
+    uses: ./.github/workflows/deploy-func-api-appconfig-patch.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-func-api-firmware-get:
     needs:
       - deploy-api-gateway
@@ -231,6 +247,8 @@ jobs:
       - deploy-func-api-users-post
       - deploy-func-api-users-delete
       - deploy-func-api-users-patch
+      - deploy-func-api-appconfig-get
+      - deploy-func-api-appconfig-patch
       - deploy-ui-app
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit

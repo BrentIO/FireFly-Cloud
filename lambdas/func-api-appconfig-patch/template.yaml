@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API PATCH /appconfig/{application}
+
+Parameters:
+
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
+  EnvironmentName:
+    Type: String
+
+Resources:
+
+  FuncApiAppConfigPatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-appconfig-patch-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AppConfigPatchPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - appconfig:ListApplications
+                  - appconfig:ListEnvironments
+                  - appconfig:ListConfigurationProfiles
+                  - appconfig:CreateHostedConfigurationVersion
+                  - appconfig:StartDeployment
+                Resource: "*"
+
+  FuncApiAppConfigPatch:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-appconfig-patch
+      Role: !GetAtt FuncApiAppConfigPatchRole.Arn
+      CodeUri: .
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          ENVIRONMENT_NAME: !Ref EnvironmentName
+
+  FuncApiAppConfigPatchIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiAppConfigPatch.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiAppConfigPatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: PATCH /appconfig/{application}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
+      Target: !Sub integrations/${FuncApiAppConfigPatchIntegration.IntegrationId}
+
+  FuncApiAppConfigPatchPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiAppConfigPatch
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/PATCH/appconfig/*
+
+Outputs:
+  FuncApiAppConfigPatchArn:
+    Value: !GetAtt FuncApiAppConfigPatch.Arn
+    Description: ARN of the appconfig PATCH Lambda
