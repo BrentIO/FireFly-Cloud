@@ -89,11 +89,19 @@ jobs:
             ])
             sys.exit(r.returncode)
 
-          # Table exists but stack does not — import the table into a new stack
+          # Table exists but stack does not — import the table into a new stack.
+          # CloudFormation IMPORT changesets reject templates that add Outputs, so
+          # we import with a stripped template first, then run a normal deploy to
+          # add Outputs back.
           print(f'Table {TABLE} exists but stack {STACK} does not — importing')
 
+          import yaml as _yaml
           with open(TEMPLATE) as f:
-            template_body = f.read()
+            template_obj = _yaml.safe_load(f)
+
+          # Remove Outputs for the import changeset
+          import_template = {k: v for k, v in template_obj.items() if k != 'Outputs'}
+          import_template_body = _yaml.dump(import_template)
 
           CS_NAME = 'import-users-table'
 
@@ -102,7 +110,7 @@ jobs:
             ChangeSetName=CS_NAME,
             ChangeSetType='IMPORT',
             RoleARN=ROLE,
-            TemplateBody=template_body,
+            TemplateBody=import_template_body,
             Parameters=[{
               'ParameterKey': 'DynamoDbUsersTableName',
               'ParameterValue': TABLE,
@@ -140,4 +148,16 @@ jobs:
               print(f'Import failed with status: {status}')
               sys.exit(1)
             time.sleep(5)
+
+          # Now run a normal update to add Outputs (not permitted during IMPORT)
+          print('Running normal deploy to add Outputs...')
+          r = subprocess.run([
+            'aws', 'cloudformation', 'deploy',
+            '--role-arn', ROLE,
+            '--template-file', TEMPLATE,
+            '--stack-name', STACK,
+            '--parameter-overrides', f'DynamoDbUsersTableName={TABLE}',
+            '--no-fail-on-empty-changeset',
+          ])
+          sys.exit(r.returncode)
           PYEOF
