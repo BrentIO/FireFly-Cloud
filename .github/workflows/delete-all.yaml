@@ -125,15 +125,15 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
-  delete-cloudfront:
-    uses: ./.github/workflows/delete-cloudfront.yaml
+  delete-cloudfront-firmware:
+    uses: ./.github/workflows/delete-cloudfront-firmware.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
 
   delete-s3-firmware-public:
     needs:
-      - delete-cloudfront
+      - delete-cloudfront-firmware
     uses: ./.github/workflows/delete-s3-firmware-public.yaml
     secrets: inherit
     with:
@@ -142,7 +142,7 @@ jobs:
   delete-acm-api-gateway:
     needs:
       - delete-api-gateway
-      - delete-cloudfront
+      - delete-cloudfront-firmware
       - delete-cloudfront-ui
     uses: ./.github/workflows/delete-acm-api-gateway.yaml
     secrets: inherit

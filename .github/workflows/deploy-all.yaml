@@ -171,11 +171,11 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
-  deploy-cloudfront:
+  deploy-cloudfront-firmware:
     needs:
       - deploy-acm
       - deploy-s3-firmware-public
-    uses: ./.github/workflows/deploy-cloudfront.yaml
+    uses: ./.github/workflows/deploy-cloudfront-firmware.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
@@ -184,7 +184,7 @@ jobs:
     needs:
       - deploy-api-gateway
       - deploy-shared-layer
-      - deploy-cloudfront
+      - deploy-cloudfront-firmware
     uses: ./.github/workflows/deploy-func-api-ota-get.yaml
     secrets: inherit
     with:
