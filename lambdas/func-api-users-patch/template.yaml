@@ -45,6 +45,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - cognito-idp:AdminGetUser
                   - cognito-idp:ListUsers
                   - cognito-idp:ListUsersInGroup
                   - cognito-idp:AdminAddUserToGroup
