@@ -1,4 +1,4 @@
-name: 🚀 Deploy CloudFront
+name: 🚀 Deploy CloudFront Firmware
 on:
   workflow_dispatch:
     inputs:
@@ -23,7 +23,7 @@ on:
         default: false
 
 jobs:
-  deploy-cloudfront:
+  deploy-cloudfront-firmware:
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
 
@@ -52,12 +52,12 @@ jobs:
 
           echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
 
-      - name: Deploy cloudfront
+      - name: Deploy cloudfront-firmware
         run: |
           sam deploy \
             --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
-            --template-file templates/cloudfront.yaml \
-            --stack-name firefly-cloudfront \
+            --template-file templates/cloudfront-firmware.yaml \
+            --stack-name firefly-cloudfront-firmware \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               FirmwareBucketName=${{ secrets.S3_FIRMWARE_PUBLIC_BUCKET_NAME }} \
@@ -70,7 +70,7 @@ jobs:
 
   run-integration-tests:
     if: inputs.run_tests
-    needs: deploy-cloudfront
+    needs: deploy-cloudfront-firmware
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:
