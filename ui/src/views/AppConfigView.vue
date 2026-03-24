@@ -100,7 +100,7 @@ async function submitEdit() {
   <AppLayout>
     <!-- Toolbar -->
     <div class="flex-shrink-0 flex items-center justify-between pb-4 flex-wrap gap-3">
-      <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">AppConfig</h1>
+      <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Configuration</h1>
 
       <button
         @click="load"
@@ -178,10 +178,10 @@ async function submitEdit() {
               <td class="px-4 py-3 text-right align-top pt-3 whitespace-nowrap">
                 <button
                   @click="openEditModal(app)"
-                  class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  aria-label="Edit logging config"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <PencilSquareIcon class="w-5 h-5" />
+                  <PencilSquareIcon class="w-3.5 h-3.5" />
+                  Configure
                 </button>
               </td>
             </tr>

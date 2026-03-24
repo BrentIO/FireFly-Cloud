@@ -16,8 +16,8 @@ tags:
     description: Over-the-air firmware update delivery
   - name: Users
     description: User and environment access management (super user only)
-  - name: AppConfig
-    description: AWS AppConfig logging configuration management (super user only)
+  - name: Configuration
+    description: Logging configuration management via the Configuration UI (super user only)
 
 paths:
 
@@ -185,10 +185,10 @@ paths:
 
   /appconfig:
     get:
-      tags: [AppConfig]
-      summary: List AppConfig applications
+      tags: [Configuration]
+      summary: List configuration applications
       description: |
-        Returns all AppConfig applications that have a `logging` configuration
+        Returns all AWS AppConfig applications that have a `logging` configuration
         profile in the current environment, along with each application's current
         logging rules. Super user access is required.
       operationId: listAppConfig
@@ -206,10 +206,10 @@ paths:
 
   /appconfig/{application}:
     patch:
-      tags: [AppConfig]
+      tags: [Configuration]
       summary: Update logging configuration
       description: |
-        Replaces the logging configuration for the specified AppConfig application.
+        Replaces the logging configuration for the specified AWS AppConfig application.
         A new hosted configuration version is created and immediately deployed
         using the `AppConfig.AllAtOnce` deployment strategy.
 
@@ -223,7 +223,7 @@ paths:
         - name: application
           in: path
           required: true
-          description: AppConfig application name (matches the Lambda function name)
+          description: AWS AppConfig application name (matches the Lambda function name)
           schema:
             type: string
       requestBody:
