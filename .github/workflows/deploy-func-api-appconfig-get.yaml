@@ -8,11 +8,19 @@ on:
         options:
           - dev
           - production
+      run_tests:
+        type: boolean
+        description: "Run integration tests after deploy"
+        default: true
   workflow_call:
     inputs:
       target_env:
         required: true
         type: string
+      run_tests:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   deploy-func-api-appconfig-get:
@@ -67,3 +75,11 @@ jobs:
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+
+  run-integration-tests:
+    if: inputs.run_tests
+    needs: deploy-func-api-appconfig-get
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
