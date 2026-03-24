@@ -14,3 +14,7 @@ export function patchAppConfig(functionName, config) {
 export function deployAppConfig(functionName) {
   return apiFetch(`/appconfig/${functionName}/deploy`, { method: 'POST' })
 }
+
+export function deleteAppConfig(functionName) {
+  return apiFetch(`/appconfig/${functionName}`, { method: 'DELETE' })
+}
