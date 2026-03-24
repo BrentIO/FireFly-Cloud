@@ -9,7 +9,7 @@ def get_appconfig(profile=None):
     Fetch AppConfig JSON via Lambda AppConfig Extension.
     Returns empty dict/list if unavailable.
     """
-    app = "firefly"
+    app = os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "")
     env = os.environ.get("APP_CONFIG_ENV", "")
 
     url = (

@@ -1,27 +1,26 @@
 """
-PATCH /appconfig — update the logging configuration for the "firefly" AppConfig application.
+PATCH /appconfig/{function_name}       — create or update the AppConfig for a Lambda function.
+POST  /appconfig/{function_name}/deploy — deploy the latest staged version to the current environment.
 
-Requires the caller to be in the super_users group.
+Both routes require the caller to be in the super_users group.
 
-Request body:
-  {
-    "logging": [{"prefix": "LEVEL"}, ...]
-  }
+PATCH request body:
+  {"logging": "WARNING"}
+  Additional keys are accepted and stored for future feature-flag use.
 
-Each entry in the logging array is a single-key object mapping a function name
-prefix to a log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+PATCH response (200):
+  {"name": "firefly-func-api-firmware-get", "logging": "WARNING", "version": 3}
 
-If the "firefly" AppConfig application does not yet exist it is bootstrapped
-(application + environment + logging profile) before the configuration is written.
+PATCH creates a new hosted configuration version but does NOT deploy it.
+Call POST /appconfig/{function_name}/deploy to activate the change.
 
-A new hosted configuration version is created and immediately deployed using
-the AllAtOnce deployment strategy.
+POST /deploy response (200):
+  {"name": "firefly-func-api-firmware-get", "version": 3, "environment": "dev", "status": "DEPLOYING"}
 """
 
 import json
 import logging
 import os
-import time
 
 import boto3
 from botocore.exceptions import ClientError
@@ -30,12 +29,14 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 appconfig = boto3.client("appconfig")
+lambda_client = boto3.client("lambda")
+
 SUPER_GROUP = "super_users"
 ENVIRONMENT_NAME = os.environ["ENVIRONMENT_NAME"]
-APP_NAME = "firefly"
 PROFILE_NAME = "logging"
-DEPLOYMENT_STRATEGY = "AppConfig.AllAtOnce"
+FUNCTION_PREFIX = "firefly-func-"
 VALID_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+DEPLOYMENT_STRATEGY = "AppConfig.AllAtOnce"
 
 
 def _response(status_code, body):
@@ -63,72 +64,184 @@ def _is_super_user(event):
         return SUPER_GROUP in groups_raw.strip("[]").split()
 
 
-def _find_or_create_firefly_app():
-    """Return (app_id, env_id, profile_id), creating the application if it does not exist."""
-    # Try to find the existing application
+def _function_exists(function_name):
+    try:
+        lambda_client.get_function(FunctionName=function_name)
+        return True
+    except ClientError:
+        return False
+
+
+def _find_or_create_app(function_name):
+    """Return (app_id, env_id, profile_id), creating any missing resources."""
+    app_id = None
     paginator = appconfig.get_paginator("list_applications")
     for page in paginator.paginate():
         for app in page.get("Items", []):
-            if app["Name"] == APP_NAME:
+            if app["Name"] == function_name:
                 app_id = app["Id"]
+                break
+        if app_id:
+            break
 
-                env_id = None
-                env_paginator = appconfig.get_paginator("list_environments")
-                for env_page in env_paginator.paginate(ApplicationId=app_id):
-                    for env in env_page.get("Items", []):
-                        if env["Name"] == ENVIRONMENT_NAME:
-                            env_id = env["Id"]
-                            break
-                    if env_id:
-                        break
+    if not app_id:
+        resp = appconfig.create_application(Name=function_name)
+        app_id = resp["Id"]
 
-                if not env_id:
-                    env_resp = appconfig.create_environment(
-                        ApplicationId=app_id,
-                        Name=ENVIRONMENT_NAME,
-                    )
-                    env_id = env_resp["Id"]
+    env_id = None
+    env_paginator = appconfig.get_paginator("list_environments")
+    for page in env_paginator.paginate(ApplicationId=app_id):
+        for env in page.get("Items", []):
+            if env["Name"] == ENVIRONMENT_NAME:
+                env_id = env["Id"]
+                break
+        if env_id:
+            break
 
-                profile_id = None
-                profile_paginator = appconfig.get_paginator("list_configuration_profiles")
-                for profile_page in profile_paginator.paginate(ApplicationId=app_id):
-                    for profile in profile_page.get("Items", []):
-                        if profile["Name"] == PROFILE_NAME:
-                            profile_id = profile["Id"]
-                            break
-                    if profile_id:
-                        break
+    if not env_id:
+        resp = appconfig.create_environment(ApplicationId=app_id, Name=ENVIRONMENT_NAME)
+        env_id = resp["Id"]
 
-                if not profile_id:
-                    profile_resp = appconfig.create_configuration_profile(
-                        ApplicationId=app_id,
-                        Name=PROFILE_NAME,
-                        LocationUri="hosted",
-                        Type="AWS.Freeform",
-                    )
-                    profile_id = profile_resp["Id"]
+    profile_id = None
+    profile_paginator = appconfig.get_paginator("list_configuration_profiles")
+    for page in profile_paginator.paginate(ApplicationId=app_id):
+        for profile in page.get("Items", []):
+            if profile["Name"] == PROFILE_NAME:
+                profile_id = profile["Id"]
+                break
+        if profile_id:
+            break
 
-                return app_id, env_id, profile_id
-
-    # Application does not exist — bootstrap it
-    app_resp = appconfig.create_application(Name=APP_NAME)
-    app_id = app_resp["Id"]
-
-    env_resp = appconfig.create_environment(
-        ApplicationId=app_id,
-        Name=ENVIRONMENT_NAME,
-    )
-    env_id = env_resp["Id"]
-
-    profile_resp = appconfig.create_configuration_profile(
-        ApplicationId=app_id,
-        Name=PROFILE_NAME,
-        LocationUri="hosted",
-        Type="AWS.Freeform",
-    )
-    profile_id = profile_resp["Id"]
+    if not profile_id:
+        resp = appconfig.create_configuration_profile(
+            ApplicationId=app_id,
+            Name=PROFILE_NAME,
+            LocationUri="hosted",
+            Type="AWS.Freeform",
+        )
+        profile_id = resp["Id"]
 
     return app_id, env_id, profile_id
+
+
+def _find_app(function_name):
+    """Return (app_id, env_id, profile_id) or None if the application does not exist."""
+    app_id = None
+    paginator = appconfig.get_paginator("list_applications")
+    for page in paginator.paginate():
+        for app in page.get("Items", []):
+            if app["Name"] == function_name:
+                app_id = app["Id"]
+                break
+        if app_id:
+            break
+
+    if not app_id:
+        return None
+
+    env_id = None
+    env_paginator = appconfig.get_paginator("list_environments")
+    for page in env_paginator.paginate(ApplicationId=app_id):
+        for env in page.get("Items", []):
+            if env["Name"] == ENVIRONMENT_NAME:
+                env_id = env["Id"]
+                break
+        if env_id:
+            break
+
+    if not env_id:
+        return None
+
+    profile_id = None
+    profile_paginator = appconfig.get_paginator("list_configuration_profiles")
+    for page in profile_paginator.paginate(ApplicationId=app_id):
+        for profile in page.get("Items", []):
+            if profile["Name"] == PROFILE_NAME:
+                profile_id = profile["Id"]
+                break
+        if profile_id:
+            break
+
+    if not profile_id:
+        return None
+
+    return app_id, env_id, profile_id
+
+
+def _handle_patch(event, function_name):
+    if not function_name.startswith(FUNCTION_PREFIX):
+        return _response(400, {"message": f"Function name must start with '{FUNCTION_PREFIX}'"})
+
+    if not _function_exists(function_name):
+        return _response(404, {"message": f"Lambda function '{function_name}' not found"})
+
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return _response(400, {"message": "Invalid JSON body"})
+
+    if "logging" not in body:
+        return _response(400, {"message": "Missing required field: logging"})
+
+    level = str(body["logging"]).upper()
+    if level not in VALID_LEVELS:
+        return _response(400, {"message": f"Invalid log level '{level}'; must be one of {sorted(VALID_LEVELS)}"})
+
+    app_id, env_id, profile_id = _find_or_create_app(function_name)
+
+    # Build config — logging is normalised; any other keys are passed through for future use
+    config = {k: v for k, v in body.items() if k != "logging"}
+    config["logging"] = level
+
+    ver_resp = appconfig.create_hosted_configuration_version(
+        ApplicationId=app_id,
+        ConfigurationProfileId=profile_id,
+        Content=json.dumps(config).encode("utf-8"),
+        ContentType="application/json",
+    )
+
+    return _response(200, {
+        "name": function_name,
+        "logging": level,
+        "version": ver_resp["VersionNumber"],
+    })
+
+
+def _handle_deploy(function_name):
+    if not function_name.startswith(FUNCTION_PREFIX):
+        return _response(400, {"message": f"Function name must start with '{FUNCTION_PREFIX}'"})
+
+    result = _find_app(function_name)
+    if result is None:
+        return _response(404, {"message": f"No AppConfig application found for '{function_name}'. Use PATCH to create one first."})
+
+    app_id, env_id, profile_id = result
+
+    versions_resp = appconfig.list_hosted_configuration_versions(
+        ApplicationId=app_id,
+        ConfigurationProfileId=profile_id,
+        MaxResults=1,
+    )
+    versions = versions_resp.get("Items", [])
+    if not versions:
+        return _response(404, {"message": "No configuration version found. Use PATCH to create one first."})
+
+    latest_version = versions[0]["VersionNumber"]
+
+    deploy_resp = appconfig.start_deployment(
+        ApplicationId=app_id,
+        EnvironmentId=env_id,
+        DeploymentStrategyId=DEPLOYMENT_STRATEGY,
+        ConfigurationProfileId=profile_id,
+        ConfigurationVersion=str(latest_version),
+    )
+
+    return _response(200, {
+        "name": function_name,
+        "version": latest_version,
+        "environment": ENVIRONMENT_NAME,
+        "status": deploy_resp.get("State", "DEPLOYING"),
+    })
 
 
 def lambda_handler(event, context):
@@ -136,57 +249,16 @@ def lambda_handler(event, context):
         if not _is_super_user(event):
             return _response(403, {"message": "Forbidden"})
 
-        try:
-            body = json.loads(event.get("body") or "{}")
-        except json.JSONDecodeError:
-            return _response(400, {"message": "Invalid JSON body"})
+        route_key = event.get("routeKey", "")
+        path_params = event.get("pathParameters") or {}
+        function_name = path_params.get("function_name", "")
 
-        logging_config = body.get("logging")
-        if logging_config is None:
-            return _response(400, {"message": "Missing required field: logging"})
-        if not isinstance(logging_config, list):
-            return _response(400, {"message": "Field 'logging' must be an array"})
-
-        for i, entry in enumerate(logging_config):
-            if not isinstance(entry, dict) or len(entry) != 1:
-                return _response(400, {"message": f"logging[{i}] must be a single-key object"})
-            level = next(iter(entry.values())).upper()
-            if level not in VALID_LEVELS:
-                return _response(400, {"message": f"logging[{i}] has invalid level '{level}'; must be one of {sorted(VALID_LEVELS)}"})
-
-        normalized = [{k: v.upper()} for entry in logging_config for k, v in entry.items()]
-
-        app_id, env_id, profile_id = _find_or_create_firefly_app()
-
-        content_bytes = json.dumps(normalized).encode("utf-8")
-        ver_resp = appconfig.create_hosted_configuration_version(
-            ApplicationId=app_id,
-            ConfigurationProfileId=profile_id,
-            Content=content_bytes,
-            ContentType="application/json",
-        )
-        version_number = ver_resp["VersionNumber"]
-
-        for attempt in range(10):
-            try:
-                appconfig.start_deployment(
-                    ApplicationId=app_id,
-                    EnvironmentId=env_id,
-                    DeploymentStrategyId=DEPLOYMENT_STRATEGY,
-                    ConfigurationProfileId=profile_id,
-                    ConfigurationVersion=str(version_number),
-                )
-                break
-            except ClientError as e:
-                if e.response["Error"]["Code"] == "ConflictException" and attempt < 9:
-                    time.sleep(2)
-                    continue
-                raise
-
-        return _response(200, {
-            "version": version_number,
-            "logging": normalized,
-        })
+        if route_key.startswith("PATCH "):
+            return _handle_patch(event, function_name)
+        elif route_key.startswith("POST "):
+            return _handle_deploy(function_name)
+        else:
+            return _response(404, {"message": "Not found"})
 
     except ClientError as e:
         logger.exception("AWS ClientError")

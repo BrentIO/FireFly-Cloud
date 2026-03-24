@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: API PATCH /appconfig/{application}
+Description: API PATCH /appconfig/{function_name} and POST /appconfig/{function_name}/deploy
 
 Parameters:
 
@@ -40,11 +40,14 @@ Resources:
                   - appconfig:ListApplications
                   - appconfig:ListEnvironments
                   - appconfig:ListConfigurationProfiles
+                  - appconfig:ListHostedConfigurationVersions
                   - appconfig:CreateApplication
                   - appconfig:CreateEnvironment
                   - appconfig:CreateConfigurationProfile
                   - appconfig:CreateHostedConfigurationVersion
+                  - appconfig:ListDeployments
                   - appconfig:StartDeployment
+                  - lambda:GetFunction
                 Resource: "*"
 
   FuncApiAppConfigPatch:
@@ -75,7 +78,16 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref ApiId
-      RouteKey: PATCH /appconfig
+      RouteKey: PATCH /appconfig/{function_name}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
+      Target: !Sub integrations/${FuncApiAppConfigPatchIntegration.IntegrationId}
+
+  FuncApiAppConfigDeployRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: POST /appconfig/{function_name}/deploy
       AuthorizationType: JWT
       AuthorizerId: !Ref AuthorizerId
       Target: !Sub integrations/${FuncApiAppConfigPatchIntegration.IntegrationId}
@@ -86,9 +98,17 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref FuncApiAppConfigPatch
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/PATCH/appconfig
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/PATCH/appconfig/*
+
+  FuncApiAppConfigDeployPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiAppConfigPatch
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/POST/appconfig/*/deploy
 
 Outputs:
   FuncApiAppConfigPatchArn:
     Value: !GetAtt FuncApiAppConfigPatch.Arn
-    Description: ARN of the appconfig PATCH Lambda
+    Description: ARN of the appconfig PATCH/deploy Lambda
