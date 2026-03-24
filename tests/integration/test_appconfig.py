@@ -11,6 +11,8 @@ PATCH /appconfig/{function_name}          — 400/403 validation; full update li
 POST  /appconfig/{function_name}/deploy   — 403 validation; deploy lifecycle
 """
 
+import time
+
 import pytest
 import requests
 
@@ -227,11 +229,17 @@ class TestDeployAppConfig:
         )
         assert patch_resp.status_code == 200
 
-        deploy_resp = requests.post(
-            f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
-            headers=super_auth_headers,
-            timeout=15,
-        )
+        # Retry if a prior deployment is still in progress (409 Conflict)
+        for attempt in range(6):
+            deploy_resp = requests.post(
+                f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
+                headers=super_auth_headers,
+                timeout=15,
+            )
+            if deploy_resp.status_code != 409:
+                break
+            time.sleep(5)
+
         assert deploy_resp.status_code == 200, f"Expected 200, got {deploy_resp.status_code}: {deploy_resp.text}"
         body = deploy_resp.json()
         assert "name" in body

@@ -228,13 +228,18 @@ def _handle_deploy(function_name):
 
     latest_version = versions[0]["VersionNumber"]
 
-    deploy_resp = appconfig.start_deployment(
-        ApplicationId=app_id,
-        EnvironmentId=env_id,
-        DeploymentStrategyId=DEPLOYMENT_STRATEGY,
-        ConfigurationProfileId=profile_id,
-        ConfigurationVersion=str(latest_version),
-    )
+    try:
+        deploy_resp = appconfig.start_deployment(
+            ApplicationId=app_id,
+            EnvironmentId=env_id,
+            DeploymentStrategyId=DEPLOYMENT_STRATEGY,
+            ConfigurationProfileId=profile_id,
+            ConfigurationVersion=str(latest_version),
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConflictException":
+            return _response(409, {"message": "A deployment is already in progress. Wait for it to complete before deploying again."})
+        raise
 
     return _response(200, {
         "name": function_name,
