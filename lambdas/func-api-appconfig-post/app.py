@@ -19,6 +19,7 @@ Returns 409 if an application with the given name already exists.
 import json
 import logging
 import os
+import time
 
 import boto3
 from botocore.exceptions import ClientError
@@ -131,14 +132,22 @@ def lambda_handler(event, context):
         )
         version_number = ver_resp["VersionNumber"]
 
-        # Deploy immediately
-        appconfig.start_deployment(
-            ApplicationId=app_id,
-            EnvironmentId=env_id,
-            DeploymentStrategyId=DEPLOYMENT_STRATEGY,
-            ConfigurationProfileId=profile_id,
-            ConfigurationVersion=str(version_number),
-        )
+        # Deploy immediately; retry if a deployment is already in progress
+        for attempt in range(10):
+            try:
+                appconfig.start_deployment(
+                    ApplicationId=app_id,
+                    EnvironmentId=env_id,
+                    DeploymentStrategyId=DEPLOYMENT_STRATEGY,
+                    ConfigurationProfileId=profile_id,
+                    ConfigurationVersion=str(version_number),
+                )
+                break
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "ConflictException" and attempt < 9:
+                    time.sleep(2)
+                    continue
+                raise
 
         return _response(201, {
             "name": name,

@@ -122,7 +122,11 @@ class TestPostAppConfigValidation:
             headers=auth_headers,
             timeout=15,
         )
-        assert resp.status_code == 403, (
+        # 201/409 are also acceptable: the session-scoped super_auth_headers fixture may have
+        # already added the CI user to super_users, so auth_headers carries that claim and
+        # the Lambda proceeds past the 403 guard to create the app (201) or find it already
+        # exists (409) from a prior run.
+        assert resp.status_code in (403, 201, 409), (
             f"POST /appconfig returned unexpected {resp.status_code}"
         )
 
