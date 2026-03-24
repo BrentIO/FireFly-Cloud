@@ -42,6 +42,8 @@ Resources:
                   - appconfig:ListConfigurationProfiles
                   - appconfig:ListHostedConfigurationVersions
                   - appconfig:GetHostedConfigurationVersion
+                  - appconfig:ListDeployments
+                  - lambda:ListFunctions
                 Resource: "*"
 
   FuncApiAppConfigGet:

@@ -1,14 +1,30 @@
 """
-GET /appconfig — return the current logging configuration for the "firefly" AppConfig application.
+GET /appconfig — list all firefly-func-* Lambda functions with their AppConfig configuration.
 
 Requires the caller to be in the super_users group.
 
 Response shape:
   {
-    "logging": [{"prefix": "LEVEL"}, ...]
+    "applications": [
+      {
+        "name": "firefly-func-api-firmware-get",
+        "logging": "WARNING",
+        "version": 3,
+        "deployed_version": 3,
+        "status": "COMPLETE"
+      },
+      {
+        "name": "firefly-func-api-ota-get",
+        "logging": null,
+        "version": null,
+        "deployed_version": null,
+        "status": null
+      }
+    ]
   }
 
-Returns {"logging": []} if the application or its logging profile does not yet exist.
+Functions with no AppConfig application appear with null values; they use the
+default WARNING level until explicitly configured via PATCH /appconfig/{function_name}.
 """
 
 import json
@@ -22,10 +38,12 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 appconfig = boto3.client("appconfig")
+lambda_client = boto3.client("lambda")
+
 SUPER_GROUP = "super_users"
 ENVIRONMENT_NAME = os.environ["ENVIRONMENT_NAME"]
-APP_NAME = "firefly"
 PROFILE_NAME = "logging"
+FUNCTION_PREFIX = "firefly-func-"
 
 
 def _response(status_code, body):
@@ -53,53 +71,79 @@ def _is_super_user(event):
         return SUPER_GROUP in groups_raw.strip("[]").split()
 
 
-def _find_firefly_app():
-    """Return (app_id, env_id, profile_id) for the 'firefly' application, or None if not found."""
-    paginator = appconfig.get_paginator("list_applications")
+def _list_lambda_functions():
+    """Return sorted list of all firefly-func-* Lambda function names."""
+    names = []
+    paginator = lambda_client.get_paginator("list_functions")
     for page in paginator.paginate():
-        for app in page.get("Items", []):
-            if app["Name"] == APP_NAME:
-                app_id = app["Id"]
-
-                env_id = None
-                try:
-                    env_paginator = appconfig.get_paginator("list_environments")
-                    for env_page in env_paginator.paginate(ApplicationId=app_id):
-                        for env in env_page.get("Items", []):
-                            if env["Name"] == ENVIRONMENT_NAME:
-                                env_id = env["Id"]
-                                break
-                        if env_id:
-                            break
-                except ClientError:
-                    return None
-
-                if not env_id:
-                    return None
-
-                profile_id = None
-                try:
-                    profile_paginator = appconfig.get_paginator("list_configuration_profiles")
-                    for profile_page in profile_paginator.paginate(ApplicationId=app_id):
-                        for profile in profile_page.get("Items", []):
-                            if profile["Name"] == PROFILE_NAME:
-                                profile_id = profile["Id"]
-                                break
-                        if profile_id:
-                            break
-                except ClientError:
-                    return None
-
-                if not profile_id:
-                    return None
-
-                return app_id, env_id, profile_id
-
-    return None
+        for fn in page["Functions"]:
+            if fn["FunctionName"].startswith(FUNCTION_PREFIX):
+                names.append(fn["FunctionName"])
+    return sorted(names)
 
 
-def _get_logging_config(app_id, profile_id):
-    """Return the content of the most recent hosted configuration version, or None."""
+def _build_appconfig_index():
+    """
+    Return a dict mapping function_name -> (app_id, env_id, profile_id)
+    for all AppConfig applications matching the firefly-func-* naming convention.
+    """
+    index = {}
+
+    apps = {}
+    try:
+        paginator = appconfig.get_paginator("list_applications")
+        for page in paginator.paginate():
+            for app in page.get("Items", []):
+                if app["Name"].startswith(FUNCTION_PREFIX):
+                    apps[app["Name"]] = app["Id"]
+    except ClientError:
+        return index
+
+    for app_name, app_id in apps.items():
+        env_id = None
+        try:
+            env_paginator = appconfig.get_paginator("list_environments")
+            for page in env_paginator.paginate(ApplicationId=app_id):
+                for env in page.get("Items", []):
+                    if env["Name"] == ENVIRONMENT_NAME:
+                        env_id = env["Id"]
+                        break
+                if env_id:
+                    break
+        except ClientError:
+            continue
+
+        if not env_id:
+            continue
+
+        profile_id = None
+        try:
+            profile_paginator = appconfig.get_paginator("list_configuration_profiles")
+            for page in profile_paginator.paginate(ApplicationId=app_id):
+                for profile in page.get("Items", []):
+                    if profile["Name"] == PROFILE_NAME:
+                        profile_id = profile["Id"]
+                        break
+                if profile_id:
+                    break
+        except ClientError:
+            continue
+
+        if not profile_id:
+            continue
+
+        index[app_name] = (app_id, env_id, profile_id)
+
+    return index
+
+
+def _get_app_details(app_id, env_id, profile_id):
+    """Return (logging_level, latest_version, deployed_version, status)."""
+    logging_level = None
+    latest_version = None
+    deployed_version = None
+    status = None
+
     try:
         resp = appconfig.list_hosted_configuration_versions(
             ApplicationId=app_id,
@@ -107,19 +151,35 @@ def _get_logging_config(app_id, profile_id):
             MaxResults=1,
         )
         versions = resp.get("Items", [])
-        if not versions:
-            return None
-
-        latest_version = versions[0]["VersionNumber"]
-        ver_resp = appconfig.get_hosted_configuration_version(
-            ApplicationId=app_id,
-            ConfigurationProfileId=profile_id,
-            VersionNumber=latest_version,
-        )
-        content = ver_resp["Content"].read()
-        return json.loads(content) if content else None
+        if versions:
+            latest_version = versions[0]["VersionNumber"]
+            ver_resp = appconfig.get_hosted_configuration_version(
+                ApplicationId=app_id,
+                ConfigurationProfileId=profile_id,
+                VersionNumber=latest_version,
+            )
+            content = ver_resp["Content"].read()
+            if content:
+                config = json.loads(content)
+                logging_level = config.get("logging")
     except (ClientError, json.JSONDecodeError):
-        return None
+        pass
+
+    try:
+        resp = appconfig.list_deployments(
+            ApplicationId=app_id,
+            EnvironmentId=env_id,
+            MaxResults=1,
+        )
+        deployments = resp.get("Items", [])
+        if deployments:
+            d = deployments[0]
+            deployed_version = int(d.get("ConfigurationVersion", 0)) or None
+            status = d.get("State")
+    except ClientError:
+        pass
+
+    return logging_level, latest_version, deployed_version, status
 
 
 def lambda_handler(event, context):
@@ -127,14 +187,32 @@ def lambda_handler(event, context):
         if not _is_super_user(event):
             return _response(403, {"message": "Forbidden"})
 
-        result = _find_firefly_app()
-        if result is None:
-            return _response(200, {"logging": []})
+        function_names = _list_lambda_functions()
+        appconfig_index = _build_appconfig_index()
 
-        app_id, env_id, profile_id = result
-        logging_config = _get_logging_config(app_id, profile_id)
+        applications = []
+        for name in function_names:
+            entry = {
+                "name": name,
+                "logging": None,
+                "version": None,
+                "deployed_version": None,
+                "status": None,
+            }
 
-        return _response(200, {"logging": logging_config or []})
+            if name in appconfig_index:
+                app_id, env_id, profile_id = appconfig_index[name]
+                logging_level, latest_version, deployed_version, status = _get_app_details(
+                    app_id, env_id, profile_id
+                )
+                entry["logging"] = logging_level
+                entry["version"] = latest_version
+                entry["deployed_version"] = deployed_version
+                entry["status"] = status
+
+            applications.append(entry)
+
+        return _response(200, {"applications": applications})
 
     except Exception:
         logger.exception("Unhandled exception")
