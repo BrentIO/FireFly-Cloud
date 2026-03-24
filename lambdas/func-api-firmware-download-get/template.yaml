@@ -3,6 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 Description: API GET /firmware/{zip_name}/download
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
   ApiId:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
@@ -73,7 +76,7 @@ Resources:
       Timeout: 10
       MemorySize: 128
       Layers:
-        - !ImportValue firefly-shared-layer-arn
+        - !Ref SharedLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName

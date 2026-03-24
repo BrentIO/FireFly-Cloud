@@ -62,6 +62,15 @@ jobs:
             --type String \
             --overwrite
 
+      - name: Look up shared layer ARN
+        id: lookup-layer
+        run: |
+          LAYER_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='SharedLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy func-api-ota-get
         run: |
           sam deploy \
@@ -75,6 +84,7 @@ jobs:
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               CloudFrontDomain=${{ vars.FIRMWARE_DOMAIN_NAME }} \
               FirmwareTypeMapSsmPath=/firefly/${{ inputs.target_env }}/firmware_type_map \
+              SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \

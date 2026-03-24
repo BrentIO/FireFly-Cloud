@@ -60,6 +60,15 @@ jobs:
             --output text)
           echo "authorizer_id=$AUTH_ID" >> $GITHUB_OUTPUT
 
+      - name: Look up shared layer ARN
+        id: lookup-layer
+        run: |
+          LAYER_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='SharedLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy func-api-firmware-download-get
         run: |
           sam deploy \
@@ -71,6 +80,7 @@ jobs:
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
+              SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               S3FirmwarePrivateBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \

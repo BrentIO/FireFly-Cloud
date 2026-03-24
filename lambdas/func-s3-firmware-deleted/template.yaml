@@ -3,6 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 Description: Handles deletion of firmware ZIPs and updates DynamoDB TTL
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
   DynamoDbFirmwareTableName:
     Type: String
   EnvironmentName:
@@ -49,7 +52,7 @@ Resources:
       Timeout: 30
       MemorySize: 128
       Layers:
-        - !ImportValue firefly-shared-layer-arn
+        - !Ref SharedLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName

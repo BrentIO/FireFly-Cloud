@@ -3,6 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 Description: API PATCH /firmware/{zip_name}/status
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
   ApiId:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
@@ -85,7 +88,7 @@ Resources:
       Timeout: 60
       MemorySize: 256
       Layers:
-        - !ImportValue firefly-shared-layer-arn
+        - !Ref SharedLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
