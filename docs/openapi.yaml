@@ -186,81 +186,56 @@ paths:
   /appconfig:
     get:
       tags: [Configuration]
-      summary: List configuration applications
+      summary: List function configurations
       description: |
-        Returns all AWS AppConfig applications that have a `logging` configuration
-        profile in the current environment, along with each application's current
-        logging rules. Super user access is required.
+        Returns all `firefly-func-*` Lambda functions with their individual AppConfig
+        configuration. Functions that have never been configured appear with `null`
+        values and use the default WARNING log level. Super user access is required.
       operationId: listAppConfig
       responses:
         '200':
-          description: List of applications with logging configuration
+          description: List of Lambda functions with their configuration state
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AppConfigListResponse'
+              example:
+                applications:
+                  - name: firefly-func-api-firmware-get
+                    logging: WARNING
+                    version: 3
+                    deployed_version: 3
+                    status: COMPLETE
+                  - name: firefly-func-api-ota-get
+                    logging: null
+                    version: null
+                    deployed_version: null
+                    status: null
         '403':
           $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    post:
-      tags: [Configuration]
-      summary: Create configuration application
-      description: |
-        Creates a new AWS AppConfig application with a `logging` configuration
-        profile, an environment matching the current deployment environment, and
-        an initial hosted configuration version. The configuration is immediately
-        deployed using the `AppConfig.AllAtOnce` deployment strategy.
-        Super user access is required.
-      operationId: postAppConfig
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PostAppConfigRequest'
-      responses:
-        '201':
-          description: Application created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PostAppConfigResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Application with this name already exists
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /appconfig/{application}:
+  /appconfig/{function_name}:
     patch:
       tags: [Configuration]
-      summary: Update logging configuration
+      summary: Stage logging configuration
       description: |
-        Replaces the logging configuration for the specified AWS AppConfig application.
-        A new hosted configuration version is created and immediately deployed
-        using the `AppConfig.AllAtOnce` deployment strategy.
-
-        Each rule is a single-key object mapping a function name prefix to a log
-        level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). When a function
-        name matches multiple prefixes the most verbose level is used.
+        Creates a new hosted configuration version for the specified Lambda function.
+        The new version is **staged only** — it does not take effect until deployed
+        via `POST /appconfig/{function_name}/deploy`. If no AppConfig application
+        exists for the function it is created automatically.
 
         Super user access is required.
       operationId: patchAppConfig
       parameters:
-        - name: application
+        - name: function_name
           in: path
           required: true
-          description: AWS AppConfig application name (matches the Lambda function name)
+          description: Full Lambda function name (must start with `firefly-func-`)
           schema:
             type: string
+          example: firefly-func-api-firmware-get
       requestBody:
         required: true
         content:
@@ -268,22 +243,110 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchAppConfigRequest'
             example:
-              logging:
-                - firefly-func-api: INFO
-                - firefly-func-s3: DEBUG
+              logging: INFO
       responses:
         '200':
-          description: Logging configuration updated
+          description: Configuration staged successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatchAppConfigResponse'
+              example:
+                name: firefly-func-api-firmware-get
+                logging: INFO
+                version: 4
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          description: Application not found or has no logging profile in this environment
+          description: Lambda function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Configuration]
+      summary: Remove configuration
+      description: |
+        Removes the AppConfig application for the specified Lambda function,
+        including all staged versions, the configuration profile, the environment,
+        and the application itself. The function reverts to the default WARNING
+        log level. Returns 409 if a deployment is currently in progress.
+
+        Super user access is required.
+      operationId: deleteAppConfig
+      parameters:
+        - name: function_name
+          in: path
+          required: true
+          description: Full Lambda function name (must start with `firefly-func-`)
+          schema:
+            type: string
+          example: firefly-func-api-firmware-get
+      responses:
+        '204':
+          description: Configuration removed successfully
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No AppConfig application found for this function
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '409':
+          description: A deployment is in progress — wait for it to complete before deleting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /appconfig/{function_name}/deploy:
+    post:
+      tags: [Configuration]
+      summary: Deploy staged configuration
+      description: |
+        Deploys the latest staged configuration version for the specified Lambda
+        function using the `AppConfig.AllAtOnce` deployment strategy. Returns 409
+        if a deployment is already in progress for this function's environment.
+
+        Super user access is required.
+      operationId: deployAppConfig
+      parameters:
+        - name: function_name
+          in: path
+          required: true
+          description: Full Lambda function name (must start with `firefly-func-`)
+          schema:
+            type: string
+          example: firefly-func-api-firmware-get
+      responses:
+        '200':
+          description: Deployment started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployAppConfigResponse'
+              example:
+                name: firefly-func-api-firmware-get
+                version: 4
+                environment: dev
+                status: DEPLOYING
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No AppConfig application or staged version found for this function
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '409':
+          description: A deployment is already in progress — wait for it to complete before deploying again
           content:
             application/json:
               schema:
@@ -843,45 +906,37 @@ components:
       enum: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
       example: INFO
 
-    LoggingRule:
-      type: object
-      description: |
-        A single logging rule mapping a function name prefix to a log level.
-        The object must have exactly one key.
-      additionalProperties:
-        $ref: '#/components/schemas/LogLevel'
-      example:
-        firefly-func-api: INFO
-
     AppConfigApplication:
       type: object
-      description: An AppConfig application with its current logging configuration.
+      description: A Lambda function with its AppConfig configuration state.
       properties:
-        id:
-          type: string
-          description: AppConfig application ID.
-          example: abc1234xyz
         name:
           type: string
-          description: Application name (matches the Lambda function name).
+          description: Full Lambda function name.
           example: firefly-func-api-firmware-get
-        environment_id:
-          type: string
-          description: AppConfig environment ID for the current deployment environment.
-          example: def5678uvw
-        profile_id:
-          type: string
-          description: AppConfig configuration profile ID for the logging profile.
-          example: ghi9012rst
         logging:
-          type: array
-          description: Current logging rules. Null if no hosted configuration version exists.
+          type: string
           nullable: true
-          items:
-            $ref: '#/components/schemas/LoggingRule'
-          example:
-            - firefly-func-api: INFO
-            - firefly-func-s3: DEBUG
+          description: Current deployed log level. Null if the function has never been configured.
+          enum: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
+          example: WARNING
+        version:
+          type: integer
+          nullable: true
+          description: Latest staged configuration version number. Null if unconfigured.
+          example: 3
+        deployed_version:
+          type: integer
+          nullable: true
+          description: Most recently deployed configuration version number. Null if never deployed.
+          example: 3
+        status:
+          type: string
+          nullable: true
+          description: |
+            State of the most recent deployment. Null if the function has never been configured.
+            Active states include `DEPLOYING`, `BAKING`, `VALIDATING`, `COMPLETE`, `ROLLED_BACK`.
+          example: COMPLETE
 
     AppConfigListResponse:
       type: object
@@ -897,72 +952,41 @@ components:
         - logging
       properties:
         logging:
-          type: array
-          description: |
-            Replacement logging rules. An empty array clears all rules.
-          items:
-            $ref: '#/components/schemas/LoggingRule'
-          example:
-            - firefly-func-api: INFO
-            - firefly-func-s3: DEBUG
+          $ref: '#/components/schemas/LogLevel'
 
     PatchAppConfigResponse:
       type: object
       properties:
-        application:
+        name:
           type: string
-          description: Application name that was updated.
+          description: Lambda function name that was updated.
+          example: firefly-func-api-firmware-get
+        logging:
+          $ref: '#/components/schemas/LogLevel'
+        version:
+          type: integer
+          description: Staged configuration version number (not yet deployed).
+          example: 4
+
+    DeployAppConfigResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Lambda function name being deployed.
           example: firefly-func-api-firmware-get
         version:
           type: integer
-          description: Hosted configuration version number that was created and deployed.
-          example: 5
-        logging:
-          type: array
-          description: The new logging rules as stored.
-          items:
-            $ref: '#/components/schemas/LoggingRule'
-          example:
-            - firefly-func-api: INFO
-            - firefly-func-s3: DEBUG
-
-    PostAppConfigRequest:
-      type: object
-      required:
-        - name
-        - logging
-      properties:
-        name:
+          description: Configuration version number being deployed.
+          example: 4
+        environment:
           type: string
-          description: Application name (matches the Lambda function name).
-          example: firefly-func-api-my-new-endpoint
-        logging:
-          type: array
-          description: |
-            Initial logging rules. An empty array creates the application with no rules.
-          items:
-            $ref: '#/components/schemas/LoggingRule'
-          example:
-            - firefly-func-api: INFO
-
-    PostAppConfigResponse:
-      type: object
-      properties:
-        name:
+          description: Deployment environment name.
+          example: dev
+        status:
           type: string
-          description: Application name that was created.
-          example: firefly-func-api-my-new-endpoint
-        version:
-          type: integer
-          description: Initial hosted configuration version number.
-          example: 1
-        logging:
-          type: array
-          description: The initial logging rules as stored.
-          items:
-            $ref: '#/components/schemas/LoggingRule'
-          example:
-            - firefly-func-api: INFO
+          description: Deployment state at time of response (typically `DEPLOYING`).
+          example: DEPLOYING
 
     # -------------------------------------------------------------------------
     # Object schemas
