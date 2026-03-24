@@ -220,6 +220,19 @@ class TestDeployAppConfig:
     def test_deploy_returns_200_with_correct_shape(
         self, api_url, super_auth_headers, appconfig_original
     ):
+        # Wait for any in-progress deployment to finish before staging+deploying
+        deadline = time.time() + 180
+        while time.time() < deadline:
+            get_resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
+            if get_resp.status_code == 200:
+                app = next(
+                    (a for a in get_resp.json().get("applications", []) if a["name"] == TEST_FUNCTION),
+                    None,
+                )
+                if app is None or app.get("status") in (None, "COMPLETE", "ROLLED_BACK"):
+                    break
+            time.sleep(5)
+
         # Stage a version first
         patch_resp = requests.patch(
             f"{api_url}/appconfig/{TEST_FUNCTION}",
@@ -229,17 +242,11 @@ class TestDeployAppConfig:
         )
         assert patch_resp.status_code == 200
 
-        # Retry if a prior deployment is still in progress (409 Conflict)
-        for attempt in range(6):
-            deploy_resp = requests.post(
-                f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
-                headers=super_auth_headers,
-                timeout=15,
-            )
-            if deploy_resp.status_code != 409:
-                break
-            time.sleep(5)
-
+        deploy_resp = requests.post(
+            f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
+            headers=super_auth_headers,
+            timeout=15,
+        )
         assert deploy_resp.status_code == 200, f"Expected 200, got {deploy_resp.status_code}: {deploy_resp.text}"
         body = deploy_resp.json()
         assert "name" in body
