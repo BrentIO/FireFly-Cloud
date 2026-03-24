@@ -1,21 +1,14 @@
 """
-GET /appconfig — list all AppConfig applications that have a "logging" profile
-in the current environment, along with the current logging configuration.
+GET /appconfig — return the current logging configuration for the "firefly" AppConfig application.
 
 Requires the caller to be in the super_users group.
 
 Response shape:
   {
-    "applications": [
-      {
-        "id": "<appconfig-app-id>",
-        "name": "<lambda-function-name>",
-        "environment_id": "<appconfig-env-id>",
-        "profile_id": "<appconfig-profile-id>",
-        "logging": [{"prefix": "LEVEL"}, ...]
-      }
-    ]
+    "logging": [{"prefix": "LEVEL"}, ...]
   }
+
+Returns {"logging": []} if the application or its logging profile does not yet exist.
 """
 
 import json
@@ -31,6 +24,7 @@ logger.setLevel(logging.INFO)
 appconfig = boto3.client("appconfig")
 SUPER_GROUP = "super_users"
 ENVIRONMENT_NAME = os.environ["ENVIRONMENT_NAME"]
+APP_NAME = "firefly"
 PROFILE_NAME = "logging"
 
 
@@ -57,6 +51,51 @@ def _is_super_user(event):
         return SUPER_GROUP in groups
     except (json.JSONDecodeError, TypeError):
         return SUPER_GROUP in groups_raw.strip("[]").split()
+
+
+def _find_firefly_app():
+    """Return (app_id, env_id, profile_id) for the 'firefly' application, or None if not found."""
+    paginator = appconfig.get_paginator("list_applications")
+    for page in paginator.paginate():
+        for app in page.get("Items", []):
+            if app["Name"] == APP_NAME:
+                app_id = app["Id"]
+
+                env_id = None
+                try:
+                    env_paginator = appconfig.get_paginator("list_environments")
+                    for env_page in env_paginator.paginate(ApplicationId=app_id):
+                        for env in env_page.get("Items", []):
+                            if env["Name"] == ENVIRONMENT_NAME:
+                                env_id = env["Id"]
+                                break
+                        if env_id:
+                            break
+                except ClientError:
+                    return None
+
+                if not env_id:
+                    return None
+
+                profile_id = None
+                try:
+                    profile_paginator = appconfig.get_paginator("list_configuration_profiles")
+                    for profile_page in profile_paginator.paginate(ApplicationId=app_id):
+                        for profile in profile_page.get("Items", []):
+                            if profile["Name"] == PROFILE_NAME:
+                                profile_id = profile["Id"]
+                                break
+                        if profile_id:
+                            break
+                except ClientError:
+                    return None
+
+                if not profile_id:
+                    return None
+
+                return app_id, env_id, profile_id
+
+    return None
 
 
 def _get_logging_config(app_id, profile_id):
@@ -88,60 +127,14 @@ def lambda_handler(event, context):
         if not _is_super_user(event):
             return _response(403, {"message": "Forbidden"})
 
-        applications = []
+        result = _find_firefly_app()
+        if result is None:
+            return _response(200, {"logging": []})
 
-        app_paginator = appconfig.get_paginator("list_applications")
-        for app_page in app_paginator.paginate():
-            for app in app_page.get("Items", []):
-                app_id = app["Id"]
-                app_name = app["Name"]
+        app_id, env_id, profile_id = result
+        logging_config = _get_logging_config(app_id, profile_id)
 
-                # Find the environment matching our deployment environment
-                env_id = None
-                try:
-                    env_paginator = appconfig.get_paginator("list_environments")
-                    for env_page in env_paginator.paginate(ApplicationId=app_id):
-                        for env in env_page.get("Items", []):
-                            if env["Name"] == ENVIRONMENT_NAME:
-                                env_id = env["Id"]
-                                break
-                        if env_id:
-                            break
-                except ClientError:
-                    continue
-
-                if not env_id:
-                    continue
-
-                # Find the logging configuration profile
-                profile_id = None
-                try:
-                    profile_paginator = appconfig.get_paginator("list_configuration_profiles")
-                    for profile_page in profile_paginator.paginate(ApplicationId=app_id):
-                        for profile in profile_page.get("Items", []):
-                            if profile["Name"] == PROFILE_NAME:
-                                profile_id = profile["Id"]
-                                break
-                        if profile_id:
-                            break
-                except ClientError:
-                    continue
-
-                if not profile_id:
-                    continue
-
-                logging_config = _get_logging_config(app_id, profile_id)
-
-                applications.append({
-                    "id": app_id,
-                    "name": app_name,
-                    "environment_id": env_id,
-                    "profile_id": profile_id,
-                    "logging": logging_config,
-                })
-
-        applications.sort(key=lambda a: a["name"])
-        return _response(200, {"applications": applications})
+        return _response(200, {"logging": logging_config or []})
 
     except Exception:
         logger.exception("Unhandled exception")

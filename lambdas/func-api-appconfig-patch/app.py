@@ -1,10 +1,7 @@
 """
-PATCH /appconfig/{application} — update the logging configuration for an AppConfig application.
+PATCH /appconfig — update the logging configuration for the "firefly" AppConfig application.
 
 Requires the caller to be in the super_users group.
-
-Path parameter:
-  application — the AppConfig application name (matches the Lambda function name)
 
 Request body:
   {
@@ -13,6 +10,9 @@ Request body:
 
 Each entry in the logging array is a single-key object mapping a function name
 prefix to a log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+
+If the "firefly" AppConfig application does not yet exist it is bootstrapped
+(application + environment + logging profile) before the configuration is written.
 
 A new hosted configuration version is created and immediately deployed using
 the AllAtOnce deployment strategy.
@@ -32,6 +32,7 @@ logger.setLevel(logging.INFO)
 appconfig = boto3.client("appconfig")
 SUPER_GROUP = "super_users"
 ENVIRONMENT_NAME = os.environ["ENVIRONMENT_NAME"]
+APP_NAME = "firefly"
 PROFILE_NAME = "logging"
 DEPLOYMENT_STRATEGY = "AppConfig.AllAtOnce"
 VALID_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
@@ -62,15 +63,15 @@ def _is_super_user(event):
         return SUPER_GROUP in groups_raw.strip("[]").split()
 
 
-def _find_app(application_name):
-    """Return (app_id, env_id, profile_id) for the named application, or None if not found."""
-    app_paginator = appconfig.get_paginator("list_applications")
-    for page in app_paginator.paginate():
+def _find_or_create_firefly_app():
+    """Return (app_id, env_id, profile_id), creating the application if it does not exist."""
+    # Try to find the existing application
+    paginator = appconfig.get_paginator("list_applications")
+    for page in paginator.paginate():
         for app in page.get("Items", []):
-            if app["Name"] == application_name:
+            if app["Name"] == APP_NAME:
                 app_id = app["Id"]
 
-                # Find the environment
                 env_id = None
                 env_paginator = appconfig.get_paginator("list_environments")
                 for env_page in env_paginator.paginate(ApplicationId=app_id):
@@ -82,9 +83,12 @@ def _find_app(application_name):
                         break
 
                 if not env_id:
-                    return None
+                    env_resp = appconfig.create_environment(
+                        ApplicationId=app_id,
+                        Name=ENVIRONMENT_NAME,
+                    )
+                    env_id = env_resp["Id"]
 
-                # Find the logging profile
                 profile_id = None
                 profile_paginator = appconfig.get_paginator("list_configuration_profiles")
                 for profile_page in profile_paginator.paginate(ApplicationId=app_id):
@@ -96,21 +100,41 @@ def _find_app(application_name):
                         break
 
                 if not profile_id:
-                    return None
+                    profile_resp = appconfig.create_configuration_profile(
+                        ApplicationId=app_id,
+                        Name=PROFILE_NAME,
+                        LocationUri="hosted",
+                        Type="AWS.Freeform",
+                    )
+                    profile_id = profile_resp["Id"]
 
                 return app_id, env_id, profile_id
 
-    return None
+    # Application does not exist — bootstrap it
+    app_resp = appconfig.create_application(Name=APP_NAME)
+    app_id = app_resp["Id"]
+
+    env_resp = appconfig.create_environment(
+        ApplicationId=app_id,
+        Name=ENVIRONMENT_NAME,
+    )
+    env_id = env_resp["Id"]
+
+    profile_resp = appconfig.create_configuration_profile(
+        ApplicationId=app_id,
+        Name=PROFILE_NAME,
+        LocationUri="hosted",
+        Type="AWS.Freeform",
+    )
+    profile_id = profile_resp["Id"]
+
+    return app_id, env_id, profile_id
 
 
 def lambda_handler(event, context):
     try:
         if not _is_super_user(event):
             return _response(403, {"message": "Forbidden"})
-
-        application_name = (event.get("pathParameters") or {}).get("application", "").strip()
-        if not application_name:
-            return _response(400, {"message": "Missing path parameter: application"})
 
         try:
             body = json.loads(event.get("body") or "{}")
@@ -123,7 +147,6 @@ def lambda_handler(event, context):
         if not isinstance(logging_config, list):
             return _response(400, {"message": "Field 'logging' must be an array"})
 
-        # Validate each entry: must be a single-key object with a valid log level
         for i, entry in enumerate(logging_config):
             if not isinstance(entry, dict) or len(entry) != 1:
                 return _response(400, {"message": f"logging[{i}] must be a single-key object"})
@@ -131,16 +154,10 @@ def lambda_handler(event, context):
             if level not in VALID_LEVELS:
                 return _response(400, {"message": f"logging[{i}] has invalid level '{level}'; must be one of {sorted(VALID_LEVELS)}"})
 
-        # Normalize levels to uppercase
         normalized = [{k: v.upper()} for entry in logging_config for k, v in entry.items()]
 
-        result = _find_app(application_name)
-        if result is None:
-            return _response(404, {"message": f"Application '{application_name}' not found or has no '{PROFILE_NAME}' profile in environment '{ENVIRONMENT_NAME}'"})
+        app_id, env_id, profile_id = _find_or_create_firefly_app()
 
-        app_id, env_id, profile_id = result
-
-        # Create a new hosted configuration version
         content_bytes = json.dumps(normalized).encode("utf-8")
         ver_resp = appconfig.create_hosted_configuration_version(
             ApplicationId=app_id,
@@ -150,7 +167,6 @@ def lambda_handler(event, context):
         )
         version_number = ver_resp["VersionNumber"]
 
-        # Deploy the new version immediately; retry if a deployment is already in progress
         for attempt in range(10):
             try:
                 appconfig.start_deployment(
@@ -168,7 +184,6 @@ def lambda_handler(event, context):
                 raise
 
         return _response(200, {
-            "application": application_name,
             "version": version_number,
             "logging": normalized,
         })
