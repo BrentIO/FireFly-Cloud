@@ -14,7 +14,7 @@ import {
 } from '@headlessui/vue'
 import AppLayout from '../components/AppLayout.vue'
 import { useToast } from '../composables/useToast.js'
-import { listAppConfig, patchAppConfig } from '../api/appconfig.js'
+import { listAppConfig, postAppConfig, patchAppConfig } from '../api/appconfig.js'
 
 const { success: successToast, error: errorToast } = useToast()
 
@@ -37,6 +37,65 @@ async function load() {
 }
 
 onMounted(load)
+
+// ── Create modal ──────────────────────────────────────────────────────────────
+const showCreateModal    = ref(false)
+const createName         = ref('')
+const createRules        = ref([])
+const createSubmitting   = ref(false)
+const createError        = ref(null)
+
+function openCreateModal() {
+  createName.value         = ''
+  createRules.value        = []
+  createError.value        = null
+  createSubmitting.value   = false
+  showCreateModal.value    = true
+}
+
+function addCreateRule() {
+  createRules.value.push({ prefix: '', level: 'INFO' })
+}
+
+function removeCreateRule(index) {
+  createRules.value.splice(index, 1)
+}
+
+async function submitCreate() {
+  createError.value = null
+
+  const name = createName.value.trim()
+  if (!name) {
+    createError.value = 'Application name is required.'
+    return
+  }
+
+  for (let i = 0; i < createRules.value.length; i++) {
+    const rule = createRules.value[i]
+    if (!rule.prefix.trim()) {
+      createError.value = `Rule ${i + 1}: prefix is required.`
+      return
+    }
+    if (!LOG_LEVELS.includes(rule.level)) {
+      createError.value = `Rule ${i + 1}: invalid log level.`
+      return
+    }
+  }
+
+  const logging = createRules.value.map(r => ({ [r.prefix.trim()]: r.level }))
+
+  createSubmitting.value = true
+  try {
+    await postAppConfig(name, logging)
+    showCreateModal.value = false
+    successToast(`Application '${name}' created.`)
+    await load()
+  } catch (e) {
+    createError.value = e.message
+  } finally {
+    createSubmitting.value = false
+  }
+}
 
 // ── Edit modal ────────────────────────────────────────────────────────────────
 const showEditModal    = ref(false)
@@ -102,14 +161,23 @@ async function submitEdit() {
     <div class="flex-shrink-0 flex items-center justify-between pb-4 flex-wrap gap-3">
       <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Configuration</h1>
 
-      <button
-        @click="load"
-        :disabled="loading"
-        class="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-        aria-label="Refresh"
-      >
-        <ArrowPathIcon class="w-5 h-5" :class="{ 'animate-spin': loading }" />
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="openCreateModal"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+        >
+          <PlusIcon class="w-4 h-4" />
+          Add Application
+        </button>
+        <button
+          @click="load"
+          :disabled="loading"
+          class="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+          aria-label="Refresh"
+        >
+          <ArrowPathIcon class="w-5 h-5" :class="{ 'animate-spin': loading }" />
+        </button>
+      </div>
     </div>
 
     <!-- Table card -->
@@ -189,6 +257,107 @@ async function submitEdit() {
         </table>
       </div>
     </div>
+
+    <!-- Create modal -->
+    <TransitionRoot :show="showCreateModal" as="template">
+      <Dialog as="div" class="relative z-50" @close="showCreateModal = false">
+        <TransitionChild
+          as="template"
+          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
+          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
+        >
+          <div class="fixed inset-0 bg-black/50 transition-opacity" />
+        </TransitionChild>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto" @click="showCreateModal = false">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild
+              as="template"
+              enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
+              leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
+            >
+              <DialogPanel
+                class="relative w-full max-w-lg rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6 space-y-4"
+                @click.stop
+              >
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Add Application</h3>
+
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Application Name</label>
+                  <input
+                    v-model="createName"
+                    type="text"
+                    placeholder="firefly-func-my-app"
+                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Logging Rules</label>
+                    <button
+                      @click="addCreateRule"
+                      class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                    >
+                      <PlusIcon class="w-3.5 h-3.5" />
+                      Add rule
+                    </button>
+                  </div>
+
+                  <div v-if="createRules.length === 0" class="text-xs text-gray-400 dark:text-gray-500 py-2">
+                    No rules. Add a rule to control log levels for this application.
+                  </div>
+
+                  <div
+                    v-for="(rule, i) in createRules"
+                    :key="i"
+                    class="flex items-center gap-2"
+                  >
+                    <input
+                      v-model="rule.prefix"
+                      type="text"
+                      placeholder="function-name-prefix"
+                      class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <select
+                      v-model="rule.level"
+                      class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option v-for="lvl in LOG_LEVELS" :key="lvl" :value="lvl">{{ lvl }}</option>
+                    </select>
+                    <button
+                      @click="removeCreateRule(i)"
+                      class="rounded p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                      aria-label="Remove rule"
+                    >
+                      <XMarkIcon class="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <p v-if="createError" class="text-xs text-red-600 dark:text-red-400">{{ createError }}</p>
+
+                <div class="flex gap-3 justify-end">
+                  <button
+                    @click="showCreateModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    @click="submitCreate"
+                    :disabled="createSubmitting"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
+                  >
+                    {{ createSubmitting ? 'Creating…' : 'Create' }}
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
 
     <!-- Edit modal -->
     <TransitionRoot :show="showEditModal" as="template">
