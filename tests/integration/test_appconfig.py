@@ -6,12 +6,9 @@ fixture temporarily adds the CI test user to that group for the session.
 
 Coverage
 --------
-GET   /appconfig                  — 200 with correct response shape; 403 without super
-POST  /appconfig                  — 400/403/409 validation; full create lifecycle
-PATCH /appconfig/{application}    — 400/403/404 validation; full update lifecycle
+GET   /appconfig          — 200 with correct response shape; 403 without super
+PATCH /appconfig          — 400/403 validation; full update lifecycle
 """
-
-import urllib.parse
 
 import pytest
 import requests
@@ -27,39 +24,22 @@ class TestGetAppConfig:
         resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
 
-    def test_response_has_applications_list(self, api_url, super_auth_headers):
-        """Response body contains a top-level 'applications' array."""
+    def test_response_has_logging_list(self, api_url, super_auth_headers):
+        """Response body contains a top-level 'logging' array."""
         resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
         assert resp.status_code == 200
         body = resp.json()
-        assert "applications" in body, f"'applications' key missing from response: {body}"
-        assert isinstance(body["applications"], list)
+        assert "logging" in body, f"'logging' key missing from response: {body}"
+        assert isinstance(body["logging"], list)
 
-    def test_application_objects_have_required_fields(self, api_url, super_auth_headers):
-        """Every entry in the applications list has the expected fields."""
+    def test_logging_entries_are_single_key_objects(self, api_url, super_auth_headers):
+        """Every entry in the logging list is a single-key object."""
         resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
         assert resp.status_code == 200
-        applications = resp.json()["applications"]
-        required = {"id", "name", "environment_id", "profile_id", "logging"}
-        for app in applications:
-            missing = required - app.keys()
-            assert not missing, f"Application entry missing fields {missing}: {app}"
-
-    def test_logging_field_is_list_or_null(self, api_url, super_auth_headers):
-        """The 'logging' field on each application is either a list or null."""
-        resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
-        assert resp.status_code == 200
-        for app in resp.json()["applications"]:
-            assert app["logging"] is None or isinstance(app["logging"], list), (
-                f"Expected 'logging' to be list or null for {app['name']}, got {type(app['logging'])}"
+        for i, entry in enumerate(resp.json()["logging"]):
+            assert isinstance(entry, dict) and len(entry) == 1, (
+                f"logging[{i}] is not a single-key object: {entry}"
             )
-
-    def test_applications_sorted_by_name(self, api_url, super_auth_headers):
-        """Applications are returned in alphabetical order by name."""
-        resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
-        assert resp.status_code == 200
-        names = [a["name"] for a in resp.json()["applications"]]
-        assert names == sorted(names), f"Applications not sorted: {names}"
 
     def test_returns_403_without_super_membership(self, api_url, auth_headers):
         """GET /appconfig returns 403 when the caller is not in super_users."""
@@ -70,182 +50,14 @@ class TestGetAppConfig:
 
 
 # ---------------------------------------------------------------------------
-# POST /appconfig — validation errors (no mutations)
-# ---------------------------------------------------------------------------
-
-class TestPostAppConfigValidation:
-    def test_returns_400_missing_name(self, api_url, super_auth_headers):
-        """POST /appconfig without a 'name' field returns 400."""
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"logging": []},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
-
-    def test_returns_400_missing_logging_field(self, api_url, super_auth_headers):
-        """POST /appconfig without a 'logging' field returns 400."""
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"name": "firefly-func-test-ci-validation"},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
-
-    def test_returns_400_logging_not_array(self, api_url, super_auth_headers):
-        """POST /appconfig with 'logging' as a string returns 400."""
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"name": "firefly-func-test-ci-validation", "logging": "INFO"},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
-
-    def test_returns_400_invalid_log_level(self, api_url, super_auth_headers):
-        """POST /appconfig with an invalid log level returns 400."""
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"name": "firefly-func-test-ci-validation", "logging": [{"firefly-func": "VERBOSE"}]},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
-
-    def test_returns_403_without_super_membership(self, api_url, auth_headers):
-        """POST /appconfig returns 403 when caller is not in super_users."""
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"name": "firefly-func-test-ci-validation", "logging": []},
-            headers=auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 403, (
-            f"POST /appconfig returned unexpected {resp.status_code}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# POST /appconfig — full create lifecycle (mutations)
-# ---------------------------------------------------------------------------
-
-_CI_APP_NAME = "firefly-func-test-ci-appconfig-post"
-
-
-@pytest.fixture(scope="function")
-def created_appconfig_application(api_url, super_auth_headers):
-    """
-    Creates a throwaway AppConfig application before the test and deletes it
-    via DELETE after teardown. Skipped when Cognito env vars are not set.
-
-    Yields the created application name.
-    """
-    # Teardown: best-effort delete via the API (if a delete endpoint exists)
-    # or directly via AWS SDK — for now we clean up using the GET list + AWS SDK.
-    import boto3
-    appconfig = boto3.client("appconfig")
-
-    yield _CI_APP_NAME
-
-    # Delete the application from AppConfig
-    try:
-        paginator = appconfig.get_paginator("list_applications")
-        for page in paginator.paginate():
-            for app in page.get("Items", []):
-                if app["Name"] == _CI_APP_NAME:
-                    appconfig.delete_application(ApplicationId=app["Id"])
-                    break
-    except Exception:
-        pass  # Best-effort cleanup
-
-
-class TestPostAppConfigMutation:
-    def test_post_returns_201_with_correct_shape(
-        self, api_url, super_auth_headers, created_appconfig_application
-    ):
-        """POST /appconfig returns 201 with name, version, and logging."""
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"name": _CI_APP_NAME, "logging": [{"firefly-func": "INFO"}]},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
-        body = resp.json()
-        assert "name" in body, f"'name' missing from response: {body}"
-        assert "version" in body, f"'version' missing from response: {body}"
-        assert "logging" in body, f"'logging' missing from response: {body}"
-        assert body["name"] == _CI_APP_NAME
-        assert body["version"] == 1
-
-    def test_post_application_appears_in_get(
-        self, api_url, super_auth_headers, created_appconfig_application
-    ):
-        """After POST, GET /appconfig includes the new application."""
-        requests.post(
-            f"{api_url}/appconfig",
-            json={"name": _CI_APP_NAME, "logging": []},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        get_resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
-        assert get_resp.status_code == 200
-        names = [a["name"] for a in get_resp.json()["applications"]]
-        assert _CI_APP_NAME in names, f"'{_CI_APP_NAME}' not found in GET /appconfig after POST"
-
-    def test_post_returns_409_for_duplicate(
-        self, api_url, super_auth_headers, created_appconfig_application
-    ):
-        """POST /appconfig returns 409 when the application name already exists."""
-        requests.post(
-            f"{api_url}/appconfig",
-            json={"name": _CI_APP_NAME, "logging": []},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"name": _CI_APP_NAME, "logging": []},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
-
-    def test_post_levels_normalized_to_uppercase(
-        self, api_url, super_auth_headers, created_appconfig_application
-    ):
-        """POST normalizes log levels to uppercase in the response."""
-        resp = requests.post(
-            f"{api_url}/appconfig",
-            json={"name": _CI_APP_NAME, "logging": [{"firefly-func": "info"}]},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
-        assert resp.json()["logging"] == [{"firefly-func": "INFO"}]
-
-
-# ---------------------------------------------------------------------------
-# PATCH /appconfig/{application} — validation errors (no mutations)
+# PATCH /appconfig — validation errors (no mutations)
 # ---------------------------------------------------------------------------
 
 class TestPatchAppConfigValidation:
-    def test_returns_404_for_unknown_application(self, api_url, super_auth_headers):
-        """PATCH /appconfig/{application} returns 404 for a non-existent application."""
-        resp = requests.patch(
-            f"{api_url}/appconfig/firefly-func-does-not-exist",
-            json={"logging": []},
-            headers=super_auth_headers,
-            timeout=15,
-        )
-        assert resp.status_code == 404, f"Expected 404, got {resp.status_code}: {resp.text}"
-
     def test_returns_400_missing_logging_field(self, api_url, super_auth_headers):
-        """PATCH /appconfig/{application} without a 'logging' field returns 400."""
+        """PATCH /appconfig without a 'logging' field returns 400."""
         resp = requests.patch(
-            f"{api_url}/appconfig/firefly-func-does-not-exist",
+            f"{api_url}/appconfig",
             json={},
             headers=super_auth_headers,
             timeout=15,
@@ -253,9 +65,9 @@ class TestPatchAppConfigValidation:
         assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
 
     def test_returns_400_logging_not_array(self, api_url, super_auth_headers):
-        """PATCH /appconfig/{application} with 'logging' as a string returns 400."""
+        """PATCH /appconfig with 'logging' as a string returns 400."""
         resp = requests.patch(
-            f"{api_url}/appconfig/firefly-func-does-not-exist",
+            f"{api_url}/appconfig",
             json={"logging": "INFO"},
             headers=super_auth_headers,
             timeout=15,
@@ -263,9 +75,9 @@ class TestPatchAppConfigValidation:
         assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
 
     def test_returns_400_invalid_log_level(self, api_url, super_auth_headers):
-        """PATCH /appconfig/{application} with an invalid log level returns 400."""
+        """PATCH /appconfig with an invalid log level returns 400."""
         resp = requests.patch(
-            f"{api_url}/appconfig/firefly-func-does-not-exist",
+            f"{api_url}/appconfig",
             json={"logging": [{"firefly-func": "VERBOSE"}]},
             headers=super_auth_headers,
             timeout=15,
@@ -273,9 +85,9 @@ class TestPatchAppConfigValidation:
         assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
 
     def test_returns_400_multi_key_entry(self, api_url, super_auth_headers):
-        """PATCH /appconfig/{application} with a multi-key rule object returns 400."""
+        """PATCH /appconfig with a multi-key rule object returns 400."""
         resp = requests.patch(
-            f"{api_url}/appconfig/firefly-func-does-not-exist",
+            f"{api_url}/appconfig",
             json={"logging": [{"prefix-a": "INFO", "prefix-b": "DEBUG"}]},
             headers=super_auth_headers,
             timeout=15,
@@ -283,50 +95,38 @@ class TestPatchAppConfigValidation:
         assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
 
     def test_returns_403_without_super_membership(self, api_url, auth_headers):
-        """PATCH /appconfig/{application} returns 403 when caller is not in super_users."""
+        """PATCH /appconfig returns 403 when caller is not in super_users."""
         resp = requests.patch(
-            f"{api_url}/appconfig/firefly-func-does-not-exist",
+            f"{api_url}/appconfig",
             json={"logging": []},
             headers=auth_headers,
             timeout=15,
         )
-        # 404 is also acceptable: the session-scoped super_auth_headers fixture may have
-        # already added the CI user to super_users, so auth_headers carries that claim
-        # and the Lambda proceeds past the 403 guard to return 404 (not found).
-        assert resp.status_code in (400, 403, 404), (
+        assert resp.status_code in (200, 403), (
             f"PATCH /appconfig returned unexpected {resp.status_code}"
         )
 
 
 # ---------------------------------------------------------------------------
-# PATCH /appconfig/{application} — full update lifecycle (mutations)
+# PATCH /appconfig — full update lifecycle (mutations)
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function")
-def appconfig_application(api_url, super_auth_headers):
+def appconfig_original_logging(api_url, super_auth_headers):
     """
-    Yields the name and original logging config of the first available AppConfig
-    application. Restores the original config at teardown.
-
-    Skipped when no applications are found or Cognito env vars are not set.
+    Captures the current logging config before the test and restores it at teardown.
     """
     resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
     if resp.status_code != 200:
         pytest.skip("GET /appconfig did not return 200 — skipping mutation tests")
 
-    applications = resp.json().get("applications", [])
-    if not applications:
-        pytest.skip("No AppConfig applications found — skipping mutation tests")
+    original_logging = resp.json().get("logging", [])
 
-    app = applications[0]
-    original_logging = app.get("logging") or []
-
-    yield app["name"], original_logging
+    yield original_logging
 
     # Teardown: restore original logging config
-    encoded = urllib.parse.quote(app["name"], safe="")
     requests.patch(
-        f"{api_url}/appconfig/{encoded}",
+        f"{api_url}/appconfig",
         json={"logging": original_logging},
         headers=super_auth_headers,
         timeout=15,
@@ -335,34 +135,28 @@ def appconfig_application(api_url, super_auth_headers):
 
 class TestPatchAppConfigMutation:
     def test_patch_returns_200_with_correct_shape(
-        self, api_url, super_auth_headers, appconfig_application
+        self, api_url, super_auth_headers, appconfig_original_logging
     ):
-        """PATCH /appconfig/{application} returns 200 with application, version, and logging."""
-        app_name, original_logging = appconfig_application
-        encoded = urllib.parse.quote(app_name, safe="")
+        """PATCH /appconfig returns 200 with version and logging."""
         resp = requests.patch(
-            f"{api_url}/appconfig/{encoded}",
-            json={"logging": original_logging},
+            f"{api_url}/appconfig",
+            json={"logging": appconfig_original_logging},
             headers=super_auth_headers,
             timeout=15,
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         body = resp.json()
-        assert "application" in body, f"'application' missing from response: {body}"
         assert "version" in body, f"'version' missing from response: {body}"
         assert "logging" in body, f"'logging' missing from response: {body}"
-        assert body["application"] == app_name
 
     def test_patch_updates_logging_reflected_in_get(
-        self, api_url, super_auth_headers, appconfig_application
+        self, api_url, super_auth_headers, appconfig_original_logging
     ):
         """After PATCH, GET /appconfig reflects the updated logging rules."""
-        app_name, _ = appconfig_application
         new_logging = [{"firefly-func": "WARNING"}]
-        encoded = urllib.parse.quote(app_name, safe="")
 
         patch_resp = requests.patch(
-            f"{api_url}/appconfig/{encoded}",
+            f"{api_url}/appconfig",
             json={"logging": new_logging},
             headers=super_auth_headers,
             timeout=15,
@@ -373,39 +167,31 @@ class TestPatchAppConfigMutation:
 
         get_resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
         assert get_resp.status_code == 200
-        applications = get_resp.json()["applications"]
-        match = next((a for a in applications if a["name"] == app_name), None)
-        assert match is not None, f"Application '{app_name}' not found in GET /appconfig after PATCH"
-        assert match["logging"] == new_logging, (
-            f"Expected logging {new_logging}, got {match['logging']}"
+        assert get_resp.json()["logging"] == new_logging, (
+            f"Expected logging {new_logging}, got {get_resp.json()['logging']}"
         )
 
     def test_patch_levels_normalized_to_uppercase(
-        self, api_url, super_auth_headers, appconfig_application
+        self, api_url, super_auth_headers, appconfig_original_logging
     ):
         """PATCH normalizes log levels to uppercase in the response."""
-        app_name, _ = appconfig_application
-        encoded = urllib.parse.quote(app_name, safe="")
         resp = requests.patch(
-            f"{api_url}/appconfig/{encoded}",
+            f"{api_url}/appconfig",
             json={"logging": [{"firefly-func": "info"}]},
             headers=super_auth_headers,
             timeout=15,
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
-        rules = resp.json()["logging"]
-        assert rules == [{"firefly-func": "INFO"}], (
-            f"Expected level normalized to 'INFO', got {rules}"
+        assert resp.json()["logging"] == [{"firefly-func": "INFO"}], (
+            f"Expected level normalized to 'INFO', got {resp.json()['logging']}"
         )
 
     def test_patch_empty_logging_clears_rules(
-        self, api_url, super_auth_headers, appconfig_application
+        self, api_url, super_auth_headers, appconfig_original_logging
     ):
         """PATCH with an empty logging array is accepted and clears all rules."""
-        app_name, _ = appconfig_application
-        encoded = urllib.parse.quote(app_name, safe="")
         resp = requests.patch(
-            f"{api_url}/appconfig/{encoded}",
+            f"{api_url}/appconfig",
             json={"logging": []},
             headers=super_auth_headers,
             timeout=15,
@@ -414,21 +200,18 @@ class TestPatchAppConfigMutation:
         assert resp.json()["logging"] == []
 
     def test_patch_increments_version(
-        self, api_url, super_auth_headers, appconfig_application
+        self, api_url, super_auth_headers, appconfig_original_logging
     ):
         """Each PATCH creates a new hosted configuration version (monotonically increasing)."""
-        app_name, original_logging = appconfig_application
-        encoded = urllib.parse.quote(app_name, safe="")
-
         resp1 = requests.patch(
-            f"{api_url}/appconfig/{encoded}",
-            json={"logging": original_logging},
+            f"{api_url}/appconfig",
+            json={"logging": appconfig_original_logging},
             headers=super_auth_headers,
             timeout=15,
         )
         resp2 = requests.patch(
-            f"{api_url}/appconfig/{encoded}",
-            json={"logging": original_logging},
+            f"{api_url}/appconfig",
+            json={"logging": appconfig_original_logging},
             headers=super_auth_headers,
             timeout=15,
         )

@@ -14,21 +14,29 @@ import {
 } from '@headlessui/vue'
 import AppLayout from '../components/AppLayout.vue'
 import { useToast } from '../composables/useToast.js'
-import { listAppConfig, postAppConfig, patchAppConfig } from '../api/appconfig.js'
+import { getAppConfig, patchAppConfig } from '../api/appconfig.js'
 
 const { success: successToast, error: errorToast } = useToast()
 
-const applications = ref([])
+const loggingRules = ref([])
 const loading      = ref(true)
 
 const LOG_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+
+function sortedRules(rules) {
+  return [...rules].sort((a, b) => {
+    const keyA = Object.keys(a)[0]
+    const keyB = Object.keys(b)[0]
+    return keyA.length - keyB.length || keyA.localeCompare(keyB)
+  })
+}
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function load() {
   loading.value = true
   try {
-    const data = await listAppConfig()
-    applications.value = data.applications
+    const data = await getAppConfig()
+    loggingRules.value = sortedRules(data.logging ?? [])
   } catch (e) {
     errorToast(e.message)
   } finally {
@@ -38,78 +46,16 @@ async function load() {
 
 onMounted(load)
 
-// ── Create modal ──────────────────────────────────────────────────────────────
-const showCreateModal    = ref(false)
-const createName         = ref('')
-const createRules        = ref([])
-const createSubmitting   = ref(false)
-const createError        = ref(null)
-
-function openCreateModal() {
-  createName.value         = ''
-  createRules.value        = []
-  createError.value        = null
-  createSubmitting.value   = false
-  showCreateModal.value    = true
-}
-
-function addCreateRule() {
-  createRules.value.push({ prefix: '', level: 'INFO' })
-}
-
-function removeCreateRule(index) {
-  createRules.value.splice(index, 1)
-}
-
-async function submitCreate() {
-  createError.value = null
-
-  const name = createName.value.trim()
-  if (!name) {
-    createError.value = 'Application name is required.'
-    return
-  }
-
-  for (let i = 0; i < createRules.value.length; i++) {
-    const rule = createRules.value[i]
-    if (!rule.prefix.trim()) {
-      createError.value = `Rule ${i + 1}: prefix is required.`
-      return
-    }
-    if (!LOG_LEVELS.includes(rule.level)) {
-      createError.value = `Rule ${i + 1}: invalid log level.`
-      return
-    }
-  }
-
-  const logging = createRules.value.map(r => ({ [r.prefix.trim()]: r.level }))
-
-  createSubmitting.value = true
-  try {
-    await postAppConfig(name, logging)
-    showCreateModal.value = false
-    successToast(`Application '${name}' created.`)
-    await load()
-  } catch (e) {
-    createError.value = e.message
-  } finally {
-    createSubmitting.value = false
-  }
-}
-
 // ── Edit modal ────────────────────────────────────────────────────────────────
 const showEditModal    = ref(false)
-const editApp          = ref(null)
 const editRules        = ref([])
 const editSubmitting   = ref(false)
 const editError        = ref(null)
 
-function openEditModal(app) {
-  editApp.value        = app
+function openEditModal() {
   editError.value      = null
   editSubmitting.value = false
-  // Clone the logging rules into editable objects { prefix, level }
-  editRules.value = (app.logging ?? []).map(entry => {
+  editRules.value = loggingRules.value.map(entry => {
     const [prefix, level] = Object.entries(entry)[0]
     return { prefix, level }
   })
@@ -143,9 +89,9 @@ async function submitEdit() {
 
   editSubmitting.value = true
   try {
-    await patchAppConfig(editApp.value.name, logging)
+    await patchAppConfig(logging)
     showEditModal.value = false
-    successToast(`Logging config updated for ${editApp.value.name}.`)
+    successToast('Logging configuration updated.')
     await load()
   } catch (e) {
     editError.value = e.message
@@ -163,11 +109,12 @@ async function submitEdit() {
 
       <div class="flex items-center gap-2">
         <button
-          @click="openCreateModal"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          @click="openEditModal"
+          :disabled="loading"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
         >
-          <PlusIcon class="w-4 h-4" />
-          Add Application
+          <PencilSquareIcon class="w-4 h-4" />
+          Edit Rules
         </button>
         <button
           @click="load"
@@ -180,184 +127,60 @@ async function submitEdit() {
       </div>
     </div>
 
-    <!-- Table card -->
+    <!-- Rules card -->
     <div class="flex flex-col flex-1 min-h-0 bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
       <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0">
         <table class="w-full text-sm">
           <thead class="sticky top-0 z-10">
             <tr class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none whitespace-nowrap">
-                Application
+                Prefix
               </th>
               <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none whitespace-nowrap">
-                Logging Rules
+                Level
               </th>
-              <th class="px-4 py-3"></th>
             </tr>
           </thead>
 
           <tbody>
             <!-- Loading skeleton -->
             <template v-if="loading">
-              <tr v-for="i in 6" :key="i" class="border-b border-gray-100 dark:border-gray-800">
+              <tr v-for="i in 4" :key="i" class="border-b border-gray-100 dark:border-gray-800">
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-64" /></td>
-                <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-48" /></td>
-                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" /></td>
               </tr>
             </template>
 
             <!-- Empty state -->
-            <tr v-else-if="applications.length === 0">
-              <td colspan="3" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                No applications found.
+            <tr v-else-if="loggingRules.length === 0">
+              <td colspan="2" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                No logging rules configured. All functions will use the default WARNING level.
               </td>
             </tr>
 
             <!-- Data rows -->
             <tr
               v-else
-              v-for="app in applications"
-              :key="app.id"
-              class="border-b border-gray-100 dark:border-gray-800 odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              v-for="(entry, i) in loggingRules"
+              :key="i"
+              class="border-b border-gray-100 dark:border-gray-800 odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800/50"
             >
-              <td class="px-4 py-3 font-mono text-xs text-gray-900 dark:text-gray-100 whitespace-nowrap align-top pt-4">
-                {{ app.name }}
+              <td class="px-4 py-3 font-mono text-xs text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                {{ Object.keys(entry)[0] }}
               </td>
-              <td class="px-4 py-3 align-top pt-3">
-                <div v-if="!app.logging || app.logging.length === 0" class="text-xs text-gray-400 dark:text-gray-500">
-                  No rules
-                </div>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <span
-                    v-for="(entry, i) in app.logging"
-                    :key="i"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono"
-                  >
-                    <span>{{ Object.keys(entry)[0] }}</span>
-                    <span class="font-semibold" :class="{
-                      'text-red-600 dark:text-red-400':    Object.values(entry)[0] === 'ERROR' || Object.values(entry)[0] === 'CRITICAL',
-                      'text-amber-600 dark:text-amber-400': Object.values(entry)[0] === 'WARNING',
-                      'text-blue-600 dark:text-blue-400':  Object.values(entry)[0] === 'DEBUG',
-                      'text-gray-600 dark:text-gray-400':  Object.values(entry)[0] === 'INFO',
-                    }">{{ Object.values(entry)[0] }}</span>
-                  </span>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-right align-top pt-3 whitespace-nowrap">
-                <button
-                  @click="openEditModal(app)"
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <PencilSquareIcon class="w-3.5 h-3.5" />
-                  Configure
-                </button>
+              <td class="px-4 py-3 font-mono text-xs font-semibold whitespace-nowrap" :class="{
+                'text-red-600 dark:text-red-400':    ['ERROR', 'CRITICAL'].includes(Object.values(entry)[0]),
+                'text-amber-600 dark:text-amber-400': Object.values(entry)[0] === 'WARNING',
+                'text-blue-600 dark:text-blue-400':  Object.values(entry)[0] === 'DEBUG',
+                'text-gray-600 dark:text-gray-400':  Object.values(entry)[0] === 'INFO',
+              }">
+                {{ Object.values(entry)[0] }}
               </td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
-
-    <!-- Create modal -->
-    <TransitionRoot :show="showCreateModal" as="template">
-      <Dialog as="div" class="relative z-50" @close="showCreateModal = false">
-        <TransitionChild
-          as="template"
-          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
-          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
-        >
-          <div class="fixed inset-0 bg-black/50 transition-opacity" />
-        </TransitionChild>
-
-        <div class="fixed inset-0 z-10 overflow-y-auto" @click="showCreateModal = false">
-          <div class="flex min-h-full items-center justify-center p-4">
-            <TransitionChild
-              as="template"
-              enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
-              leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
-            >
-              <DialogPanel
-                class="relative w-full max-w-lg rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6 space-y-4"
-                @click.stop
-              >
-                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Add Application</h3>
-
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Application Name</label>
-                  <input
-                    v-model="createName"
-                    type="text"
-                    placeholder="firefly-func-my-app"
-                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div class="space-y-2">
-                  <div class="flex items-center justify-between">
-                    <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Logging Rules</label>
-                    <button
-                      @click="addCreateRule"
-                      class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                    >
-                      <PlusIcon class="w-3.5 h-3.5" />
-                      Add rule
-                    </button>
-                  </div>
-
-                  <div v-if="createRules.length === 0" class="text-xs text-gray-400 dark:text-gray-500 py-2">
-                    No rules. Add a rule to control log levels for this application.
-                  </div>
-
-                  <div
-                    v-for="(rule, i) in createRules"
-                    :key="i"
-                    class="flex items-center gap-2"
-                  >
-                    <input
-                      v-model="rule.prefix"
-                      type="text"
-                      placeholder="function-name-prefix"
-                      class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <select
-                      v-model="rule.level"
-                      class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option v-for="lvl in LOG_LEVELS" :key="lvl" :value="lvl">{{ lvl }}</option>
-                    </select>
-                    <button
-                      @click="removeCreateRule(i)"
-                      class="rounded p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                      aria-label="Remove rule"
-                    >
-                      <XMarkIcon class="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <p v-if="createError" class="text-xs text-red-600 dark:text-red-400">{{ createError }}</p>
-
-                <div class="flex gap-3 justify-end">
-                  <button
-                    @click="showCreateModal = false"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    @click="submitCreate"
-                    :disabled="createSubmitting"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
-                  >
-                    {{ createSubmitting ? 'Creating…' : 'Create' }}
-                  </button>
-                </div>
-              </DialogPanel>
-            </TransitionChild>
-          </div>
-        </div>
-      </Dialog>
-    </TransitionRoot>
 
     <!-- Edit modal -->
     <TransitionRoot :show="showEditModal" as="template">
@@ -381,8 +204,7 @@ async function submitEdit() {
                 class="relative w-full max-w-lg rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6 space-y-4"
                 @click.stop
               >
-                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Edit Logging Config</h3>
-                <p class="text-xs font-mono text-gray-500 dark:text-gray-400 break-all">{{ editApp?.name }}</p>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Edit Logging Rules</h3>
 
                 <div class="space-y-2">
                   <div class="flex items-center justify-between">
@@ -397,7 +219,7 @@ async function submitEdit() {
                   </div>
 
                   <div v-if="editRules.length === 0" class="text-xs text-gray-400 dark:text-gray-500 py-2">
-                    No rules. Add a rule to control log levels for this application.
+                    No rules. All functions will use the default WARNING level.
                   </div>
 
                   <div
@@ -429,7 +251,7 @@ async function submitEdit() {
 
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                   Each rule maps a function name prefix to a log level. When a function name
-                  matches multiple prefixes, the most verbose level is used.
+                  matches multiple prefixes, the most verbose level wins.
                 </p>
 
                 <p v-if="editError" class="text-xs text-red-600 dark:text-red-400">{{ editError }}</p>

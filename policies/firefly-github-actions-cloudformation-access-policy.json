@@ -173,6 +173,14 @@
                 "dynamodb:UpdateItem"
             ],
             "Resource": "arn:aws:dynamodb:AWS_REGION:AWS_ACCOUNT_ID:table/firefly-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "appconfig:DeleteApplication",
+                "appconfig:ListApplications"
+            ],
+            "Resource": "*"
         }
     ]
 }
