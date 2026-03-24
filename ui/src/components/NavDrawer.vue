@@ -106,7 +106,7 @@ const commitSha = import.meta.env.VITE_COMMIT_SHA || null
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                 "
               >
-                AppConfig
+                Configuration
               </RouterLink>
             </nav>
 
