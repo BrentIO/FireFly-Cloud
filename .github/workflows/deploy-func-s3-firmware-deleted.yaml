@@ -42,6 +42,15 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Look up shared layer ARN
+        id: lookup-layer
+        run: |
+          LAYER_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='SharedLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy func-s3-firmware-deleted
         run: |
           sam deploy \
@@ -52,6 +61,7 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
+              SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \

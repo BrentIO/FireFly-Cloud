@@ -3,6 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 Description: API DELETE /firmware/{zip_name}
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
   ApiId:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
@@ -68,7 +71,7 @@ Resources:
       Timeout: 15
       MemorySize: 128
       Layers:
-        - !ImportValue firefly-shared-layer-arn
+        - !Ref SharedLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName

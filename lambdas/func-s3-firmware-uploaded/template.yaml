@@ -3,6 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 Description: Handles uploads of firmware ZIPs and writes manifest data to DynamoDB
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
   FirmwareBucketName:
     Type: String
     Description: Name of the S3 bucket containing firmware ZIPs
@@ -69,7 +72,7 @@ Resources:
       Timeout: 30
       MemorySize: 128
       Layers:
-        - !ImportValue firefly-shared-layer-arn
+        - !Ref SharedLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
