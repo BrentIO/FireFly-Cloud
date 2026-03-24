@@ -203,6 +203,41 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Configuration]
+      summary: Create configuration application
+      description: |
+        Creates a new AWS AppConfig application with a `logging` configuration
+        profile, an environment matching the current deployment environment, and
+        an initial hosted configuration version. The configuration is immediately
+        deployed using the `AppConfig.AllAtOnce` deployment strategy.
+        Super user access is required.
+      operationId: postAppConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostAppConfigRequest'
+      responses:
+        '201':
+          description: Application created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostAppConfigResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Application with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /appconfig/{application}:
     patch:
@@ -890,6 +925,44 @@ components:
           example:
             - firefly-func-api: INFO
             - firefly-func-s3: DEBUG
+
+    PostAppConfigRequest:
+      type: object
+      required:
+        - name
+        - logging
+      properties:
+        name:
+          type: string
+          description: Application name (matches the Lambda function name).
+          example: firefly-func-api-my-new-endpoint
+        logging:
+          type: array
+          description: |
+            Initial logging rules. An empty array creates the application with no rules.
+          items:
+            $ref: '#/components/schemas/LoggingRule'
+          example:
+            - firefly-func-api: INFO
+
+    PostAppConfigResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Application name that was created.
+          example: firefly-func-api-my-new-endpoint
+        version:
+          type: integer
+          description: Initial hosted configuration version number.
+          example: 1
+        logging:
+          type: array
+          description: The initial logging rules as stored.
+          items:
+            $ref: '#/components/schemas/LoggingRule'
+          example:
+            - firefly-func-api: INFO
 
     # -------------------------------------------------------------------------
     # Object schemas

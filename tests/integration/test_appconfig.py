@@ -6,8 +6,9 @@ fixture temporarily adds the CI test user to that group for the session.
 
 Coverage
 --------
-GET  /appconfig                  — 200 with correct response shape; 403 without super
-PATCH /appconfig/{application}   — 400/403/404 validation; full update lifecycle
+GET   /appconfig                  — 200 with correct response shape; 403 without super
+POST  /appconfig                  — 400/403/409 validation; full create lifecycle
+PATCH /appconfig/{application}    — 400/403/404 validation; full update lifecycle
 """
 
 import urllib.parse
@@ -66,6 +67,164 @@ class TestGetAppConfig:
         assert resp.status_code in (200, 403), (
             f"GET /appconfig returned unexpected {resp.status_code}"
         )
+
+
+# ---------------------------------------------------------------------------
+# POST /appconfig — validation errors (no mutations)
+# ---------------------------------------------------------------------------
+
+class TestPostAppConfigValidation:
+    def test_returns_400_missing_name(self, api_url, super_auth_headers):
+        """POST /appconfig without a 'name' field returns 400."""
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"logging": []},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
+
+    def test_returns_400_missing_logging_field(self, api_url, super_auth_headers):
+        """POST /appconfig without a 'logging' field returns 400."""
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"name": "firefly-func-test-ci-validation"},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
+
+    def test_returns_400_logging_not_array(self, api_url, super_auth_headers):
+        """POST /appconfig with 'logging' as a string returns 400."""
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"name": "firefly-func-test-ci-validation", "logging": "INFO"},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
+
+    def test_returns_400_invalid_log_level(self, api_url, super_auth_headers):
+        """POST /appconfig with an invalid log level returns 400."""
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"name": "firefly-func-test-ci-validation", "logging": [{"firefly-func": "VERBOSE"}]},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
+
+    def test_returns_403_without_super_membership(self, api_url, auth_headers):
+        """POST /appconfig returns 403 when caller is not in super_users."""
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"name": "firefly-func-test-ci-validation", "logging": []},
+            headers=auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 403, (
+            f"POST /appconfig returned unexpected {resp.status_code}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /appconfig — full create lifecycle (mutations)
+# ---------------------------------------------------------------------------
+
+_CI_APP_NAME = "firefly-func-test-ci-appconfig-post"
+
+
+@pytest.fixture(scope="function")
+def created_appconfig_application(api_url, super_auth_headers):
+    """
+    Creates a throwaway AppConfig application before the test and deletes it
+    via DELETE after teardown. Skipped when Cognito env vars are not set.
+
+    Yields the created application name.
+    """
+    # Teardown: best-effort delete via the API (if a delete endpoint exists)
+    # or directly via AWS SDK — for now we clean up using the GET list + AWS SDK.
+    import boto3
+    appconfig = boto3.client("appconfig")
+
+    yield _CI_APP_NAME
+
+    # Delete the application from AppConfig
+    try:
+        paginator = appconfig.get_paginator("list_applications")
+        for page in paginator.paginate():
+            for app in page.get("Items", []):
+                if app["Name"] == _CI_APP_NAME:
+                    appconfig.delete_application(ApplicationId=app["Id"])
+                    break
+    except Exception:
+        pass  # Best-effort cleanup
+
+
+class TestPostAppConfigMutation:
+    def test_post_returns_201_with_correct_shape(
+        self, api_url, super_auth_headers, created_appconfig_application
+    ):
+        """POST /appconfig returns 201 with name, version, and logging."""
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"name": _CI_APP_NAME, "logging": [{"firefly-func": "INFO"}]},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+        body = resp.json()
+        assert "name" in body, f"'name' missing from response: {body}"
+        assert "version" in body, f"'version' missing from response: {body}"
+        assert "logging" in body, f"'logging' missing from response: {body}"
+        assert body["name"] == _CI_APP_NAME
+        assert body["version"] == 1
+
+    def test_post_application_appears_in_get(
+        self, api_url, super_auth_headers, created_appconfig_application
+    ):
+        """After POST, GET /appconfig includes the new application."""
+        requests.post(
+            f"{api_url}/appconfig",
+            json={"name": _CI_APP_NAME, "logging": []},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        get_resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
+        assert get_resp.status_code == 200
+        names = [a["name"] for a in get_resp.json()["applications"]]
+        assert _CI_APP_NAME in names, f"'{_CI_APP_NAME}' not found in GET /appconfig after POST"
+
+    def test_post_returns_409_for_duplicate(
+        self, api_url, super_auth_headers, created_appconfig_application
+    ):
+        """POST /appconfig returns 409 when the application name already exists."""
+        requests.post(
+            f"{api_url}/appconfig",
+            json={"name": _CI_APP_NAME, "logging": []},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"name": _CI_APP_NAME, "logging": []},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
+
+    def test_post_levels_normalized_to_uppercase(
+        self, api_url, super_auth_headers, created_appconfig_application
+    ):
+        """POST normalizes log levels to uppercase in the response."""
+        resp = requests.post(
+            f"{api_url}/appconfig",
+            json={"name": _CI_APP_NAME, "logging": [{"firefly-func": "info"}]},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+        assert resp.json()["logging"] == [{"firefly-func": "INFO"}]
 
 
 # ---------------------------------------------------------------------------

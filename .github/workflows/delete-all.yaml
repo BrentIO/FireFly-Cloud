@@ -120,6 +120,12 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  delete-func-api-appconfig-post:
+    uses: ./.github/workflows/delete-func-api-appconfig-post.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   delete-api-gateway:
     needs:
       - delete-func-api-health-get
@@ -134,6 +140,7 @@ jobs:
       - delete-func-api-users-patch
       - delete-func-api-appconfig-get
       - delete-func-api-appconfig-patch
+      - delete-func-api-appconfig-post
     uses: ./.github/workflows/delete-api-gateway.yaml
     secrets: inherit
     with:
