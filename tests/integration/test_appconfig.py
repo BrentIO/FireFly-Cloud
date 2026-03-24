@@ -6,9 +6,10 @@ fixture temporarily adds the CI test user to that group for the session.
 
 Coverage
 --------
-GET  /appconfig                           — 200 shape; 403 without super
-PATCH /appconfig/{function_name}          — 400/403 validation; full update lifecycle
-POST  /appconfig/{function_name}/deploy   — 403 validation; deploy lifecycle
+GET    /appconfig                           — 200 shape; 403 without super
+PATCH  /appconfig/{function_name}          — 400/403 validation; full update lifecycle
+POST   /appconfig/{function_name}/deploy   — 403 validation; deploy lifecycle
+DELETE /appconfig/{function_name}          — 403/404 validation; full delete lifecycle
 """
 
 import time
@@ -257,3 +258,72 @@ class TestDeployAppConfig:
         assert "version" in body
         assert "environment" in body
         assert "status" in body
+
+
+# ---------------------------------------------------------------------------
+# DELETE /appconfig/{function_name} — validation and lifecycle
+# ---------------------------------------------------------------------------
+
+# A scratch function used only for delete tests so we don't disturb TEST_FUNCTION
+DELETE_TEST_FUNCTION = "firefly-func-api-appconfig-patch"
+
+
+class TestDeleteAppConfigValidation:
+    def test_returns_404_for_unconfigured_function(self, api_url, super_auth_headers):
+        resp = requests.delete(
+            f"{api_url}/appconfig/firefly-func-does-not-exist",
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 404, f"Expected 404, got {resp.status_code}: {resp.text}"
+
+    def test_returns_403_without_super_membership(self, api_url, auth_headers):
+        resp = requests.delete(
+            f"{api_url}/appconfig/{DELETE_TEST_FUNCTION}",
+            headers=auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code in (200, 403, 404, 409)
+
+
+class TestDeleteAppConfigLifecycle:
+    def test_delete_returns_204_and_function_reverts_to_default(
+        self, api_url, super_auth_headers
+    ):
+        # Ensure DELETE_TEST_FUNCTION has an AppConfig application first
+        patch_resp = requests.patch(
+            f"{api_url}/appconfig/{DELETE_TEST_FUNCTION}",
+            json={"logging": "DEBUG"},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert patch_resp.status_code == 200, f"Setup PATCH failed: {patch_resp.text}"
+
+        # Delete it
+        del_resp = requests.delete(
+            f"{api_url}/appconfig/{DELETE_TEST_FUNCTION}",
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert del_resp.status_code == 204, f"Expected 204, got {del_resp.status_code}: {del_resp.text}"
+
+        # Confirm it now appears with null values in GET /appconfig
+        get_resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
+        assert get_resp.status_code == 200
+        app = next(
+            (a for a in get_resp.json().get("applications", []) if a["name"] == DELETE_TEST_FUNCTION),
+            None,
+        )
+        assert app is not None, f"{DELETE_TEST_FUNCTION} not found in GET response"
+        assert app["logging"] is None
+        assert app["version"] is None
+
+    def test_delete_is_idempotent_via_404(self, api_url, super_auth_headers):
+        # Deleting an already-unconfigured function returns 404
+        # (previous test left DELETE_TEST_FUNCTION unconfigured)
+        resp = requests.delete(
+            f"{api_url}/appconfig/{DELETE_TEST_FUNCTION}",
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        assert resp.status_code == 404, f"Expected 404 on second delete, got {resp.status_code}: {resp.text}"

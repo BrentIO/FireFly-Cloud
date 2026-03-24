@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: API PATCH /appconfig/{function_name} and POST /appconfig/{function_name}/deploy
+Description: API PATCH/POST/DELETE /appconfig/{function_name}
 
 Parameters:
 
@@ -47,6 +47,10 @@ Resources:
                   - appconfig:CreateHostedConfigurationVersion
                   - appconfig:ListDeployments
                   - appconfig:StartDeployment
+                  - appconfig:DeleteApplication
+                  - appconfig:DeleteEnvironment
+                  - appconfig:DeleteConfigurationProfile
+                  - appconfig:DeleteHostedConfigurationVersion
                   - lambda:GetFunction
                 Resource: "*"
 
@@ -92,6 +96,15 @@ Resources:
       AuthorizerId: !Ref AuthorizerId
       Target: !Sub integrations/${FuncApiAppConfigPatchIntegration.IntegrationId}
 
+  FuncApiAppConfigDeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: DELETE /appconfig/{function_name}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
+      Target: !Sub integrations/${FuncApiAppConfigPatchIntegration.IntegrationId}
+
   FuncApiAppConfigPatchPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -108,7 +121,15 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/POST/appconfig/*/deploy
 
+  FuncApiAppConfigDeletePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiAppConfigPatch
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/DELETE/appconfig/*
+
 Outputs:
   FuncApiAppConfigPatchArn:
     Value: !GetAtt FuncApiAppConfigPatch.Arn
-    Description: ARN of the appconfig PATCH/deploy Lambda
+    Description: ARN of the appconfig PATCH/deploy/delete Lambda

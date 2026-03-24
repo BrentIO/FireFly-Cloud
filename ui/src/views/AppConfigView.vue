@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import {
   ArrowPathIcon,
   PencilSquareIcon,
   RocketLaunchIcon,
+  TrashIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import {
@@ -14,7 +15,7 @@ import {
 } from '@headlessui/vue'
 import AppLayout from '../components/AppLayout.vue'
 import { useToast } from '../composables/useToast.js'
-import { getAppConfig, patchAppConfig, deployAppConfig } from '../api/appconfig.js'
+import { getAppConfig, patchAppConfig, deployAppConfig, deleteAppConfig } from '../api/appconfig.js'
 
 const { success: successToast, error: errorToast } = useToast()
 
@@ -45,6 +46,10 @@ function isDeploying(app) {
   return app.status && app.status !== 'COMPLETE' && app.status !== 'ROLLED_BACK'
 }
 
+function isConfigured(app) {
+  return app.version !== null
+}
+
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function load() {
   loading.value = true
@@ -62,7 +67,7 @@ onMounted(load)
 
 // ── Edit modal ────────────────────────────────────────────────────────────────
 const showEditModal  = ref(false)
-const editTarget     = ref(null)   // the application object being edited
+const editTarget     = ref(null)
 const editLevel      = ref('WARNING')
 const editSubmitting = ref(false)
 const editError      = ref(null)
@@ -91,7 +96,7 @@ async function submitEdit() {
 }
 
 // ── Deploy ────────────────────────────────────────────────────────────────────
-const deploying = ref({})   // { functionName: true } while deploy is in flight
+const deploying = ref({})
 
 async function deploy(app) {
   deploying.value = { ...deploying.value, [app.name]: true }
@@ -105,6 +110,34 @@ async function deploy(app) {
     const next = { ...deploying.value }
     delete next[app.name]
     deploying.value = next
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+const showDeleteModal  = ref(false)
+const deleteTarget     = ref(null)
+const deleteSubmitting = ref(false)
+const deleteError      = ref(null)
+
+function openDeleteModal(app) {
+  deleteTarget.value     = app
+  deleteError.value      = null
+  deleteSubmitting.value = false
+  showDeleteModal.value  = true
+}
+
+async function submitDelete() {
+  deleteError.value = null
+  deleteSubmitting.value = true
+  try {
+    await deleteAppConfig(deleteTarget.value.name)
+    showDeleteModal.value = false
+    successToast(`Removed configuration for ${shortName(deleteTarget.value.name)}.`)
+    await load()
+  } catch (e) {
+    deleteError.value = e.message
+  } finally {
+    deleteSubmitting.value = false
   }
 }
 </script>
@@ -230,6 +263,14 @@ async function deploy(app) {
                     <RocketLaunchIcon class="w-3.5 h-3.5" />
                     Deploy
                   </button>
+                  <button
+                    @click="openDeleteModal(app)"
+                    :disabled="!isConfigured(app) || isDeploying(app)"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-red-50 hover:border-red-300 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:border-red-700 dark:hover:text-red-400"
+                    :title="isConfigured(app) ? `Remove configuration for ${app.name}` : 'No configuration to remove'"
+                  >
+                    <TrashIcon class="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </td>
             </tr>
@@ -298,6 +339,67 @@ async function deploy(app) {
                     class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
                   >
                     {{ editSubmitting ? 'Saving…' : 'Save' }}
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
+
+    <!-- Delete confirmation modal -->
+    <TransitionRoot :show="showDeleteModal" as="template">
+      <Dialog as="div" class="relative z-50" @close="showDeleteModal = false">
+        <TransitionChild
+          as="template"
+          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
+          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
+        >
+          <div class="fixed inset-0 bg-black/50 transition-opacity" />
+        </TransitionChild>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto" @click="showDeleteModal = false">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild
+              as="template"
+              enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
+              leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
+            >
+              <DialogPanel
+                class="relative w-full max-w-sm rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6 space-y-4"
+                @click.stop
+              >
+                <div class="flex items-start justify-between">
+                  <div>
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Remove Configuration</h3>
+                    <p class="mt-0.5 text-xs font-mono text-gray-500 dark:text-gray-400">{{ deleteTarget?.name }}</p>
+                  </div>
+                  <button @click="showDeleteModal = false" class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <XMarkIcon class="w-4 h-4" />
+                  </button>
+                </div>
+
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  This will remove all staged and deployed configuration for this function.
+                  It will revert to the default WARNING log level.
+                </p>
+
+                <p v-if="deleteError" class="text-xs text-red-600 dark:text-red-400">{{ deleteError }}</p>
+
+                <div class="flex gap-3 justify-end">
+                  <button
+                    @click="showDeleteModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    @click="submitDelete"
+                    :disabled="deleteSubmitting"
+                    class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg transition-colors"
+                  >
+                    {{ deleteSubmitting ? 'Removing…' : 'Remove' }}
                   </button>
                 </div>
               </DialogPanel>

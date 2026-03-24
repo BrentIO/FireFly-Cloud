@@ -1,8 +1,9 @@
 """
-PATCH /appconfig/{function_name}       — create or update the AppConfig for a Lambda function.
-POST  /appconfig/{function_name}/deploy — deploy the latest staged version to the current environment.
+PATCH  /appconfig/{function_name}        — create or update the AppConfig for a Lambda function.
+POST   /appconfig/{function_name}/deploy — deploy the latest staged version to the current environment.
+DELETE /appconfig/{function_name}        — remove the AppConfig application entirely (reverts to default WARNING).
 
-Both routes require the caller to be in the super_users group.
+All routes require the caller to be in the super_users group.
 
 PATCH request body:
   {"logging": "WARNING"}
@@ -16,6 +17,8 @@ Call POST /appconfig/{function_name}/deploy to activate the change.
 
 POST /deploy response (200):
   {"name": "firefly-func-api-firmware-get", "version": 3, "environment": "dev", "status": "DEPLOYING"}
+
+DELETE response (204): empty body
 """
 
 import json
@@ -207,6 +210,60 @@ def _handle_patch(event, function_name):
     })
 
 
+def _handle_delete(function_name):
+    if not function_name.startswith(FUNCTION_PREFIX):
+        return _response(400, {"message": f"Function name must start with '{FUNCTION_PREFIX}'"})
+
+    result = _find_app(function_name)
+    if result is None:
+        return _response(404, {"message": f"No AppConfig application found for '{function_name}'"})
+
+    app_id, env_id, profile_id = result
+
+    # Refuse to delete while a deployment is in progress
+    try:
+        deps = appconfig.list_deployments(
+            ApplicationId=app_id,
+            EnvironmentId=env_id,
+            MaxResults=1,
+        ).get("Items", [])
+        if deps and deps[0].get("State") not in ("COMPLETE", "ROLLED_BACK"):
+            return _response(409, {"message": "A deployment is in progress. Wait for it to complete before deleting."})
+    except ClientError:
+        pass
+
+    # Delete hosted configuration versions
+    try:
+        paginator = appconfig.get_paginator("list_hosted_configuration_versions")
+        for page in paginator.paginate(ApplicationId=app_id, ConfigurationProfileId=profile_id):
+            for v in page.get("Items", []):
+                appconfig.delete_hosted_configuration_version(
+                    ApplicationId=app_id,
+                    ConfigurationProfileId=profile_id,
+                    VersionNumber=v["VersionNumber"],
+                )
+    except ClientError:
+        pass
+
+    # Delete profile, environment, application in order
+    try:
+        appconfig.delete_configuration_profile(
+            ApplicationId=app_id,
+            ConfigurationProfileId=profile_id,
+        )
+    except ClientError:
+        pass
+
+    try:
+        appconfig.delete_environment(ApplicationId=app_id, EnvironmentId=env_id)
+    except ClientError:
+        pass
+
+    appconfig.delete_application(ApplicationId=app_id)
+
+    return {"statusCode": 204, "headers": {"Content-Type": "application/json"}, "body": ""}
+
+
 def _handle_deploy(function_name):
     if not function_name.startswith(FUNCTION_PREFIX):
         return _response(400, {"message": f"Function name must start with '{FUNCTION_PREFIX}'"})
@@ -262,6 +319,8 @@ def lambda_handler(event, context):
             return _handle_patch(event, function_name)
         elif route_key.startswith("POST "):
             return _handle_deploy(function_name)
+        elif route_key.startswith("DELETE "):
+            return _handle_delete(function_name)
         else:
             return _response(404, {"message": "Not found"})
 
