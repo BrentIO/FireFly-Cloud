@@ -46,7 +46,7 @@ jobs:
         id: lookup-appconfig-ext
         run: |
           LAYER_ARN=$(aws lambda list-layer-versions \
-            --layer-name arn:aws:lambda:${{ secrets.AWS_REGION }}:027255383542:layer:AWS-AppConfig-Extension-Arm64 \
+            --layer-name arn:aws:lambda:${AWS_DEFAULT_REGION}:027255383542:layer:AWS-AppConfig-Extension-Arm64 \
             --query 'max_by(LayerVersions, &Version).LayerVersionArn' \
             --output text)
           echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
