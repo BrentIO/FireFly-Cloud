@@ -45,6 +45,11 @@
         },
         {
             "Effect": "Allow",
+            "Action": "lambda:GetLayerVersion",
+            "Resource": "arn:aws:lambda:*:*:layer:AWS-AppConfig-Extension-Arm64:*"
+        },
+        {
+            "Effect": "Allow",
             "Action": [
                 "apigateway:DELETE",
                 "apigateway:GET",
