@@ -30,6 +30,7 @@ const statusMessage = ref('')
 const errorMessage = ref('')
 const chipName = ref('')
 const fileProgress = ref([]) // [{ name, address, written, total }]
+const eraseAll = ref(false)
 
 let transport = null
 
@@ -171,7 +172,7 @@ async function startFlash() {
       flashSize: 'keep',
       flashMode: 'keep',
       flashFreq: 'keep',
-      eraseAll: false,
+      eraseAll: eraseAll.value,
       compress: true,
       reportProgress(fileIndex, written, total) {
         if (fileProgress.value[fileIndex]) {
@@ -205,6 +206,7 @@ function reset() {
   errorMessage.value = ''
   chipName.value = ''
   fileProgress.value = []
+  eraseAll.value = false
 }
 
 function handleClose() {
@@ -303,6 +305,22 @@ onUnmounted(async () => {
                       </tbody>
                     </table>
                   </div>
+
+                  <!-- Erase all flash option -->
+                  <label class="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      v-model="eraseAll"
+                      class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                      Erase all flash before writing
+                      <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Wipes the entire flash chip before flashing. Use when replacing firmware
+                        from a different project or to clear stale partition data.
+                      </span>
+                    </span>
+                  </label>
 
                   <p class="text-xs text-gray-500 dark:text-gray-400">
                     Addresses marked <em>from partition table</em> are resolved from
