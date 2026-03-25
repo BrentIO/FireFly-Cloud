@@ -36,14 +36,15 @@ let transport = null
 // ---------------------------------------------------------------------------
 // Flash address table derived from FireFly partition layout:
 //   bootloader  → 0x01000
+//   partitions  → 0x08000
 //   application → 0x10000  (app0 partition)
 //   config      → 0xC90000
 //   www         → 0xD10000
-//   partitions  → skipped (device-specific; do not overwrite)
+// Non-.bin files (*.elf, *.map, manifest.json) are skipped.
 // ---------------------------------------------------------------------------
 function resolveFlashAddress(filename) {
-  if (filename.endsWith('.partitions.bin')) return null
   if (filename.endsWith('.bootloader.bin')) return 0x01000
+  if (filename.endsWith('.partitions.bin')) return 0x08000
   if (filename === 'config.bin') return 0xC90000
   if (filename === 'www.bin') return 0xD10000
   if (filename.endsWith('.bin')) return 0x10000
