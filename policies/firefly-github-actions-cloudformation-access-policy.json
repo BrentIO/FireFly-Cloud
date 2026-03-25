@@ -181,6 +181,11 @@
                 "appconfig:ListApplications"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "lambda:ListLayerVersions",
+            "Resource": "arn:aws:lambda:*:027255383542:layer:AWS-AppConfig-Extension-Arm64"
         }
     ]
 }
