@@ -87,6 +87,12 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
           APP_CONFIG_ENV: !Ref EnvironmentName
 
+  FuncS3FirmwareUploadedLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncS3FirmwareUploaded}
+      RetentionInDays: 40
+
 Outputs:
   FuncS3FirmwareUploadedArn:
     Description: ARN of the firmware upload processor Lambda
