@@ -85,37 +85,38 @@ jobs:
             --output text 2>/dev/null || echo "")
           echo "table_name=$TABLE_NAME" >> $GITHUB_OUTPUT
 
+      - name: Generate transient CI credentials
+        id: ci-creds
+        if: steps.lookup-cognito.outputs.user_pool_id != ''
+        run: |
+          # Random email — unique per run, no secret needed
+          EMAIL="ci-test-$(openssl rand -hex 8)@test.firefly.local"
+          # Random password that satisfies Cognito's default policy
+          # (8+ chars, uppercase, lowercase, digit, special)
+          RAND=$(openssl rand -base64 18 | tr -d '=+/' | head -c 14)
+          PASSWORD="Ci${RAND}1!"
+          # Mask the password so it never appears in logs
+          echo "::add-mask::$PASSWORD"
+          echo "email=${EMAIL}" >> $GITHUB_OUTPUT
+          echo "password=${PASSWORD}" >> $GITHUB_OUTPUT
+
       - name: Create CI test user
         if: steps.lookup-cognito.outputs.user_pool_id != ''
-        env:
-          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
         run: |
           python3 << 'PYEOF'
           import boto3, os, sys
-          from botocore.exceptions import ClientError
 
           pool_id = "${{ steps.lookup-cognito.outputs.user_pool_id }}"
-          email    = os.environ.get("TEST_USER_EMAIL", "")
-          password = os.environ.get("TEST_USER_PASSWORD", "")
-
-          if not email or not password:
-              print("TEST_USER_EMAIL or TEST_USER_PASSWORD not set — skipping CI test user creation")
-              sys.exit(0)
+          email    = "${{ steps.ci-creds.outputs.email }}"
+          password = "${{ steps.ci-creds.outputs.password }}"
 
           cognito = boto3.client("cognito-idp")
-          try:
-              cognito.admin_create_user(
-                  UserPoolId=pool_id,
-                  Username=email,
-                  MessageAction="SUPPRESS",
-              )
-              print(f"Created CI test user: {email}")
-          except ClientError as e:
-              if e.response["Error"]["Code"] == "UsernameExistsException":
-                  print(f"CI test user already exists: {email}")
-              else:
-                  raise
+          cognito.admin_create_user(
+              UserPoolId=pool_id,
+              Username=email,
+              MessageAction="SUPPRESS",
+          )
+          print(f"Created CI test user: {email}")
 
           cognito.admin_set_user_password(
               UserPoolId=pool_id,
@@ -123,7 +124,7 @@ jobs:
               Password=password,
               Permanent=True,
           )
-          print(f"Password set permanently for: {email}")
+          print(f"Password set for: {email}")
           PYEOF
 
       - name: Install test dependencies
@@ -144,25 +145,19 @@ jobs:
           FIREFLY_UI_BUCKET: ${{ secrets.S3_UI_BUCKET_NAME }}
           FIREFLY_COGNITO_USER_POOL_ID: ${{ steps.lookup-cognito.outputs.user_pool_id }}
           FIREFLY_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
-          FIREFLY_TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-          FIREFLY_TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          FIREFLY_TEST_USER_EMAIL: ${{ steps.ci-creds.outputs.email }}
+          FIREFLY_TEST_USER_PASSWORD: ${{ steps.ci-creds.outputs.password }}
           FIREFLY_DYNAMODB_USERS_TABLE_NAME: ${{ steps.lookup-dynamodb-users.outputs.table_name }}
 
       - name: Delete CI test user
-        if: always() && steps.lookup-cognito.outputs.user_pool_id != ''
-        env:
-          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+        if: always() && steps.lookup-cognito.outputs.user_pool_id != '' && steps.ci-creds.outputs.email != ''
         run: |
           python3 << 'PYEOF'
-          import boto3, os
+          import boto3
           from botocore.exceptions import ClientError
 
           pool_id = "${{ steps.lookup-cognito.outputs.user_pool_id }}"
-          email = os.environ.get("TEST_USER_EMAIL", "")
-
-          if not email:
-              print("TEST_USER_EMAIL not set — skipping CI test user deletion")
-              exit(0)
+          email   = "${{ steps.ci-creds.outputs.email }}"
 
           cognito = boto3.client("cognito-idp")
           try:
