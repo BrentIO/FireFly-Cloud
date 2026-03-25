@@ -7,6 +7,9 @@ info:
 servers:
   - url: https://api.p5software.com
 
+security:
+  - CognitoJWT: []
+
 tags:
   - name: Health
     description: Service health check
@@ -66,7 +69,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponse'
+                $ref: '#/components/schemas/UserInviteResponse'
               example:
                 email: user@example.com
                 environments: [dev]
@@ -207,10 +210,10 @@ paths:
                     deployed_version: 3
                     status: COMPLETE
                   - name: firefly-func-api-ota-get
-                    logging: null
-                    version: null
-                    deployed_version: null
-                    status: null
+                    logging: INFO
+                    version: 1
+                    deployed_version: 1
+                    status: COMPLETE
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
@@ -375,6 +378,7 @@ paths:
       tags: [Health]
       summary: Health check
       operationId: getHealth
+      security: []
       responses:
         '200':
           description: Service is healthy
@@ -508,6 +512,7 @@ paths:
 
         See the [OTA Update Flow](/cloud/ota_update_flow) for full scenario documentation.
       operationId: getOtaManifest
+      security: []
       parameters:
         - $ref: '#/components/parameters/ProductIdPath'
         - $ref: '#/components/parameters/ApplicationPath'
@@ -673,6 +678,13 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
 components:
+
+  securitySchemes:
+    CognitoJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito-issued JWT token. Obtain via Google OAuth sign-in through the FireFly UI.
 
   parameters:
     UserEmail:
@@ -853,6 +865,21 @@ components:
           format: email
           description: Email of the super user who invited this user.
           example: admin@example.com
+
+    UserInviteResponse:
+      type: object
+      description: Response body returned when a user invitation is successfully created.
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        environments:
+          type: array
+          description: Environments the invited user has been granted access to.
+          items:
+            $ref: '#/components/schemas/Environment'
+          example: [dev]
 
     UserListResponse:
       type: object
