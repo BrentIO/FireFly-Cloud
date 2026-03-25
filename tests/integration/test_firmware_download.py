@@ -3,7 +3,11 @@ Tests for GET /firmware/{zip_name}/download.
 """
 
 import time
+
+import pytest
 import requests
+
+pytestmark = pytest.mark.firmware_download
 
 
 NONEXISTENT = "00000000-0000-0000-0000-000000000000.zip"

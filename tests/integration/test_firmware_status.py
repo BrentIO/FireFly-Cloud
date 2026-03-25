@@ -2,7 +2,10 @@
 Tests for PATCH /firmware/{zip_name}/status.
 """
 
+import pytest
 import requests
+
+pytestmark = pytest.mark.firmware_status
 
 
 NONEXISTENT = "00000000-0000-0000-0000-000000000000.zip"

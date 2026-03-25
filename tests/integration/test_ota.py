@@ -11,8 +11,10 @@ For the basic manifest tests, we pass a version older than the released item so
 the endpoint returns that item as the "next" version.
 """
 
+import pytest
 import requests
 
+pytestmark = pytest.mark.ota
 
 NONEXISTENT_PRODUCT = "firefly-does-not-exist"
 NONEXISTENT_APPLICATION = "nonexistent"

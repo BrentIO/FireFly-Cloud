@@ -17,6 +17,8 @@ import urllib.parse
 import pytest
 import requests
 
+pytestmark = pytest.mark.users
+
 # A well-formed email address that is guaranteed not to exist in Cognito.
 _GHOST_EMAIL = "no-such-user-firefly-inttest@example.com"
 

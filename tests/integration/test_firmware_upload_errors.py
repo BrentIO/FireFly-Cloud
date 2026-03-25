@@ -11,7 +11,10 @@ records are not covered by the normal per-fixture teardown.
 
 import uuid
 
+import pytest
 import requests
+
+pytestmark = pytest.mark.firmware_upload
 
 from conftest import (
     API_URL,
