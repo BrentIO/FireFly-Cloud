@@ -100,6 +100,12 @@ const displayFiles = computed(() => {
 // Flash sequence
 // ---------------------------------------------------------------------------
 async function startFlash() {
+  const offsets = props.item.partition_offsets
+  if (offsets == null || Object.keys(offsets).length === 0) {
+    toastError('Cannot flash: partition offset data is missing from this firmware record.')
+    return
+  }
+
   phase.value = 'downloading'
   errorMessage.value = ''
   chipName.value = ''
