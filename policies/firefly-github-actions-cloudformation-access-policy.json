@@ -181,6 +181,6 @@
                 "appconfig:ListApplications"
             ],
             "Resource": "*"
-        },
+        }
     ]
 }
