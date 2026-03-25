@@ -116,7 +116,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${FuncApiUsersPost}
-      RetentionInDays: 40
+      RetentionInDays: 30
 
 Outputs:
   FuncApiUsersPostArn:

@@ -109,7 +109,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${FuncApiOtaGet}
-      RetentionInDays: 40
+      RetentionInDays: 30
 
 Outputs:
   FuncApiOtaGetArn:

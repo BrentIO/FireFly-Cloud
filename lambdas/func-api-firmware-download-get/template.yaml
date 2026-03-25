@@ -121,7 +121,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${FuncApiFirmwareDownloadGet}
-      RetentionInDays: 40
+      RetentionInDays: 30
 
 Outputs:
   FuncApiFirmwareDownloadGetArn:

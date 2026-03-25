@@ -87,7 +87,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${FuncApiHealth}
-      RetentionInDays: 40
+      RetentionInDays: 30
 
 Outputs:
   FuncApiHealthArn:
