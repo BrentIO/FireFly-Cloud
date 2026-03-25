@@ -23,6 +23,7 @@ from conftest import (
     _create_zip_invalid_manifest,
     _create_zip_missing_file,
     _create_zip_missing_manifest,
+    _create_zip_missing_partitions,
     _create_zip_sha256_mismatch,
     _upload_and_wait_for_error,
 )
@@ -185,5 +186,37 @@ def test_sha256_mismatch_error_identifies_filename(api_url, auth_headers):
     )
     try:
         assert "firmware.bin" in item["error"]
+    finally:
+        _delete_error_record(item["zip_name"], auth_headers)
+
+
+# ---------------------------------------------------------------------------
+# Scenario 6: manifest has no partitions.bin entry
+# ---------------------------------------------------------------------------
+
+def test_missing_partitions_creates_error_record(api_url, auth_headers):
+    filename = _unique_filename("no-partitions")
+    item = _upload_and_wait_for_error(
+        _create_zip_missing_partitions(),
+        filename,
+        scan_product_id=TEST_PRODUCT_ID,
+    )
+    try:
+        assert item["release_status"] == "ERROR"
+        assert "error" in item
+        assert item["original_name"] == filename
+    finally:
+        _delete_error_record(item["zip_name"], auth_headers)
+
+
+def test_missing_partitions_error_mentions_partitions(api_url, auth_headers):
+    filename = _unique_filename("no-partitions-msg")
+    item = _upload_and_wait_for_error(
+        _create_zip_missing_partitions(),
+        filename,
+        scan_product_id=TEST_PRODUCT_ID,
+    )
+    try:
+        assert "partitions" in item["error"].lower()
     finally:
         _delete_error_record(item["zip_name"], auth_headers)

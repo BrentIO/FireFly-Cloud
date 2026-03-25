@@ -55,6 +55,9 @@ def validate_manifest_schema(manifest):
         if len(entry["sha256"]) != 64:
             raise Exception(f"Invalid SHA256 for {entry['name']}")
 
+    if not any(entry["name"].endswith(".partitions.bin") for entry in manifest["files"]):
+        raise Exception("Manifest must include a partitions.bin file")
+
 
 def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
     product_id = "__UNKNOWN_PRODUCT__"
