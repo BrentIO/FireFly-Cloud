@@ -1,4 +1,7 @@
+import pytest
 import requests
+
+pytestmark = pytest.mark.health
 
 
 def test_health_returns_200(api_url):

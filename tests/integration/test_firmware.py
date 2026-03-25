@@ -5,6 +5,8 @@ Tests for GET /firmware and GET /firmware/{zip_name}.
 import pytest
 import requests
 
+pytestmark = pytest.mark.firmware_get
+
 
 # ---------------------------------------------------------------------------
 # GET /firmware (list)

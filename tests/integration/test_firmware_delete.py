@@ -3,7 +3,11 @@ Tests for DELETE /firmware/{zip_name}.
 """
 
 import time
+
+import pytest
 import requests
+
+pytestmark = pytest.mark.firmware_delete
 
 
 NONEXISTENT = "00000000-0000-0000-0000-000000000000.zip"

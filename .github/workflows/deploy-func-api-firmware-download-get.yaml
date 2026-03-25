@@ -95,3 +95,4 @@ jobs:
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
+      test_filter: firmware_download

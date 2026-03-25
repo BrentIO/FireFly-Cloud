@@ -17,6 +17,8 @@ import time
 import pytest
 import requests
 
+pytestmark = pytest.mark.appconfig
+
 # A real function name that exists in the deployed environment
 TEST_FUNCTION = "firefly-func-api-appconfig-get"
 

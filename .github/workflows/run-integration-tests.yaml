@@ -9,11 +9,20 @@ on:
         options:
           - dev
           - production
+      test_filter:
+        type: string
+        description: "pytest marker expression to filter tests (leave blank to run all)"
+        required: false
+        default: ""
   workflow_call:
     inputs:
       target_env:
         required: true
         type: string
+      test_filter:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   run-integration-tests:
@@ -122,7 +131,12 @@ jobs:
 
       - name: Run integration tests
         id: run-tests
-        run: pytest tests/integration/ -v
+        run: |
+          if [ -n "${{ inputs.test_filter }}" ]; then
+            pytest tests/integration/ -v -m "${{ inputs.test_filter }}"
+          else
+            pytest tests/integration/ -v
+          fi
         env:
           FIREFLY_API_URL: ${{ steps.lookup-api.outputs.api_url }}
           FIREFLY_FIRMWARE_BUCKET: ${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}

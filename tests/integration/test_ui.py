@@ -11,6 +11,8 @@ import os
 import pytest
 import requests
 
+pytestmark = pytest.mark.ui
+
 UI_URL = os.environ.get("FIREFLY_UI_URL", "").rstrip("/")
 
 

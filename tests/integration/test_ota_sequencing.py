@@ -21,8 +21,10 @@ Requires:
   (e.g. {"test": "FireFly Test", "test2": "FireFly Test 2"}).
 """
 
+import pytest
 import requests
 
+pytestmark = pytest.mark.ota
 
 # ---------------------------------------------------------------------------
 # current_version required
