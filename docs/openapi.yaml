@@ -1,7 +1,7 @@
 openapi: 3.0.3
 
 info:
-  title: FireFly API
+  title: FireFly Cloud API
   version: 2026.03.01
 
 servers:
