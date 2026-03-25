@@ -1067,6 +1067,21 @@ components:
               description: File entries from the firmware manifest, including per-file SHA-256 checksums verified at upload time.
               items:
                 $ref: '#/components/schemas/FirmwareFile'
+              example:
+                - name: Controller.ino.partitions.bin
+                  sha256: 91e416b59e687fb4d5ed79c950d0c4bb31dd33f798d050d5a4d527e0b5bc26f6
+                - name: Controller.ino.elf
+                  sha256: 897bfe21b087df397974dd2fccce67bf856b85d7ccdb4ef4388064f7b15f77bd
+                - name: config.bin
+                  sha256: c9a87d2f315a7ef6a03681f73703ee782e65e36695503deca7e20b85acb3a89c
+                - name: Controller.ino.bootloader.bin
+                  sha256: 46bde3db1313aecbba0c368a16b7988f0b0d45505688fa14cf7d28407019aa11
+                - name: Controller.ino.bin
+                  sha256: 6509153b68e2886861daad8eb01ab8dfd16bffacf1e519d2c144ab7682af024a
+                - name: Controller.ino.map
+                  sha256: 60e6cffd067a82107e48cafa453953e015789ae9227d2023ec8dbd170071b266
+                - name: www.bin
+                  sha256: b9e47219850379ea3a92d226f020988a4fd233a5a240bf1a48361b8aaea4da3b
             partition_offsets:
               type: object
               nullable: true
@@ -1083,21 +1098,6 @@ components:
                 app0: 65536
                 config: 3276800
                 www: 3473408
-              example:
-                - name: Controller.ino.partitions.bin
-                  sha256: 91e416b59e687fb4d5ed79c950d0c4bb31dd33f798d050d5a4d527e0b5bc26f6
-                - name: Controller.ino.elf
-                  sha256: 897bfe21b087df397974dd2fccce67bf856b85d7ccdb4ef4388064f7b15f77bd
-                - name: config.bin
-                  sha256: c9a87d2f315a7ef6a03681f73703ee782e65e36695503deca7e20b85acb3a89c
-                - name: Controller.ino.bootloader.bin
-                  sha256: 46bde3db1313aecbba0c368a16b7988f0b0d45505688fa14cf7d28407019aa11
-                - name: Controller.ino.bin
-                  sha256: 6509153b68e2886861daad8eb01ab8dfd16bffacf1e519d2c144ab7682af024a
-                - name: Controller.ino.map
-                  sha256: 60e6cffd067a82107e48cafa453953e015789ae9227d2023ec8dbd170071b266
-                - name: www.bin
-                  sha256: b9e47219850379ea3a92d226f020988a4fd233a5a240bf1a48361b8aaea4da3b
 
     FirmwareListResponse:
       type: object
