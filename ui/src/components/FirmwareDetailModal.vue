@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
   Dialog,
   DialogPanel,
@@ -52,6 +52,12 @@ const downloadLoading = ref(false)
 // Flash modal state
 const flashOpen = ref(false)
 const webSerialSupported = 'serial' in navigator
+
+// True when the firmware record has a non-empty partition_offsets map (required for Flash via USB)
+const hasPartitionOffsets = computed(() => {
+  const offsets = item.value?.partition_offsets
+  return offsets != null && Object.keys(offsets).length > 0
+})
 
 // Manifest files disclosure
 const manifestOpen = ref(false)
@@ -385,6 +391,17 @@ function transitionButtonClass(nextStatus) {
                     </div>
                   </div>
 
+                  <!-- Flash via USB unavailable warning -->
+                  <div
+                    v-if="webSerialSupported && item.release_status !== 'DELETED' && !hasPartitionOffsets"
+                    class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
+                  >
+                    <strong>Flash via USB is unavailable.</strong>
+                    Partition offset data is missing from this firmware record — the
+                    <code class="font-mono">partitions.bin</code> file may be absent or corrupt.
+                    Re-upload the firmware ZIP to generate a new record with partition data.
+                  </div>
+
                 </div>
 
                 <!-- Footer -->
@@ -401,11 +418,12 @@ function transitionButtonClass(nextStatus) {
 
                   <!-- Right: Flash + Download -->
                   <div class="flex items-center gap-2">
-                    <!-- Flash via USB (Chrome / Web Serial only; not available for deleted firmware) -->
+                    <!-- Flash via USB (Chrome / Web Serial only; not available for deleted firmware or missing partition data) -->
                     <button
                       v-if="webSerialSupported && item.release_status !== 'DELETED'"
                       @click="flashOpen = true"
-                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                      :disabled="!hasPartitionOffsets"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                     >
                       <BoltIcon class="w-4 h-4" />
                       Flash via USB
