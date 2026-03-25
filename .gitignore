@@ -1,2 +1,6 @@
 .claude/
 Claude.md
+
+# UI build output and dependencies
+ui/dist/
+ui/node_modules/
