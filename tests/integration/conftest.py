@@ -121,6 +121,8 @@ def _create_test_zip(
     """Build a minimal valid firmware ZIP containing manifest.json and one file."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
     sha256 = hashlib.sha256(payload).hexdigest()
+    partitions_payload = b"FIREFLY_TEST_PARTITIONS_PAYLOAD"
+    partitions_sha256 = hashlib.sha256(partitions_payload).hexdigest()
 
     manifest = {
         "product_id": product_id,
@@ -130,13 +132,17 @@ def _create_test_zip(
         "branch": "main",
         "commit": TEST_COMMIT,
         "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "files": [{"name": "firmware.bin", "sha256": sha256}],
+        "files": [
+            {"name": "firmware.bin", "sha256": sha256},
+            {"name": "firmware.partitions.bin", "sha256": partitions_sha256},
+        ],
     }
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("manifest.json", json.dumps(manifest))
         zf.writestr("firmware.bin", payload)
+        zf.writestr("firmware.partitions.bin", partitions_payload)
     return buf.getvalue()
 
 
@@ -183,6 +189,60 @@ def _create_zip_missing_file(product_id: str = TEST_PRODUCT_ID) -> bytes:
     """Return a valid ZIP whose manifest.json references a file not present in the archive."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
     sha256 = hashlib.sha256(payload).hexdigest()
+    partitions_payload = b"FIREFLY_TEST_PARTITIONS_PAYLOAD"
+    partitions_sha256 = hashlib.sha256(partitions_payload).hexdigest()
+    manifest = {
+        "product_id": product_id,
+        "version": f"error-test-{int(time.time())}",
+        "class": "CONTROLLER",
+        "application": TEST_APPLICATION,
+        "branch": "main",
+        "commit": TEST_COMMIT,
+        "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "files": [
+            {"name": "firmware.bin", "sha256": sha256},
+            {"name": "firmware.partitions.bin", "sha256": partitions_sha256},
+        ],
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(manifest))
+        zf.writestr("firmware.partitions.bin", partitions_payload)
+        # firmware.bin intentionally omitted
+    return buf.getvalue()
+
+
+def _create_zip_sha256_mismatch(product_id: str = TEST_PRODUCT_ID) -> bytes:
+    """Return a valid ZIP where a file's content does not match the SHA256 in the manifest."""
+    payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
+    wrong_sha256 = hashlib.sha256(b"DIFFERENT CONTENT").hexdigest()
+    partitions_payload = b"FIREFLY_TEST_PARTITIONS_PAYLOAD"
+    partitions_sha256 = hashlib.sha256(partitions_payload).hexdigest()
+    manifest = {
+        "product_id": product_id,
+        "version": f"error-test-{int(time.time())}",
+        "class": "CONTROLLER",
+        "application": TEST_APPLICATION,
+        "branch": "main",
+        "commit": TEST_COMMIT,
+        "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "files": [
+            {"name": "firmware.bin", "sha256": wrong_sha256},
+            {"name": "firmware.partitions.bin", "sha256": partitions_sha256},
+        ],
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(manifest))
+        zf.writestr("firmware.bin", payload)  # content does not match wrong_sha256
+        zf.writestr("firmware.partitions.bin", partitions_payload)
+    return buf.getvalue()
+
+
+def _create_zip_missing_partitions(product_id: str = TEST_PRODUCT_ID) -> bytes:
+    """Return a valid ZIP whose manifest.json has no partitions.bin entry."""
+    payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
+    sha256 = hashlib.sha256(payload).hexdigest()
     manifest = {
         "product_id": product_id,
         "version": f"error-test-{int(time.time())}",
@@ -196,28 +256,7 @@ def _create_zip_missing_file(product_id: str = TEST_PRODUCT_ID) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("manifest.json", json.dumps(manifest))
-        # firmware.bin intentionally omitted
-    return buf.getvalue()
-
-
-def _create_zip_sha256_mismatch(product_id: str = TEST_PRODUCT_ID) -> bytes:
-    """Return a valid ZIP where a file's content does not match the SHA256 in the manifest."""
-    payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
-    wrong_sha256 = hashlib.sha256(b"DIFFERENT CONTENT").hexdigest()
-    manifest = {
-        "product_id": product_id,
-        "version": f"error-test-{int(time.time())}",
-        "class": "CONTROLLER",
-        "application": TEST_APPLICATION,
-        "branch": "main",
-        "commit": TEST_COMMIT,
-        "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "files": [{"name": "firmware.bin", "sha256": wrong_sha256}],
-    }
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("manifest.json", json.dumps(manifest))
-        zf.writestr("firmware.bin", payload)  # content does not match wrong_sha256
+        zf.writestr("firmware.bin", payload)
     return buf.getvalue()
 
 

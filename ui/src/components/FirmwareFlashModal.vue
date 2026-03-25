@@ -15,6 +15,7 @@ import { ESPLoader, Transport } from 'esptool-js'
 import JSZip from 'jszip'
 import SparkMD5 from 'spark-md5'
 import { getFirmwareDownloadUrl } from '../api/firmware.js'
+import { useToast } from '../composables/useToast.js'
 
 const props = defineProps({
   open: { type: Boolean, required: true },
@@ -23,6 +24,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+const { error: toastError } = useToast()
 
 // phase: idle | downloading | connecting | flashing | done | error
 const phase = ref('idle')
@@ -130,9 +133,25 @@ async function startFlash() {
     const zip = await JSZip.loadAsync(zipBuffer)
 
     const partitionsEntry = zip.file(name => name.endsWith('.partitions.bin'))[0]
-    if (!partitionsEntry) throw new Error('No partitions.bin found in ZIP')
-    const partitionsData = await partitionsEntry.async('uint8array')
+    if (!partitionsEntry) {
+      toastError('Cannot flash: partitions.bin is missing from this firmware ZIP.')
+      phase.value = 'idle'
+      return
+    }
+    let partitionsData
+    try {
+      partitionsData = await partitionsEntry.async('uint8array')
+    } catch {
+      toastError('Cannot flash: partitions.bin could not be read from this firmware ZIP.')
+      phase.value = 'idle'
+      return
+    }
     const partitionMap = parsePartitionTable(partitionsData)
+    if (Object.keys(partitionMap).length === 0) {
+      toastError('Cannot flash: partitions.bin appears to be corrupt — no valid partition entries found.')
+      phase.value = 'idle'
+      return
+    }
 
     // 3. Build the ordered file array (bootloader first, then partitions, then app, then data)
     const binFiles = (props.item.files || []).filter(f => f.name.endsWith('.bin'))

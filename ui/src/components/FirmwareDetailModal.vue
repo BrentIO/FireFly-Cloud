@@ -396,7 +396,7 @@ function transitionButtonClass(nextStatus) {
                     <button
                       v-if="webSerialSupported && item.release_status !== 'DELETED'"
                       @click="flashOpen = true"
-                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                     >
                       <BoltIcon class="w-4 h-4" />
                       Flash via USB
