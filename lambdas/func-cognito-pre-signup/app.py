@@ -8,15 +8,16 @@ has access to the current environment.
 Admin-created users (test users, first super user bootstrap) always pass through.
 """
 
+from shared.app_config import get_appconfig
+from shared.logging_config import configure_logger
 import boto3
-import logging
 import os
 import time
 
 from boto3.dynamodb.conditions import Key
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging_config = get_appconfig(profile="logging")
+logger = configure_logger(logging_config)
 
 dynamodb = boto3.resource("dynamodb")
 TABLE_NAME = os.environ["DYNAMODB_USERS_TABLE_NAME"]

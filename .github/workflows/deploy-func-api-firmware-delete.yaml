@@ -69,6 +69,15 @@ jobs:
             --output text)
           echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
 
+      - name: Look up AppConfig extension layer ARN
+        id: lookup-appconfig-ext
+        run: |
+          APPCONFIG_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='AppConfigExtensionLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy func-api-firmware-delete
         run: |
           sam deploy \
@@ -81,6 +90,7 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
+              AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               FirmwareBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \

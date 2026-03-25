@@ -2,6 +2,11 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Shared Python layer for all Lambdas
 
+Parameters:
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS-managed AppConfig Lambda extension layer (arm64)
+
 Resources:
   SharedLayer:
     Type: AWS::Serverless::LayerVersion
@@ -16,3 +21,6 @@ Outputs:
   SharedLayerArn:
     Description: ARN of the shared Lambda layer
     Value: !Ref SharedLayer
+  AppConfigExtensionLayerArn:
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
+    Value: !Ref AppConfigExtensionLayerArn

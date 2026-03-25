@@ -27,15 +27,16 @@ Functions with no AppConfig application appear with null values; they use the
 default WARNING level until explicitly configured via PATCH /appconfig/{function_name}.
 """
 
+from shared.app_config import get_appconfig
+from shared.logging_config import configure_logger
 import json
-import logging
 import os
 
 import boto3
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging_config = get_appconfig(profile="logging")
+logger = configure_logger(logging_config)
 
 appconfig = boto3.client("appconfig")
 lambda_client = boto3.client("lambda")

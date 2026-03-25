@@ -6,6 +6,9 @@ Parameters:
   SharedLayerArn:
     Type: String
     Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
   ApiId:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
@@ -74,6 +77,11 @@ Resources:
                   - s3:DeleteObject
                 Resource:
                   - !Sub arn:aws:s3:::${FirmwarePublicBucketName}/*
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
 
   FuncApiFirmwareStatusPatch:
     Type: AWS::Serverless::Function
@@ -89,6 +97,7 @@ Resources:
       MemorySize: 256
       Layers:
         - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName

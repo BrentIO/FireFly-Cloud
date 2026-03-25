@@ -69,6 +69,24 @@ jobs:
             --output text)
           echo "user_pool_id=$POOL_ID" >> $GITHUB_OUTPUT
 
+      - name: Look up shared layer ARN
+        id: lookup-layer
+        run: |
+          LAYER_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='SharedLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
+
+      - name: Look up AppConfig extension layer ARN
+        id: lookup-appconfig-ext
+        run: |
+          APPCONFIG_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='AppConfigExtensionLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy func-api-users-post
         run: |
           sam deploy \
@@ -83,6 +101,8 @@ jobs:
               CognitoUserPoolId=${{ steps.lookup-cognito.outputs.user_pool_id }} \
               DynamoDbUsersTableName=${{ vars.DYNAMODB_USERS_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
+              SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
+              AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

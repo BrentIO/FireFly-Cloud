@@ -3,6 +3,12 @@ Transform: AWS::Serverless-2016-10-31
 Description: Cognito pre-signup Lambda trigger — enforces allowed-list access control
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
 
   DynamoDbUsersTableName:
     Type: String
@@ -37,12 +43,20 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbUsersTableName}
 
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
   FuncCognitoPreSignup:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: firefly-func-cognito-pre-signup
       Role: !GetAtt FuncCognitoPreSignupRole.Arn
       CodeUri: .
+      Layers:
+        - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
       Handler: app.lambda_handler
       Runtime: python3.13
       Architectures:
@@ -53,6 +67,7 @@ Resources:
         Variables:
           DYNAMODB_USERS_TABLE_NAME: !Ref DynamoDbUsersTableName
           ENVIRONMENT_NAME: !Ref EnvironmentName
+          APP_CONFIG_ENV: !Ref EnvironmentName
 
 Outputs:
 

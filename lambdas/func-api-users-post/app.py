@@ -6,8 +6,9 @@ Body: { "email": "...", "environments": ["dev", "prod"] }
 Requires the caller to be in the super_users group.
 """
 
+from shared.app_config import get_appconfig
+from shared.logging_config import configure_logger
 import json
-import logging
 import os
 import re
 from datetime import datetime, timezone, timedelta
@@ -15,8 +16,8 @@ from datetime import datetime, timezone, timedelta
 import boto3
 from boto3.dynamodb.conditions import Key
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging_config = get_appconfig(profile="logging")
+logger = configure_logger(logging_config)
 
 cognito = boto3.client("cognito-idp")
 dynamodb = boto3.resource("dynamodb")

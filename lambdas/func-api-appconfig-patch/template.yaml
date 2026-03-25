@@ -3,6 +3,12 @@ Transform: AWS::Serverless-2016-10-31
 Description: API PATCH/POST/DELETE /appconfig/{function_name}
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
 
   ApiId:
     Type: String
@@ -54,12 +60,20 @@ Resources:
                   - lambda:GetFunction
                 Resource: "*"
 
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
   FuncApiAppConfigPatch:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: firefly-func-api-appconfig-patch
       Role: !GetAtt FuncApiAppConfigPatchRole.Arn
       CodeUri: .
+      Layers:
+        - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
       Handler: app.lambda_handler
       Runtime: python3.13
       Architectures:
@@ -69,6 +83,7 @@ Resources:
       Environment:
         Variables:
           ENVIRONMENT_NAME: !Ref EnvironmentName
+          APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncApiAppConfigPatchIntegration:
     Type: AWS::ApiGatewayV2::Integration

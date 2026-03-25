@@ -6,6 +6,9 @@ Parameters:
   SharedLayerArn:
     Type: String
     Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
   FirmwareBucketName:
     Type: String
     Description: Name of the S3 bucket containing firmware ZIPs
@@ -58,6 +61,11 @@ Resources:
                   - dynamodb:PutItem
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
 
   FuncS3FirmwareUploaded:
     Type: AWS::Serverless::Function
@@ -73,6 +81,7 @@ Resources:
       MemorySize: 128
       Layers:
         - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName

@@ -21,15 +21,16 @@ POST /deploy response (200):
 DELETE response (204): empty body
 """
 
+from shared.app_config import get_appconfig
+from shared.logging_config import configure_logger
 import json
-import logging
 import os
 
 import boto3
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging_config = get_appconfig(profile="logging")
+logger = configure_logger(logging_config)
 
 appconfig = boto3.client("appconfig")
 lambda_client = boto3.client("lambda")
