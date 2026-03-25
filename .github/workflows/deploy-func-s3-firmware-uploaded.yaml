@@ -51,6 +51,15 @@ jobs:
             --output text)
           echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
 
+      - name: Look up AppConfig extension layer ARN
+        id: lookup-appconfig-ext
+        run: |
+          APPCONFIG_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='AppConfigExtensionLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy func-s3-firmware-uploaded
         run: |
           sam deploy \
@@ -63,6 +72,7 @@ jobs:
               FirmwareBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
+              AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
               EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \

@@ -6,6 +6,9 @@ Parameters:
   SharedLayerArn:
     Type: String
     Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
   ApiId:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
@@ -51,6 +54,11 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
 
   FuncApiOtaGet:
     Type: AWS::Serverless::Function
@@ -66,6 +74,7 @@ Resources:
       MemorySize: 128
       Layers:
         - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName

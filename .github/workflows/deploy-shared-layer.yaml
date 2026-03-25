@@ -42,6 +42,15 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Look up latest AppConfig extension layer ARN (arm64)
+        id: lookup-appconfig-ext
+        run: |
+          LAYER_ARN=$(aws lambda list-layer-versions \
+            --layer-name arn:aws:lambda:${{ secrets.AWS_REGION }}:027255383542:layer:AWS-AppConfig-Extension-Arm64 \
+            --query 'max_by(LayerVersions, &Version).LayerVersionArn' \
+            --output text)
+          echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
+
       - name: Deploy shared-layer
         run: |
           sam deploy \
@@ -50,6 +59,8 @@ jobs:
             --stack-name firefly-shared-layer \
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
