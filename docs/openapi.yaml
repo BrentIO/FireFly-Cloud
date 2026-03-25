@@ -289,6 +289,14 @@ paths:
       responses:
         '204':
           description: Configuration removed successfully
+        '400':
+          description: function_name does not start with `firefly-func-`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Invalid function name: must start with 'firefly-func-'"
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -337,6 +345,14 @@ paths:
                 version: 4
                 environment: dev
                 status: DEPLOYING
+        '400':
+          description: function_name does not start with `firefly-func-`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Invalid function name: must start with 'firefly-func-'"
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -599,6 +615,7 @@ paths:
         | From | To |
         |---|---|
         | `READY_TO_TEST` | `TESTING` |
+        | `TESTING` | `READY_TO_TEST` |
         | `TESTING` | `RELEASED` |
         | `RELEASED` | `REVOKED` |
 
@@ -1050,6 +1067,22 @@ components:
               description: File entries from the firmware manifest, including per-file SHA-256 checksums verified at upload time.
               items:
                 $ref: '#/components/schemas/FirmwareFile'
+            partition_offsets:
+              type: object
+              nullable: true
+              description: |
+                Map of ESP32 partition names to their flash byte offsets, parsed from the
+                firmware's `partitions.bin` at upload time. Used by the UI to resolve flash
+                addresses for dynamic partitions (e.g. `config`, `www`). Absent or empty
+                for ERROR records or firmware ingested before this field was introduced.
+              additionalProperties:
+                type: integer
+              example:
+                nvs: 36864
+                otadata: 57344
+                app0: 65536
+                config: 3276800
+                www: 3473408
               example:
                 - name: Controller.ino.partitions.bin
                   sha256: 91e416b59e687fb4d5ed79c950d0c4bb31dd33f798d050d5a4d527e0b5bc26f6
