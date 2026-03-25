@@ -1,4 +1,4 @@
-name: ⚠️ Delete DynamoDB Firmware
+name: ⚠️ Delete dynamodb-firmware
 
 on:
   workflow_dispatch:
