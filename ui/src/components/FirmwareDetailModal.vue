@@ -11,10 +11,12 @@ import {
   ArrowDownTrayIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  BoltIcon,
 } from '@heroicons/vue/24/outline'
 import StatusBadge from './StatusBadge.vue'
 import RelativeTime from './RelativeTime.vue'
 import ConfirmModal from './ConfirmModal.vue'
+import FirmwareFlashModal from './FirmwareFlashModal.vue'
 import { getFirmware, patchFirmwareStatus, deleteFirmware, getFirmwareDownloadUrl } from '../api/firmware.js'
 import { useToast } from '../composables/useToast.js'
 import {
@@ -46,6 +48,10 @@ const loadError = ref(null)
 
 // Download state
 const downloadLoading = ref(false)
+
+// Flash modal state
+const flashOpen = ref(false)
+const webSerialSupported = 'serial' in navigator
 
 // Manifest files disclosure
 const manifestOpen = ref(false)
@@ -384,25 +390,38 @@ function transitionButtonClass(nextStatus) {
                   </button>
                   <div v-else />
 
-                  <!-- Right: Download ZIP -->
-                  <button
-                    v-if="item.release_status !== 'DELETED'"
-                    @click="handleDownload"
-                    :disabled="downloadLoading"
-                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
-                  >
-                    <template v-if="downloadLoading">
-                      <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                      </svg>
-                      Getting URL…
-                    </template>
-                    <template v-else>
-                      <ArrowDownTrayIcon class="w-4 h-4" />
-                      Download ZIP
-                    </template>
-                  </button>
+                  <!-- Right: Flash + Download -->
+                  <div class="flex items-center gap-2">
+                    <!-- Flash via USB (Chrome / Web Serial only; not available for deleted firmware) -->
+                    <button
+                      v-if="webSerialSupported && item.release_status !== 'DELETED'"
+                      @click="flashOpen = true"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+                    >
+                      <BoltIcon class="w-4 h-4" />
+                      Flash via USB
+                    </button>
+
+                    <!-- Download ZIP -->
+                    <button
+                      v-if="item.release_status !== 'DELETED'"
+                      @click="handleDownload"
+                      :disabled="downloadLoading"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    >
+                      <template v-if="downloadLoading">
+                        <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        Getting URL…
+                      </template>
+                      <template v-else>
+                        <ArrowDownTrayIcon class="w-4 h-4" />
+                        Download ZIP
+                      </template>
+                    </button>
+                  </div>
                 </div>
               </div>
             </DialogPanel>
@@ -422,5 +441,14 @@ function transitionButtonClass(nextStatus) {
     :confirm-label="confirmLabel"
     @confirm="handleConfirm"
     @cancel="handleCancel"
+  />
+
+  <!-- Flash modal -->
+  <FirmwareFlashModal
+    v-if="item && flashOpen"
+    :open="flashOpen"
+    :item="item"
+    :zip-name="zipName"
+    @close="flashOpen = false"
   />
 </template>
