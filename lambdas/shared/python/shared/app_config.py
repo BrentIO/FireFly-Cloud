@@ -20,7 +20,8 @@ def get_appconfig(profile=None):
         response = _http.request(
             "GET",
             url,
-            timeout=urllib3.Timeout(connect=1.0, read=2.0)
+            timeout=urllib3.Timeout(connect=1.0, read=2.0),
+            retries=False,
         )
 
         if response.status != 200:
