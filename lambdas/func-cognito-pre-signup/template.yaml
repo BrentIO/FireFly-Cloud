@@ -69,6 +69,12 @@ Resources:
           ENVIRONMENT_NAME: !Ref EnvironmentName
           APP_CONFIG_ENV: !Ref EnvironmentName
 
+  FuncCognitoPreSignupLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncCognitoPreSignup}
+      RetentionInDays: 40
+
 Outputs:
 
   FuncCognitoPreSignupArn:

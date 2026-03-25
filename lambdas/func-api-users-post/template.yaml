@@ -112,6 +112,12 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/POST/users
 
+  FuncApiUsersPostLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncApiUsersPost}
+      RetentionInDays: 40
+
 Outputs:
   FuncApiUsersPostArn:
     Value: !GetAtt FuncApiUsersPost.Arn

@@ -67,6 +67,12 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
           APP_CONFIG_ENV: !Ref EnvironmentName
 
+  FuncS3FirmwareDeletedLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncS3FirmwareDeleted}
+      RetentionInDays: 40
+
 Outputs:
   FuncS3FirmwareDeletedArn:
     Value: !GetAtt FuncS3FirmwareDeleted.Arn

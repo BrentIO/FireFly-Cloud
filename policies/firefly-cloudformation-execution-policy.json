@@ -168,6 +168,7 @@
             "Resource": [
                 "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/apigateway/firefly-api-access-logs:*",
                 "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/apigateway/firefly-api-access-logs*",
+                "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/lambda/firefly-func-*",
                 "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/lambda/firefly-func-*:*"
             ]
         },

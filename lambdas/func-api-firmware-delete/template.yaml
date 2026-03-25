@@ -112,6 +112,12 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/DELETE/firmware/*
 
+  FuncApiFirmwareDeleteLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncApiFirmwareDelete}
+      RetentionInDays: 40
+
 Outputs:
   FuncApiFirmwareDeleteArn:
     Value: !GetAtt FuncApiFirmwareDelete.Arn
