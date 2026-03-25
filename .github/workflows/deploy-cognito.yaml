@@ -1,4 +1,4 @@
-name: 🚀 Deploy cognito
+name: 🚀 Deploy Cognito
 on:
   workflow_dispatch:
     inputs:
@@ -207,7 +207,7 @@ jobs:
             echo "created_parent_a_record=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Deploy cognito
+      - name: Deploy Cognito
         id: deploy
         run: |
           aws cloudformation deploy \
