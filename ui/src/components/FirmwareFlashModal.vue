@@ -1,12 +1,6 @@
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
 import {
-  Dialog,
-  DialogPanel,
-  TransitionRoot,
-  TransitionChild,
-} from '@headlessui/vue'
-import {
   XMarkIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
@@ -43,54 +37,47 @@ let transport = null
 //   partitions  → 0x08000
 //   application → 0x10000  (standard app0 offset)
 //
-// Addresses that depend on the partition layout (vary by flash size /
-// hardware revision) are resolved at flash time by parsing partitions.bin
-// from the ZIP.  Two partition names are currently recognised:
-//   "config"  → config.bin
-//   "www"     → www.bin
-//
+// Addresses for data partitions (config, www, etc.) are resolved from the
+// partition_offsets map stored in the DynamoDB record at ingestion time.
 // Non-.bin files (*.elf, *.map, manifest.json, etc.) are always skipped.
 // ---------------------------------------------------------------------------
 
-/** Parse an ESP32 partition table binary and return a map of name → offset. */
-function parsePartitionTable(uint8array) {
-  const ENTRY_SIZE = 32
-  const view = new DataView(uint8array.buffer, uint8array.byteOffset, uint8array.byteLength)
-  const map = {}
-  for (let i = 0; i + ENTRY_SIZE <= uint8array.length; i += ENTRY_SIZE) {
-    if (uint8array[i] !== 0xAA || uint8array[i + 1] !== 0x50) continue
-    const offset = view.getUint32(i + 4, true)
-    let name = ''
-    for (let j = 12; j < 28 && uint8array[i + j] !== 0; j++) {
-      name += String.fromCharCode(uint8array[i + j])
-    }
-    if (name) map[name] = offset
-  }
-  return map
-}
-
 /**
- * Resolve the flash address for a file given a pre-parsed partition map.
- * Returns null for files that should be skipped (non-.bin files).
+ * Resolve the flash address for a file.
+ * Returns null for files that should be skipped.
+ * partition_offsets values may be strings (DynamoDB Decimal → JSON default=str).
  */
-function resolveFlashAddress(filename, partitionMap) {
+function resolveFlashAddress(filename) {
+  const offsets = props.item.partition_offsets || {}
   if (filename.endsWith('.bootloader.bin')) return 0x01000
   if (filename.endsWith('.partitions.bin')) return 0x08000
-  if (filename === 'config.bin') return partitionMap['config'] ?? null
-  if (filename === 'www.bin') return partitionMap['www'] ?? null
+  if (filename === 'config.bin') {
+    const v = offsets['config']
+    return v != null ? Number(v) : null
+  }
+  if (filename === 'www.bin') {
+    const v = offsets['www']
+    return v != null ? Number(v) : null
+  }
   if (filename.endsWith('.bin')) return 0x10000
   return null
 }
 
 /**
- * Display label for the idle-state file table.  For partition-dependent
- * files the exact address is not yet known, so a placeholder is shown.
+ * Display label for the idle-state file table.
+ * Uses stored partition_offsets for data partitions when available.
  */
 function displayAddress(filename) {
   if (filename.endsWith('.bootloader.bin')) return '0x01000'
   if (filename.endsWith('.partitions.bin')) return '0x08000'
-  if (filename === 'config.bin') return 'from partition table'
-  if (filename === 'www.bin') return 'from partition table'
+  if (filename === 'config.bin') {
+    const v = (props.item.partition_offsets || {})['config']
+    return v != null ? formatAddress(Number(v)) : 'from partition table'
+  }
+  if (filename === 'www.bin') {
+    const v = (props.item.partition_offsets || {})['www']
+    return v != null ? formatAddress(Number(v)) : 'from partition table'
+  }
   if (filename.endsWith('.bin')) return '0x10000'
   return null
 }
@@ -128,37 +115,15 @@ async function startFlash() {
     if (!response.ok) throw new Error(`Download failed (HTTP ${response.status})`)
     const zipBuffer = await response.arrayBuffer()
 
-    // 2. Load ZIP and parse the partition table first
+    // 2. Load ZIP and build the ordered file array
     statusMessage.value = 'Extracting firmware files…'
     const zip = await JSZip.loadAsync(zipBuffer)
 
-    const partitionsEntry = zip.file(name => name.endsWith('.partitions.bin'))[0]
-    if (!partitionsEntry) {
-      toastError('Cannot flash: partitions.bin is missing from this firmware ZIP.')
-      phase.value = 'idle'
-      return
-    }
-    let partitionsData
-    try {
-      partitionsData = await partitionsEntry.async('uint8array')
-    } catch {
-      toastError('Cannot flash: partitions.bin could not be read from this firmware ZIP.')
-      phase.value = 'idle'
-      return
-    }
-    const partitionMap = parsePartitionTable(partitionsData)
-    if (Object.keys(partitionMap).length === 0) {
-      toastError('Cannot flash: partitions.bin appears to be corrupt — no valid partition entries found.')
-      phase.value = 'idle'
-      return
-    }
-
-    // 3. Build the ordered file array (bootloader first, then partitions, then app, then data)
     const binFiles = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
     const fileArray = []
     for (const f of binFiles) {
-      const address = resolveFlashAddress(f.name, partitionMap)
-      if (address === null) continue // partition not in table; skip
+      const address = resolveFlashAddress(f.name)
+      if (address === null) continue // address unknown; skip
       const entry = zip.file(f.name)
       if (!entry) throw new Error(`File not found in ZIP: ${f.name}`)
       const data = await entry.async('binary')
@@ -167,15 +132,21 @@ async function startFlash() {
     // Sort by address so flashing proceeds low → high
     fileArray.sort((a, b) => a.address - b.address)
 
+    if (fileArray.length === 0) {
+      toastError('Cannot flash: no flashable files found.')
+      phase.value = 'idle'
+      return
+    }
+
     // Initialise progress tracking now that we have the final file list
     fileProgress.value = fileArray.map(f => ({ name: f.name, address: f.address, written: 0, total: 0 }))
 
-    // 4. Request Web Serial port (opens browser picker)
+    // 3. Request Web Serial port (opens browser picker)
     phase.value = 'connecting'
     statusMessage.value = 'Waiting for port selection…'
     const port = await navigator.serial.requestPort()
 
-    // 5. Connect via esptool-js
+    // 4. Connect via esptool-js
     transport = new Transport(port, false)
     const terminal = { clean() {}, writeLine() {}, write() {} }
     const esploader = new ESPLoader({ transport, baudrate: 921600, terminal })
@@ -184,7 +155,7 @@ async function startFlash() {
     const chip = await esploader.main()
     chipName.value = chip || 'ESP32'
 
-    // 6. Flash
+    // 5. Flash
     phase.value = 'flashing'
     await esploader.write_flash({
       fileArray: fileArray.map(({ data, address }) => ({ data, address })),
@@ -242,32 +213,31 @@ onUnmounted(async () => {
 </script>
 
 <template>
-  <TransitionRoot :show="open" as="template">
-    <Dialog as="div" class="relative z-60" @close="handleClose">
-      <TransitionChild
-        as="template"
-        enter="ease-out duration-200"
-        enter-from="opacity-0"
-        enter-to="opacity-100"
-        leave="ease-in duration-150"
-        leave-from="opacity-100"
-        leave-to="opacity-0"
-      >
-        <div class="fixed inset-0 bg-black/60 transition-opacity" />
-      </TransitionChild>
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition ease-out duration-200"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition ease-in duration-150"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="open" class="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60" @click="handleClose" />
 
-      <div class="fixed inset-0 z-10 overflow-y-auto">
+        <!-- Panel -->
         <div class="flex min-h-full items-center justify-center p-4">
-          <TransitionChild
-            as="template"
-            enter="ease-out duration-200"
-            enter-from="opacity-0 scale-95"
-            enter-to="opacity-100 scale-100"
-            leave="ease-in duration-150"
-            leave-from="opacity-100 scale-100"
-            leave-to="opacity-0 scale-95"
+          <Transition
+            enter-active-class="transition ease-out duration-200"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
+            leave-active-class="transition ease-in duration-150"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-95"
           >
-            <DialogPanel
+            <div
+              v-if="open"
               class="relative w-full max-w-lg rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden"
             >
               <!-- Header -->
@@ -330,7 +300,7 @@ onUnmounted(async () => {
                     <input
                       type="checkbox"
                       v-model="eraseAll"
-                      class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
                     />
                     <span class="text-sm text-gray-700 dark:text-gray-300">
                       Erase all flash before writing
@@ -342,8 +312,6 @@ onUnmounted(async () => {
                   </label>
 
                   <p class="text-xs text-gray-500 dark:text-gray-400">
-                    Addresses marked <em>from partition table</em> are resolved from
-                    <code class="font-mono">partitions.bin</code> at flash time.
                     If your device does not reset automatically, hold <strong>BOOT</strong>
                     while pressing <strong>EN</strong> to enter bootloader mode before connecting.
                   </p>
@@ -458,10 +426,10 @@ onUnmounted(async () => {
                 </template>
               </div>
 
-            </DialogPanel>
-          </TransitionChild>
+            </div>
+          </Transition>
         </div>
       </div>
-    </Dialog>
-  </TransitionRoot>
+    </Transition>
+  </Teleport>
 </template>

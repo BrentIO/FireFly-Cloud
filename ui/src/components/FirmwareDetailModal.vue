@@ -206,6 +206,15 @@ function transitionButtonClass(nextStatus) {
             >
               <!-- Loading skeleton -->
               <div v-if="loading" class="p-6 space-y-4">
+                <div class="flex justify-end">
+                  <button
+                    @click="emit('close')"
+                    class="rounded-md p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label="Close"
+                  >
+                    <XMarkIcon class="w-5 h-5" />
+                  </button>
+                </div>
                 <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2" />
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/4" />
                 <div class="grid grid-cols-2 gap-4 mt-4">

@@ -35,6 +35,20 @@ def sha256_file(path):
     return h.hexdigest()
 
 
+def parse_partition_table(data):
+    """Parse an ESP32 partition table binary and return a map of partition name -> flash offset."""
+    ENTRY_SIZE = 32
+    offsets = {}
+    for i in range(0, len(data) - ENTRY_SIZE + 1, ENTRY_SIZE):
+        if data[i] != 0xAA or data[i + 1] != 0x50:
+            continue
+        offset = int.from_bytes(data[i + 4:i + 8], "little")
+        name = data[i + 12:i + 28].split(b"\x00", 1)[0].decode("utf-8", errors="ignore")
+        if name:
+            offsets[name] = offset
+    return offsets
+
+
 def validate_manifest_schema(manifest):
     required_fields = [
         "class", "product_id", "application",
@@ -177,6 +191,18 @@ def lambda_handler(event, context):
 
             logger.debug(f"All file checksums verified for '{uuid_name}'")
 
+            # Parse partition table from partitions.bin and store offsets for the UI
+            partitions_entry = next(
+                (e for e in manifest["files"] if e["name"].endswith(".partitions.bin")),
+                None
+            )
+            partition_offsets = {}
+            if partitions_entry:
+                partitions_path = os.path.join(extract_dir, partitions_entry["name"])
+                with open(partitions_path, "rb") as pf:
+                    partition_offsets = parse_partition_table(pf.read())
+                logger.debug(f"Parsed partition table: {partition_offsets}")
+
             item = {
                 "pk": f"{product_id}#{manifest.get('application')}",
                 "product_id": product_id,
@@ -193,6 +219,7 @@ def lambda_handler(event, context):
                 "zip_size": zip_size,
                 "uploaded_at": int(time.time()),
                 "release_status": "READY_TO_TEST",
+                "partition_offsets": partition_offsets,
             }
 
             firmware_table.put_item(Item=item)
