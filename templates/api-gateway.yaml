@@ -108,6 +108,12 @@ Resources:
                 }
             return {"statusCode": 200, "body": ""}
 
+  FuncApiOptionsHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncApiOptionsHandler}
+      RetentionInDays: 30
+
   FuncApiOptionsHandlerIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
