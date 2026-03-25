@@ -34,20 +34,60 @@ const fileProgress = ref([]) // [{ name, address, written, total }]
 let transport = null
 
 // ---------------------------------------------------------------------------
-// Flash address table derived from FireFly partition layout:
+// Addresses fixed by ESP32 architecture — the same on every board:
 //   bootloader  → 0x01000
 //   partitions  → 0x08000
-//   application → 0x10000  (app0 partition)
-//   config      → 0xC90000
-//   www         → 0xD10000
-// Non-.bin files (*.elf, *.map, manifest.json) are skipped.
+//   application → 0x10000  (standard app0 offset)
+//
+// Addresses that depend on the partition layout (vary by flash size /
+// hardware revision) are resolved at flash time by parsing partitions.bin
+// from the ZIP.  Two partition names are currently recognised:
+//   "config"  → config.bin
+//   "www"     → www.bin
+//
+// Non-.bin files (*.elf, *.map, manifest.json, etc.) are always skipped.
 // ---------------------------------------------------------------------------
-function resolveFlashAddress(filename) {
+
+/** Parse an ESP32 partition table binary and return a map of name → offset. */
+function parsePartitionTable(uint8array) {
+  const ENTRY_SIZE = 32
+  const view = new DataView(uint8array.buffer, uint8array.byteOffset, uint8array.byteLength)
+  const map = {}
+  for (let i = 0; i + ENTRY_SIZE <= uint8array.length; i += ENTRY_SIZE) {
+    if (uint8array[i] !== 0xAA || uint8array[i + 1] !== 0x50) continue
+    const offset = view.getUint32(i + 4, true)
+    let name = ''
+    for (let j = 12; j < 28 && uint8array[i + j] !== 0; j++) {
+      name += String.fromCharCode(uint8array[i + j])
+    }
+    if (name) map[name] = offset
+  }
+  return map
+}
+
+/**
+ * Resolve the flash address for a file given a pre-parsed partition map.
+ * Returns null for files that should be skipped (non-.bin files).
+ */
+function resolveFlashAddress(filename, partitionMap) {
   if (filename.endsWith('.bootloader.bin')) return 0x01000
   if (filename.endsWith('.partitions.bin')) return 0x08000
-  if (filename === 'config.bin') return 0xC90000
-  if (filename === 'www.bin') return 0xD10000
+  if (filename === 'config.bin') return partitionMap['config'] ?? null
+  if (filename === 'www.bin') return partitionMap['www'] ?? null
   if (filename.endsWith('.bin')) return 0x10000
+  return null
+}
+
+/**
+ * Display label for the idle-state file table.  For partition-dependent
+ * files the exact address is not yet known, so a placeholder is shown.
+ */
+function displayAddress(filename) {
+  if (filename.endsWith('.bootloader.bin')) return '0x01000'
+  if (filename.endsWith('.partitions.bin')) return '0x08000'
+  if (filename === 'config.bin') return 'from partition table'
+  if (filename === 'www.bin') return 'from partition table'
+  if (filename.endsWith('.bin')) return '0x10000'
   return null
 }
 
@@ -55,16 +95,15 @@ function formatAddress(addr) {
   return '0x' + addr.toString(16).toUpperCase().padStart(5, '0')
 }
 
-const flashableFiles = computed(() =>
-  (props.item.files || [])
-    .map(f => ({ name: f.name, address: resolveFlashAddress(f.name) }))
-    .filter(f => f.address !== null)
-    .sort((a, b) => a.address - b.address)
-)
-
-const skippedFiles = computed(() =>
-  (props.item.files || []).filter(f => resolveFlashAddress(f.name) === null)
-)
+// Files shown in the idle-state table
+const displayFiles = computed(() => {
+  const bins = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
+  const skipped = (props.item.files || []).filter(f => !f.name.endsWith('.bin'))
+  return [
+    ...bins.map(f => ({ name: f.name, label: displayAddress(f.name), skipped: false })),
+    ...skipped.map(f => ({ name: f.name, label: null, skipped: true })),
+  ]
+})
 
 // ---------------------------------------------------------------------------
 // Flash sequence
@@ -73,12 +112,7 @@ async function startFlash() {
   phase.value = 'downloading'
   errorMessage.value = ''
   chipName.value = ''
-  fileProgress.value = flashableFiles.value.map(f => ({
-    name: f.name,
-    address: f.address,
-    written: 0,
-    total: 0,
-  }))
+  fileProgress.value = []
 
   try {
     // 1. Fetch pre-signed URL and download ZIP
@@ -90,23 +124,38 @@ async function startFlash() {
     if (!response.ok) throw new Error(`Download failed (HTTP ${response.status})`)
     const zipBuffer = await response.arrayBuffer()
 
-    // 2. Extract binary files from ZIP
+    // 2. Load ZIP and parse the partition table first
     statusMessage.value = 'Extracting firmware files…'
     const zip = await JSZip.loadAsync(zipBuffer)
+
+    const partitionsEntry = zip.file(name => name.endsWith('.partitions.bin'))[0]
+    if (!partitionsEntry) throw new Error('No partitions.bin found in ZIP')
+    const partitionsData = await partitionsEntry.async('uint8array')
+    const partitionMap = parsePartitionTable(partitionsData)
+
+    // 3. Build the ordered file array (bootloader first, then partitions, then app, then data)
+    const binFiles = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
     const fileArray = []
-    for (const f of flashableFiles.value) {
+    for (const f of binFiles) {
+      const address = resolveFlashAddress(f.name, partitionMap)
+      if (address === null) continue // partition not in table; skip
       const entry = zip.file(f.name)
       if (!entry) throw new Error(`File not found in ZIP: ${f.name}`)
       const data = await entry.async('binary')
-      fileArray.push({ data, address: f.address })
+      fileArray.push({ data, address, name: f.name })
     }
+    // Sort by address so flashing proceeds low → high
+    fileArray.sort((a, b) => a.address - b.address)
 
-    // 3. Request Web Serial port (opens browser picker)
+    // Initialise progress tracking now that we have the final file list
+    fileProgress.value = fileArray.map(f => ({ name: f.name, address: f.address, written: 0, total: 0 }))
+
+    // 4. Request Web Serial port (opens browser picker)
     phase.value = 'connecting'
     statusMessage.value = 'Waiting for port selection…'
     const port = await navigator.serial.requestPort()
 
-    // 4. Connect via esptool-js
+    // 5. Connect via esptool-js
     transport = new Transport(port, false)
     const terminal = { clean() {}, writeLine() {}, write() {} }
     const esploader = new ESPLoader({ transport, baudrate: 921600, terminal })
@@ -115,10 +164,10 @@ async function startFlash() {
     const chip = await esploader.main()
     chipName.value = chip || 'ESP32'
 
-    // 5. Flash
+    // 6. Flash
     phase.value = 'flashing'
     await esploader.write_flash({
-      fileArray,
+      fileArray: fileArray.map(({ data, address }) => ({ data, address })),
       flashSize: 'keep',
       flashMode: 'keep',
       flashFreq: 'keep',
@@ -137,7 +186,6 @@ async function startFlash() {
 
     phase.value = 'done'
   } catch (err) {
-    // User cancelling the port picker throws a DOMException with name NotAllowedError
     if (err?.name === 'NotAllowedError' || err?.message?.includes('No port selected')) {
       phase.value = 'idle'
       return
@@ -229,7 +277,6 @@ onUnmounted(async () => {
                     Connect a USB cable and click <strong>Connect &amp; Flash</strong> to begin.
                   </p>
 
-                  <!-- Files to flash -->
                   <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <table class="w-full text-sm">
                       <thead class="bg-gray-50 dark:bg-gray-800">
@@ -240,28 +287,28 @@ onUnmounted(async () => {
                       </thead>
                       <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                         <tr
-                          v-for="f in flashableFiles"
+                          v-for="f in displayFiles"
                           :key="f.name"
                           class="bg-white dark:bg-gray-900"
                         >
-                          <td class="px-4 py-2 font-mono text-xs text-gray-900 dark:text-gray-100">{{ f.name }}</td>
-                          <td class="px-4 py-2 font-mono text-xs text-right text-gray-500 dark:text-gray-400">{{ formatAddress(f.address) }}</td>
-                        </tr>
-                        <tr
-                          v-for="f in skippedFiles"
-                          :key="f.name"
-                          class="bg-white dark:bg-gray-900"
-                        >
-                          <td class="px-4 py-2 font-mono text-xs text-gray-400 dark:text-gray-600">{{ f.name }}</td>
-                          <td class="px-4 py-2 text-xs text-right text-gray-400 dark:text-gray-600 italic">skipped</td>
+                          <td class="px-4 py-2 font-mono text-xs"
+                              :class="f.skipped ? 'text-gray-400 dark:text-gray-600' : 'text-gray-900 dark:text-gray-100'">
+                            {{ f.name }}
+                          </td>
+                          <td class="px-4 py-2 text-xs text-right"
+                              :class="f.skipped ? 'text-gray-400 dark:text-gray-600 italic' : 'font-mono text-gray-500 dark:text-gray-400'">
+                            {{ f.skipped ? 'skipped' : f.label }}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
 
                   <p class="text-xs text-gray-500 dark:text-gray-400">
-                    If your device does not reset automatically, hold the
-                    <strong>BOOT</strong> button while pressing <strong>EN</strong> to enter bootloader mode before connecting.
+                    Addresses marked <em>from partition table</em> are resolved from
+                    <code class="font-mono">partitions.bin</code> at flash time.
+                    If your device does not reset automatically, hold <strong>BOOT</strong>
+                    while pressing <strong>EN</strong> to enter bootloader mode before connecting.
                   </p>
                 </template>
 
@@ -285,9 +332,12 @@ onUnmounted(async () => {
                     Flashing {{ chipName }}…
                   </p>
                   <div class="space-y-3">
-                    <div v-for="(f, i) in fileProgress" :key="f.name">
+                    <div v-for="f in fileProgress" :key="f.name">
                       <div class="flex items-center justify-between mb-1">
-                        <span class="font-mono text-xs text-gray-700 dark:text-gray-300">{{ f.name }}</span>
+                        <span class="font-mono text-xs text-gray-700 dark:text-gray-300">
+                          {{ f.name }}
+                          <span class="text-gray-400 dark:text-gray-500 ml-1">({{ formatAddress(f.address) }})</span>
+                        </span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">
                           {{ f.total > 0 ? Math.round((f.written / f.total) * 100) : 0 }}%
                         </span>
@@ -329,7 +379,6 @@ onUnmounted(async () => {
 
               <!-- Footer -->
               <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                <!-- Idle -->
                 <template v-if="phase === 'idle'">
                   <button
                     @click="handleClose"
@@ -339,17 +388,14 @@ onUnmounted(async () => {
                   </button>
                   <button
                     @click="startFlash"
-                    :disabled="flashableFiles.length === 0"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                   >
                     Connect &amp; Flash
                   </button>
                 </template>
 
-                <!-- Downloading / Connecting / Flashing: no actions -->
                 <template v-else-if="['downloading', 'connecting', 'flashing'].includes(phase)" />
 
-                <!-- Done -->
                 <template v-else-if="phase === 'done'">
                   <button
                     @click="handleClose"
@@ -359,7 +405,6 @@ onUnmounted(async () => {
                   </button>
                 </template>
 
-                <!-- Error -->
                 <template v-else-if="phase === 'error'">
                   <button
                     @click="handleClose"
