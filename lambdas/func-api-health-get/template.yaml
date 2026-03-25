@@ -3,6 +3,14 @@ Transform: AWS::Serverless-2016-10-31
 Description: API GET /health
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
+  EnvironmentName:
+    Type: String
   ApiId:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
@@ -22,6 +30,16 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: HealthPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
 
   FuncApiHealth:
     Type: AWS::Serverless::Function
@@ -29,6 +47,12 @@ Resources:
       FunctionName: firefly-func-api-health
       Role: !GetAtt FuncApiHealthRole.Arn
       CodeUri: .
+      Layers:
+        - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
+      Environment:
+        Variables:
+          APP_CONFIG_ENV: !Ref EnvironmentName
       Handler: app.health
       Runtime: python3.13
       Architectures:

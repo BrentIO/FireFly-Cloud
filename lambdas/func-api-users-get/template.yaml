@@ -3,6 +3,12 @@ Transform: AWS::Serverless-2016-10-31
 Description: API GET /users
 
 Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
 
   ApiId:
     Type: String
@@ -55,12 +61,20 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbUsersTableName}
 
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
   FuncApiUsersGet:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: firefly-func-api-users-get
       Role: !GetAtt FuncApiUsersGetRole.Arn
       CodeUri: .
+      Layers:
+        - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
       Handler: app.lambda_handler
       Runtime: python3.13
       Architectures:

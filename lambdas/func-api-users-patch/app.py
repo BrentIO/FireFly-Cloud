@@ -12,14 +12,15 @@ Rules:
 - environments must be a non-empty list of valid values.
 """
 
+from shared.app_config import get_appconfig
+from shared.logging_config import configure_logger
 import json
-import logging
 import os
 
 import boto3
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging_config = get_appconfig(profile="logging")
+logger = configure_logger(logging_config)
 
 cognito = boto3.client("cognito-idp")
 dynamodb = boto3.resource("dynamodb")
