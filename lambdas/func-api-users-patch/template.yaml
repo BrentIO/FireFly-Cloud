@@ -120,7 +120,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${FuncApiUsersPatch}
-      RetentionInDays: 40
+      RetentionInDays: 30
 
 Outputs:
   FuncApiUsersPatchArn:

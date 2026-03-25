@@ -73,7 +73,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${FuncCognitoPreSignup}
-      RetentionInDays: 40
+      RetentionInDays: 30
 
 Outputs:
 

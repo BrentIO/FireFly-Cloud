@@ -91,7 +91,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${FuncS3FirmwareUploaded}
-      RetentionInDays: 40
+      RetentionInDays: 30
 
 Outputs:
   FuncS3FirmwareUploadedArn:
