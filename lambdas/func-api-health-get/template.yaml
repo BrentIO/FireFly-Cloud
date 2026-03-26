@@ -18,7 +18,7 @@ Resources:
   FuncApiHealthRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: firefly-func-api-health-role
+      RoleName: firefly-func-api-health-get-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -42,7 +42,7 @@ Resources:
   FuncApiHealth:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: firefly-func-api-health
+      FunctionName: firefly-func-api-health-get
       Role: !GetAtt FuncApiHealthRole.Arn
       CodeUri: .
       Layers:

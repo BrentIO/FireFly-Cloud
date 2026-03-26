@@ -22,7 +22,7 @@ pytestmark = pytest.mark.appconfig
 # A real function name that exists in the deployed environment.
 # health is used as the test target because it is low-traffic and disposable;
 # appconfig-get was avoided to prevent leaving its config in a dirty state.
-TEST_FUNCTION = "firefly-func-api-health"
+TEST_FUNCTION = "firefly-func-api-health-get"
 
 
 # ---------------------------------------------------------------------------
