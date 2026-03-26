@@ -70,7 +70,6 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               FirmwareBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
-              DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
               EnvironmentName=${{ inputs.target_env }} \

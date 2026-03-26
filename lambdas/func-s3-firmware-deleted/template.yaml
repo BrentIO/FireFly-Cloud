@@ -9,8 +9,6 @@ Parameters:
   AppConfigExtensionLayerArn:
     Type: String
     Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
-  DynamoDbFirmwareTableName:
-    Type: String
   EnvironmentName:
     Type: String
 
@@ -39,8 +37,8 @@ Resources:
                   - dynamodb:UpdateItem
                   - dynamodb:Query
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware/index/*
               - Effect: Allow
                 Action:
                   - appconfig:StartConfigurationSession
@@ -64,7 +62,7 @@ Resources:
         - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
-          DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncS3FirmwareDeletedLogGroup:

@@ -10,10 +10,6 @@ Parameters:
     Type: String
     Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
 
-  DynamoDbUsersTableName:
-    Type: String
-    Description: Name of the DynamoDB users allowed-list table
-
   EnvironmentName:
     Type: String
 
@@ -41,7 +37,7 @@ Resources:
                 Action:
                   - dynamodb:GetItem
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbUsersTableName}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-users
 
               - Effect: Allow
                 Action:
@@ -65,7 +61,7 @@ Resources:
       MemorySize: 128
       Environment:
         Variables:
-          DYNAMODB_USERS_TABLE_NAME: !Ref DynamoDbUsersTableName
+          DYNAMODB_USERS_TABLE_NAME: firefly-users
           APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncCognitoPreSignupLogGroup:

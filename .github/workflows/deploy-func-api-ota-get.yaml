@@ -90,7 +90,6 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
-              DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               CloudFrontDomain=${{ vars.FIRMWARE_DOMAIN_NAME }} \
               FirmwareTypeMapSsmPath=/firefly/${{ inputs.target_env }}/firmware_type_map \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \

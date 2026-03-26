@@ -13,10 +13,6 @@ Parameters:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
 
-  DynamoDbFirmwareTableName:
-    Type: String
-    Description: Name of the DynamoDB firmware table
-
   CloudFrontDomain:
     Type: String
     Description: Domain name of the CloudFront distribution for firmware delivery (e.g., firmware.somewhere.com)
@@ -52,8 +48,8 @@ Resources:
                 Action:
                   - dynamodb:Query
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware/index/*
               - Effect: Allow
                 Action:
                   - appconfig:StartConfigurationSession
@@ -77,7 +73,7 @@ Resources:
         - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
-          DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           CLOUDFRONT_DOMAIN: !Ref CloudFrontDomain
           FIRMWARE_TYPE_MAP: !Sub "{{resolve:ssm:${FirmwareTypeMapSsmPath}}}"
           APP_CONFIG_ENV: !Ref EnvironmentName

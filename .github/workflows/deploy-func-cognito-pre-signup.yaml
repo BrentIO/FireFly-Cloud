@@ -69,7 +69,6 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
-              DynamoDbUsersTableName=${{ vars.DYNAMODB_USERS_TABLE_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \

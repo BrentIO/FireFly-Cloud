@@ -2,17 +2,12 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: DynamoDB table for FireFly firmware manifests
 
-Parameters:
-  DynamoDbFirmwareTableName:
-    Type: String
-    Default: firefly-firmware
-
 Resources:
 
   FireflyFirmwareTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Ref DynamoDbFirmwareTableName
+      TableName: firefly-firmware
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: pk

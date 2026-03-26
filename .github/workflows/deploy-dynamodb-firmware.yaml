@@ -53,8 +53,6 @@ jobs:
             --template-file templates/dynamodb-firmware.yaml \
             --stack-name firefly-dynamodb-firmware \
             --region ${{ secrets.AWS_REGION }} \
-            --parameter-overrides \
-              DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

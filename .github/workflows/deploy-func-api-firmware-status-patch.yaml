@@ -91,7 +91,6 @@ jobs:
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
-              DynamoDbFirmwareTableName=${{ vars.DYNAMODB_FIRMWARE_TABLE_NAME }} \
               FirmwarePrivateBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               FirmwarePublicBucketName=${{ secrets.S3_FIRMWARE_PUBLIC_BUCKET_NAME }} \
               EnvironmentName=${{ inputs.target_env }} \
