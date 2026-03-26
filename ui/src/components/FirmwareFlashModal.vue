@@ -132,7 +132,7 @@ async function startFlash() {
       if (address === null) continue // address unknown; skip
       const entry = zip.file(f.name)
       if (!entry) throw new Error(`File not found in ZIP: ${f.name}`)
-      const data = await entry.async('binary')
+      const data = await entry.async('binarystring')
       fileArray.push({ data, address, name: f.name })
     }
     // Sort by address so flashing proceeds low → high
