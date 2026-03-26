@@ -267,6 +267,20 @@ class TestDeployAppConfig:
         )
         assert patch_resp.status_code == 200
 
+        # The previous test's fixture teardown deploys to restore state; wait
+        # for that deployment to settle before starting a new one.
+        deadline = time.time() + 120
+        while time.time() < deadline:
+            poll = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
+            if poll.status_code == 200:
+                app = next(
+                    (a for a in poll.json().get("applications", []) if a["name"] == TEST_FUNCTION),
+                    None,
+                )
+                if app is None or app.get("status") in (None, "COMPLETE", "ROLLED_BACK"):
+                    break
+            time.sleep(5)
+
         deploy_resp = requests.post(
             f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
             headers=super_auth_headers,
