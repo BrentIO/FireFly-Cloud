@@ -8,7 +8,7 @@ Coverage
 --------
 GET  /users           — 200 with correct response shape; 403 without super membership
 POST /users           — 400/403 validation; full invite lifecycle (201 → 409 → DELETE)
-PATCH /users/{email}  — 400/403/404 validation; environments update lifecycle
+PATCH /users/{email}  — 400/404 validation; is_super update lifecycle
 DELETE /users/{email} — 404 for unknown; full delete lifecycle
 """
 
@@ -70,7 +70,7 @@ class TestPostUsersValidation:
         """POST /users without an email field returns 400."""
         resp = requests.post(
             f"{api_url}/users",
-            json={"environments": ["dev"]},
+            json={},
             headers=super_auth_headers,
             timeout=10,
         )
@@ -80,7 +80,7 @@ class TestPostUsersValidation:
         """POST /users with an empty email string returns 400."""
         resp = requests.post(
             f"{api_url}/users",
-            json={"email": "", "environments": ["dev"]},
+            json={"email": ""},
             headers=super_auth_headers,
             timeout=10,
         )
@@ -90,47 +90,7 @@ class TestPostUsersValidation:
         """POST /users with a syntactically invalid email returns 400."""
         resp = requests.post(
             f"{api_url}/users",
-            json={"email": "not-an-email", "environments": ["dev"]},
-            headers=super_auth_headers,
-            timeout=10,
-        )
-        assert resp.status_code == 400
-
-    def test_rejects_missing_environments(self, api_url, super_auth_headers):
-        """POST /users without environments returns 400."""
-        resp = requests.post(
-            f"{api_url}/users",
-            json={"email": _GHOST_EMAIL},
-            headers=super_auth_headers,
-            timeout=10,
-        )
-        assert resp.status_code == 400
-
-    def test_rejects_empty_environments_list(self, api_url, super_auth_headers):
-        """POST /users with an empty environments list returns 400."""
-        resp = requests.post(
-            f"{api_url}/users",
-            json={"email": _GHOST_EMAIL, "environments": []},
-            headers=super_auth_headers,
-            timeout=10,
-        )
-        assert resp.status_code == 400
-
-    def test_rejects_invalid_environment_value(self, api_url, super_auth_headers):
-        """POST /users with an unrecognised environment name returns 400."""
-        resp = requests.post(
-            f"{api_url}/users",
-            json={"email": _GHOST_EMAIL, "environments": ["staging"]},
-            headers=super_auth_headers,
-            timeout=10,
-        )
-        assert resp.status_code == 400
-
-    def test_rejects_non_list_environments(self, api_url, super_auth_headers):
-        """POST /users with environments as a string (not a list) returns 400."""
-        resp = requests.post(
-            f"{api_url}/users",
-            json={"email": _GHOST_EMAIL, "environments": "dev"},
+            json={"email": "not-an-email"},
             headers=super_auth_headers,
             timeout=10,
         )
@@ -152,7 +112,7 @@ class TestPatchUsersValidation:
         )
         assert resp.status_code == 404, f"Expected 404, got {resp.status_code}: {resp.text}"
 
-    def test_rejects_empty_body(self, api_url, super_auth_headers):
+    def test_rejects_missing_is_super(self, api_url, super_auth_headers):
         """PATCH /users/{email} with an empty body returns 400."""
         resp = requests.patch(
             f"{api_url}/users/{_GHOST_EMAIL}",
@@ -167,26 +127,6 @@ class TestPatchUsersValidation:
         resp = requests.patch(
             f"{api_url}/users/{_GHOST_EMAIL}",
             json={"is_super": "yes"},
-            headers=super_auth_headers,
-            timeout=10,
-        )
-        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
-
-    def test_rejects_empty_environments_list(self, api_url, super_auth_headers):
-        """PATCH /users/{email} with environments as an empty list returns 400."""
-        resp = requests.patch(
-            f"{api_url}/users/{_GHOST_EMAIL}",
-            json={"environments": []},
-            headers=super_auth_headers,
-            timeout=10,
-        )
-        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
-
-    def test_rejects_invalid_environment_value(self, api_url, super_auth_headers):
-        """PATCH /users/{email} with an unrecognised environment name returns 400."""
-        resp = requests.patch(
-            f"{api_url}/users/{_GHOST_EMAIL}",
-            json={"environments": ["staging"]},
             headers=super_auth_headers,
             timeout=10,
         )
@@ -217,11 +157,11 @@ class TestDeleteUsersValidation:
 # ---------------------------------------------------------------------------
 
 class TestPostUsersMutation:
-    def test_invite_new_user_returns_201(self, api_url, invited_user, super_auth_with_dynamo):
-        """POST /users for a new email returns 201 with the invited email and environments."""
+    def test_invite_new_user_returns_201(self, api_url, invited_user, super_auth_headers):
+        """POST /users for a new email returns 201 with the invited email."""
         # invited_user fixture already performed the POST and asserted 201.
         # Re-verify via GET /users that the user appears as INVITED and not super.
-        resp = requests.get(f"{api_url}/users", headers=super_auth_with_dynamo, timeout=10)
+        resp = requests.get(f"{api_url}/users", headers=super_auth_headers, timeout=10)
         assert resp.status_code == 200
         users = resp.json()["users"]
         match = next((u for u in users if u["email"] == invited_user), None)
@@ -229,79 +169,15 @@ class TestPostUsersMutation:
         assert match["status"] == "INVITED", f"Expected status INVITED, got {match['status']}"
         assert match["is_super"] is False, "Newly invited user must not be a super user"
 
-    def test_invite_duplicate_returns_409(self, api_url, invited_user, super_auth_with_dynamo):
+    def test_invite_duplicate_returns_409(self, api_url, invited_user, super_auth_headers):
         """POST /users for an already-invited email returns 409."""
         resp = requests.post(
             f"{api_url}/users",
-            json={"email": invited_user, "environments": ["dev"]},
-            headers=super_auth_with_dynamo,
+            json={"email": invited_user},
+            headers=super_auth_headers,
             timeout=10,
         )
         assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
-
-    def test_invite_unauthorized_env_returns_403(self, api_url, restricted_super_auth):
-        """POST /users returns 403 when caller tries to grant an env they don't have."""
-        import time as _time
-        unique_email = f"firefly-inttest-restricted-{int(_time.time())}@example.com"
-        resp = requests.post(
-            f"{api_url}/users",
-            json={"email": unique_email, "environments": ["production"]},
-            headers=restricted_super_auth,
-            timeout=10,
-        )
-        assert resp.status_code == 403, f"Expected 403, got {resp.status_code}: {resp.text}"
-
-
-# ---------------------------------------------------------------------------
-# PATCH /users/{email} — environments update lifecycle (mutations)
-# ---------------------------------------------------------------------------
-
-class TestPatchUsersMutation:
-    def test_patch_environments_returns_200(self, api_url, invited_user, super_auth_with_dynamo):
-        """PATCH /users/{email} with a valid environments list returns 200."""
-        encoded = urllib.parse.quote(invited_user, safe="")
-        resp = requests.patch(
-            f"{api_url}/users/{encoded}",
-            json={"environments": ["dev", "production"]},
-            headers=super_auth_with_dynamo,
-            timeout=10,
-        )
-        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
-        body = resp.json()
-        assert set(body.get("environments", [])) == {"dev", "production"}, (
-            f"Unexpected environments in response: {body}"
-        )
-
-    def test_patch_environments_reflected_in_get(self, api_url, invited_user, super_auth_with_dynamo):
-        """After PATCH environments, GET /users reflects the updated value."""
-        encoded = urllib.parse.quote(invited_user, safe="")
-        requests.patch(
-            f"{api_url}/users/{encoded}",
-            json={"environments": ["production"]},
-            headers=super_auth_with_dynamo,
-            timeout=10,
-        )
-        resp = requests.get(f"{api_url}/users", headers=super_auth_with_dynamo, timeout=10)
-        assert resp.status_code == 200
-        users = resp.json()["users"]
-        match = next((u for u in users if u["email"] == invited_user), None)
-        assert match is not None, f"User '{invited_user}' not found after PATCH"
-        assert match["environments"] == ["production"], (
-            f"Expected ['production'], got {match['environments']}"
-        )
-
-    def test_patch_environments_unauthorized_returns_403(
-        self, api_url, invited_user, restricted_super_auth
-    ):
-        """PATCH /users/{email} returns 403 when caller tries to grant an env they don't have."""
-        encoded = urllib.parse.quote(invited_user, safe="")
-        resp = requests.patch(
-            f"{api_url}/users/{encoded}",
-            json={"environments": ["production"]},
-            headers=restricted_super_auth,
-            timeout=10,
-        )
-        assert resp.status_code == 403, f"Expected 403, got {resp.status_code}: {resp.text}"
 
 
 # ---------------------------------------------------------------------------
@@ -309,15 +185,15 @@ class TestPatchUsersMutation:
 # ---------------------------------------------------------------------------
 
 class TestDeleteUsersMutation:
-    def test_delete_invited_user_returns_200(self, api_url, super_auth_with_dynamo):
+    def test_delete_invited_user_returns_200(self, api_url, super_auth_headers):
         """DELETE /users/{email} for an invited-only user returns 200."""
         import time as _time
         unique_email = f"firefly-inttest-del-{int(_time.time())}@example.com"
         # Invite the user first
         post_resp = requests.post(
             f"{api_url}/users",
-            json={"email": unique_email, "environments": ["dev"]},
-            headers=super_auth_with_dynamo,
+            json={"email": unique_email},
+            headers=super_auth_headers,
             timeout=10,
         )
         assert post_resp.status_code == 201, (
@@ -326,30 +202,30 @@ class TestDeleteUsersMutation:
         encoded = urllib.parse.quote(unique_email, safe="")
         del_resp = requests.delete(
             f"{api_url}/users/{encoded}",
-            headers=super_auth_with_dynamo,
+            headers=super_auth_headers,
             timeout=10,
         )
         assert del_resp.status_code == 200, (
             f"Expected 200, got {del_resp.status_code}: {del_resp.text}"
         )
 
-    def test_deleted_user_absent_from_list(self, api_url, super_auth_with_dynamo):
+    def test_deleted_user_absent_from_list(self, api_url, super_auth_headers):
         """After DELETE /users/{email}, the user no longer appears in GET /users."""
         import time as _time
         unique_email = f"firefly-inttest-gone-{int(_time.time())}@example.com"
         requests.post(
             f"{api_url}/users",
-            json={"email": unique_email, "environments": ["dev"]},
-            headers=super_auth_with_dynamo,
+            json={"email": unique_email},
+            headers=super_auth_headers,
             timeout=10,
         )
         encoded = urllib.parse.quote(unique_email, safe="")
         requests.delete(
             f"{api_url}/users/{encoded}",
-            headers=super_auth_with_dynamo,
+            headers=super_auth_headers,
             timeout=10,
         )
-        resp = requests.get(f"{api_url}/users", headers=super_auth_with_dynamo, timeout=10)
+        resp = requests.get(f"{api_url}/users", headers=super_auth_headers, timeout=10)
         assert resp.status_code == 200
         emails = [u["email"] for u in resp.json()["users"]]
         assert unique_email not in emails, (

@@ -17,8 +17,6 @@ Optional environment variables:
   FIREFLY_COGNITO_CLIENT_ID      Cognito App Client ID (required for auth tests)
   FIREFLY_TEST_USER_EMAIL        Email of the test Cognito user (AdminCreateUser)
   FIREFLY_TEST_USER_PASSWORD     Temporary password of the test Cognito user
-  FIREFLY_DYNAMODB_USERS_TABLE_NAME  DynamoDB users table name (required for users mutation tests)
-
 AWS credentials must be available via the standard boto3 credential chain
 (environment variables, ~/.aws/credentials, IAM role, etc.).
 
@@ -53,21 +51,13 @@ auth_headers (session)
     Skipped when Cognito env vars are not set.
 
 super_auth_with_dynamo (session)
-    Like super_auth_headers but also ensures the CI test user has a DynamoDB
-    record with environments ["dev", "production"]. Required for mutation tests
-    on POST/PATCH /users that check the caller's environment scope.
-    Restores the original DynamoDB state at session teardown.
-    Skipped when FIREFLY_DYNAMODB_USERS_TABLE_NAME is not set.
-
-restricted_super_auth (function)
-    Same token as super_auth_with_dynamo but CI test user DynamoDB record is
-    temporarily restricted to environments ["dev"] only. Used to verify that
-    callers cannot grant environment access beyond their own scope.
-    Restores original DynamoDB environments after each test.
+    Alias for super_auth_headers, kept for fixture compatibility. Adds the CI
+    test user to super_users and yields a fresh access token; removes from the
+    group at teardown.
 
 invited_user (function)
     Creates a test invitation via POST /users; deletes the record at teardown.
-    Depends on super_auth_with_dynamo. Skipped when mutation prereqs are absent.
+    Depends on super_auth_headers.
 """
 
 import hashlib
@@ -91,7 +81,6 @@ COGNITO_USER_POOL_ID        = os.environ.get("FIREFLY_COGNITO_USER_POOL_ID")
 COGNITO_CLIENT_ID           = os.environ.get("FIREFLY_COGNITO_CLIENT_ID")
 TEST_USER_EMAIL             = os.environ.get("FIREFLY_TEST_USER_EMAIL")
 TEST_USER_PASSWORD          = os.environ.get("FIREFLY_TEST_USER_PASSWORD")
-DYNAMODB_USERS_TABLE_NAME   = os.environ.get("FIREFLY_DYNAMODB_USERS_TABLE_NAME")
 
 # Unique product_id so test records are easily identifiable and filterable.
 TEST_PRODUCT_ID = "firefly-integration-test"
@@ -541,118 +530,12 @@ def super_auth_headers() -> dict:
 
 
 @pytest.fixture(scope="session")
-def super_auth_with_dynamo():
+def super_auth_with_dynamo(super_auth_headers):
     """
-    Like super_auth_headers but also ensures the CI test user has a DynamoDB
-    record with environments ["dev", "production"]. Required for POST/PATCH /users
-    mutation tests where the lambda checks the caller's environment scope.
-
-    Setup:  adds CI test user to super_users group, upserts DynamoDB record with
-            all environments, obtains a fresh access token.
-    Teardown: removes from super_users, restores original DynamoDB state.
-
-    Skipped when any required Cognito env var or FIREFLY_DYNAMODB_USERS_TABLE_NAME
-    is absent.
+    Alias for super_auth_headers, kept for fixture compatibility with tests
+    that previously required DynamoDB environment setup.
     """
-    if not all([COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID, TEST_USER_EMAIL, TEST_USER_PASSWORD]):
-        pytest.skip(
-            "Cognito auth env vars not set — skipping users mutation tests"
-        )
-    if not DYNAMODB_USERS_TABLE_NAME:
-        pytest.skip(
-            "FIREFLY_DYNAMODB_USERS_TABLE_NAME not set — skipping users mutation tests"
-        )
-
-    cognito = boto3.client("cognito-idp")
-    dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table(DYNAMODB_USERS_TABLE_NAME)
-    super_group = "super_users"
-    caller_email = TEST_USER_EMAIL.lower()
-
-    # Resolve Cognito username (email and username may differ).
-    response = cognito.list_users(
-        UserPoolId=COGNITO_USER_POOL_ID,
-        Filter=f'email = "{TEST_USER_EMAIL}"',
-    )
-    users = response.get("Users", [])
-    if not users:
-        pytest.skip(f"Test user '{TEST_USER_EMAIL}' not found in Cognito user pool")
-    cognito_username = users[0]["Username"]
-
-    # Snapshot original DynamoDB record so we can restore it at teardown.
-    resp = table.get_item(Key={"email": caller_email})
-    original_item = resp.get("Item")
-
-    # Upsert record with all environments so the caller can grant any env.
-    table.put_item(Item={
-        "email": caller_email,
-        "environments": ["dev", "production"],
-        "invited_by": "ci-integration-test",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-
-    cognito.admin_add_user_to_group(
-        UserPoolId=COGNITO_USER_POOL_ID,
-        Username=cognito_username,
-        GroupName=super_group,
-    )
-
-    try:
-        resp = cognito.admin_initiate_auth(
-            UserPoolId=COGNITO_USER_POOL_ID,
-            ClientId=COGNITO_CLIENT_ID,
-            AuthFlow="ADMIN_USER_PASSWORD_AUTH",
-            AuthParameters={
-                "USERNAME": TEST_USER_EMAIL,
-                "PASSWORD": TEST_USER_PASSWORD,
-            },
-        )
-        access_token = resp["AuthenticationResult"]["AccessToken"]
-        yield {"Authorization": f"Bearer {access_token}"}
-    finally:
-        cognito.admin_remove_user_from_group(
-            UserPoolId=COGNITO_USER_POOL_ID,
-            Username=cognito_username,
-            GroupName=super_group,
-        )
-        if original_item:
-            table.put_item(Item=original_item)
-        else:
-            table.delete_item(Key={"email": caller_email})
-
-
-@pytest.fixture
-def restricted_super_auth(super_auth_with_dynamo):
-    """
-    Same token as super_auth_with_dynamo but the CI test user's DynamoDB record
-    is temporarily restricted to environments ["dev"] only.
-
-    Used to verify that callers cannot grant environment access beyond their own
-    scope (e.g. caller with only "dev" cannot invite/patch a user into "production").
-
-    Restores the original environments after the test regardless of outcome.
-    """
-    dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table(DYNAMODB_USERS_TABLE_NAME)
-    caller_email = TEST_USER_EMAIL.lower()
-
-    resp = table.get_item(Key={"email": caller_email})
-    original_envs = resp.get("Item", {}).get("environments", ["dev", "production"])
-
-    table.update_item(
-        Key={"email": caller_email},
-        UpdateExpression="SET environments = :envs",
-        ExpressionAttributeValues={":envs": ["dev"]},
-    )
-
-    try:
-        yield super_auth_with_dynamo
-    finally:
-        table.update_item(
-            Key={"email": caller_email},
-            UpdateExpression="SET environments = :envs",
-            ExpressionAttributeValues={":envs": original_envs},
-        )
+    yield super_auth_headers
 
 
 @pytest.fixture
@@ -667,7 +550,7 @@ def invited_user(api_url, super_auth_with_dynamo):
     test_email = f"firefly-inttest-{int(time.time())}@example.com"
     resp = requests.post(
         f"{api_url}/users",
-        json={"email": test_email, "environments": ["dev"]},
+        json={"email": test_email},
         headers=super_auth_with_dynamo,
         timeout=10,
     )

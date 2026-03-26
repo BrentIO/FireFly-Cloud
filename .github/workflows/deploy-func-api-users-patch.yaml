@@ -69,15 +69,6 @@ jobs:
             --output text)
           echo "user_pool_id=$POOL_ID" >> $GITHUB_OUTPUT
 
-      - name: Look up DynamoDB Users Table Name
-        id: lookup-dynamodb-users
-        run: |
-          TABLE_NAME=$(aws cloudformation describe-stacks \
-            --stack-name firefly-dynamodb-users \
-            --query "Stacks[0].Outputs[?OutputKey=='UsersTableName'].OutputValue" \
-            --output text)
-          echo "table_name=$TABLE_NAME" >> $GITHUB_OUTPUT
-
       - name: Look up shared layer ARN
         id: lookup-layer
         run: |
@@ -108,7 +99,6 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               CognitoUserPoolId=${{ steps.lookup-cognito.outputs.user_pool_id }} \
-              DynamoDbUsersTableName=${{ steps.lookup-dynamodb-users.outputs.table_name }} \
               EnvironmentName=${{ inputs.target_env }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \

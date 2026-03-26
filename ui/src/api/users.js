@@ -4,10 +4,10 @@ export function listUsers() {
   return apiFetch('/users')
 }
 
-export function inviteUser({ email, environments }) {
+export function inviteUser({ email }) {
   return apiFetch('/users', {
     method: 'POST',
-    body: JSON.stringify({ email, environments }),
+    body: JSON.stringify({ email }),
   })
 }
 

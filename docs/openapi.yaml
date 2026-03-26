@@ -51,7 +51,6 @@ paths:
         Adds a user to the allowed list and sends an invitation. The user must
         sign in with Google within 24 hours before the invitation expires.
 
-        The caller may only grant environments they themselves have access to.
         Super user access is required.
       operationId: inviteUser
       requestBody:
@@ -62,7 +61,6 @@ paths:
               $ref: '#/components/schemas/InviteUserRequest'
             example:
               email: user@example.com
-              environments: [dev]
       responses:
         '201':
           description: Invitation created
@@ -72,7 +70,6 @@ paths:
                 $ref: '#/components/schemas/UserInviteResponse'
               example:
                 email: user@example.com
-                environments: [dev]
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
@@ -93,13 +90,10 @@ paths:
       tags: [Users]
       summary: Update a user
       description: |
-        Updates a user's super user status and/or environment access. At least
-        one field must be provided.
+        Updates a user's super user status. `is_super` is required.
 
         - `is_super` — adds or removes the user from the Cognito `super_users`
           group. The last super user cannot be demoted.
-        - `environments` — replaces the user's environment list. The caller may
-          only grant environments they themselves have access to.
 
         Super user access is required.
       operationId: patchUser
@@ -116,15 +110,10 @@ paths:
                 summary: Grant super user status
                 value:
                   is_super: true
-              update_environments:
-                summary: Update environment access
-                value:
-                  environments: [dev, production]
-              both:
-                summary: Update both fields
+              revoke_super:
+                summary: Revoke super user status
                 value:
                   is_super: false
-                  environments: [dev]
       responses:
         '200':
           description: User updated
@@ -841,12 +830,6 @@ components:
           type: string
           description: Display name from Google. Absent for INVITED users who have not yet signed in.
           example: Jane Smith
-        environments:
-          type: array
-          description: Environments the user is permitted to access.
-          items:
-            $ref: '#/components/schemas/Environment'
-          example: [dev]
         is_super:
           type: boolean
           description: Whether the user is a member of the super_users Cognito group.
@@ -874,12 +857,6 @@ components:
           type: string
           format: email
           example: user@example.com
-        environments:
-          type: array
-          description: Environments the invited user has been granted access to.
-          items:
-            $ref: '#/components/schemas/Environment'
-          example: [dev]
 
     UserListResponse:
       type: object
@@ -893,39 +870,24 @@ components:
       type: object
       required:
         - email
-        - environments
       properties:
         email:
           type: string
           format: email
           example: user@example.com
-        environments:
-          type: array
-          description: Environments to grant the invited user access to.
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/Environment'
-          example: [dev]
 
     PatchUserRequest:
       type: object
-      description: At least one field must be provided.
+      required:
+        - is_super
       properties:
         is_super:
           type: boolean
           description: Grant (`true`) or revoke (`false`) super user status.
           example: false
-        environments:
-          type: array
-          description: Replace the user's environment access list.
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/Environment'
-          example: [dev, production]
 
     PatchUserResponse:
       type: object
-      description: Echoes back only the fields that were updated.
       properties:
         email:
           type: string
@@ -934,11 +896,6 @@ components:
         is_super:
           type: boolean
           example: false
-        environments:
-          type: array
-          items:
-            $ref: '#/components/schemas/Environment'
-          example: [dev, production]
 
     # -------------------------------------------------------------------------
     # AppConfig schemas

@@ -4,7 +4,7 @@ GET /users — list all users: Cognito accounts merged with invited-only DynamoD
 Requires the caller to be in the super_users group.
 
 Response includes:
-  - Users who have signed in (from Cognito), with environments sourced from DynamoDB
+  - Users who have signed in (from Cognito)
   - Users who were invited but have not yet signed in (DynamoDB-only), status = "INVITED"
   - Expired invitations (expires_at in the past) are excluded
 """
@@ -87,17 +87,6 @@ def _scan_dynamodb_users():
     return result
 
 
-def _normalize_environments(raw):
-    """Return environments as a sorted list regardless of storage type."""
-    if isinstance(raw, set):
-        return sorted(raw)
-    if isinstance(raw, list):
-        return raw
-    if isinstance(raw, str) and raw:
-        return [e.strip() for e in raw.split(",") if e.strip()]
-    return []
-
-
 def lambda_handler(event, context):
     try:
         if not _is_super_user(event):
@@ -123,7 +112,6 @@ def lambda_handler(event, context):
                     {
                         "email": email,
                         "name": attrs.get("name"),
-                        "environments": _normalize_environments(db_item.get("environments")),
                         "is_super": email in super_emails,
                         "status": user.get("UserStatus"),
                         "created": user.get("UserCreateDate"),
@@ -138,7 +126,6 @@ def lambda_handler(event, context):
             users.append(
                 {
                     "email": email,
-                    "environments": _normalize_environments(db_item.get("environments")),
                     "is_super": False,
                     "status": "INVITED",
                     "created": db_item.get("created_at"),

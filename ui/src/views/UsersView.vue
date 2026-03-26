@@ -31,7 +31,6 @@ const loading = ref(true)
 // ── Invite modal ──────────────────────────────────────────────────────────────
 const showInviteModal  = ref(false)
 const inviteEmail      = ref('')
-const inviteEnvs       = ref([])
 const inviteSubmitting = ref(false)
 const inviteError      = ref(null)
 
@@ -119,7 +118,6 @@ function toggleSort(key) {
 // ── Invite ────────────────────────────────────────────────────────────────────
 function openInviteModal() {
   inviteEmail.value    = ''
-  inviteEnvs.value     = []
   inviteError.value    = null
   showInviteModal.value = true
 }
@@ -130,11 +128,10 @@ async function submitInvite() {
   const email = inviteEmail.value.trim().toLowerCase()
   if (!email) { inviteError.value = 'Email is required.'; return }
   if (!EMAIL_RE.test(email)) { inviteError.value = 'Enter a valid email address.'; return }
-  if (inviteEnvs.value.length === 0) { inviteError.value = 'Select at least one environment.'; return }
 
   inviteSubmitting.value = true
   try {
-    await inviteUser({ email, environments: inviteEnvs.value })
+    await inviteUser({ email })
     showInviteModal.value = false
     successToast(`${email} invited.`)
     await load()
@@ -193,40 +190,6 @@ function onConfirm() {
   if (confirmAction.value) confirmAction.value()
 }
 
-// ── Edit environments modal ───────────────────────────────────────────────────
-const showEnvModal       = ref(false)
-const envModalUser       = ref(null)
-const envModalEnvs       = ref([])
-const envModalSubmitting = ref(false)
-const envModalError      = ref(null)
-
-function openEnvModal(user) {
-  envModalUser.value       = user
-  envModalEnvs.value       = [...(user.environments ?? [])]
-  envModalError.value      = null
-  envModalSubmitting.value = false
-  showEnvModal.value       = true
-}
-
-async function submitEnvModal() {
-  envModalError.value = null
-  if (envModalEnvs.value.length === 0) {
-    envModalError.value = 'Select at least one environment.'
-    return
-  }
-  envModalSubmitting.value = true
-  try {
-    await patchUser(envModalUser.value.email, { environments: envModalEnvs.value })
-    showEnvModal.value = false
-    successToast(`Environments updated for ${envModalUser.value.email}.`)
-    await load()
-  } catch (e) {
-    envModalError.value = e.message
-  } finally {
-    envModalSubmitting.value = false
-  }
-}
-
 // ── Ellipsis menu positioning ─────────────────────────────────────────────────
 const menuStyle = ref({})
 
@@ -247,13 +210,6 @@ function setMenuPosition(event) {
     }
   }
 }
-
-// ── Current user's environments ───────────────────────────────────────────────
-const currentUserEnvironments = computed(() => {
-  const me = users.value.find(u => u.email === userEmail.value)
-  const envs = me?.environments ?? []
-  return envs.length ? envs : ['dev', 'production']
-})
 </script>
 
 <template>
@@ -304,9 +260,6 @@ const currentUserEnvironments = computed(() => {
                 <ChevronDownIcon v-else-if="sortKey === 'name' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
               <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap select-none">
-                Environments
-              </th>
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap select-none">
                 Status
               </th>
               <th class="px-4 py-3"></th>
@@ -319,7 +272,6 @@ const currentUserEnvironments = computed(() => {
               <tr v-for="i in 8" :key="i" class="border-b border-gray-100 dark:border-gray-800">
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-40" /></td>
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28" /></td>
-                <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16" /></td>
                 <td class="px-4 py-3"><div class="h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse w-20" /></td>
                 <td class="px-4 py-3"></td>
               </tr>
@@ -327,7 +279,7 @@ const currentUserEnvironments = computed(() => {
 
             <!-- Empty state -->
             <tr v-else-if="paginatedUsers.length === 0">
-              <td colspan="5" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+              <td colspan="4" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                 No users found.
               </td>
             </tr>
@@ -341,13 +293,6 @@ const currentUserEnvironments = computed(() => {
             >
               <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ user.email }}</td>
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ user.name || '—' }}</td>
-              <td class="px-4 py-3 whitespace-nowrap">
-                <span
-                  v-for="env in (Array.isArray(user.environments) ? user.environments : [])"
-                  :key="env"
-                  class="inline-block mr-1 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                >{{ env.trim() }}</span>
-              </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="flex items-center gap-1.5">
                   <span
@@ -381,19 +326,6 @@ const currentUserEnvironments = computed(() => {
                     class="fixed z-[9999] w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700"
                     :style="menuStyle"
                   >
-                    <!-- Edit environments -->
-                    <div class="py-1">
-                      <MenuItem v-slot="{ active }">
-                        <button
-                          @click="openEnvModal(user)"
-                          class="w-full text-left px-4 py-2 text-sm transition-colors"
-                          :class="active ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'"
-                        >
-                          Edit Environments
-                        </button>
-                      </MenuItem>
-                    </div>
-
                     <!-- Super user toggle (only for signed-in users) -->
                     <div v-if="user.status !== 'INVITED'" class="py-1">
                       <MenuItem v-slot="{ active }">
@@ -516,18 +448,6 @@ const currentUserEnvironments = computed(() => {
                   />
                 </div>
 
-                <div class="space-y-1">
-                  <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Environments</label>
-                  <div class="flex gap-4">
-                    <label v-if="currentUserEnvironments.includes('dev')" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input type="checkbox" value="dev" v-model="inviteEnvs" class="rounded" /> dev
-                    </label>
-                    <label v-if="currentUserEnvironments.includes('production')" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input type="checkbox" value="production" v-model="inviteEnvs" class="rounded" /> production
-                    </label>
-                  </div>
-                </div>
-
                 <p v-if="inviteError" class="text-xs text-red-600 dark:text-red-400">{{ inviteError }}</p>
 
                 <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -547,71 +467,6 @@ const currentUserEnvironments = computed(() => {
                     class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
                   >
                     {{ inviteSubmitting ? 'Inviting…' : 'Invite User' }}
-                  </button>
-                </div>
-              </DialogPanel>
-            </TransitionChild>
-          </div>
-        </div>
-      </Dialog>
-    </TransitionRoot>
-
-    <!-- Edit environments modal -->
-    <TransitionRoot :show="showEnvModal" as="template">
-      <Dialog as="div" class="relative z-50" @close="showEnvModal = false">
-        <TransitionChild
-          as="template"
-          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
-          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
-        >
-          <div class="fixed inset-0 bg-black/50 transition-opacity" />
-        </TransitionChild>
-
-        <div class="fixed inset-0 z-10 overflow-y-auto" @click="showEnvModal = false">
-          <div class="flex min-h-full items-center justify-center p-4">
-            <TransitionChild
-              as="template"
-              enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
-              leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
-            >
-              <DialogPanel
-                class="relative w-full max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6 space-y-4"
-                @click.stop
-              >
-                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Edit Environments</h3>
-
-                <div class="space-y-0.5">
-                  <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ envModalUser?.name || '—' }}</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ envModalUser?.email }}</p>
-                </div>
-
-                <div class="space-y-1">
-                  <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Environments</label>
-                  <div class="flex gap-4">
-                    <label v-if="currentUserEnvironments.includes('dev')" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input type="checkbox" value="dev" v-model="envModalEnvs" class="rounded" /> dev
-                    </label>
-                    <label v-if="currentUserEnvironments.includes('production')" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input type="checkbox" value="production" v-model="envModalEnvs" class="rounded" /> production
-                    </label>
-                  </div>
-                </div>
-
-                <p v-if="envModalError" class="text-xs text-red-600 dark:text-red-400">{{ envModalError }}</p>
-
-                <div class="flex gap-3 justify-end">
-                  <button
-                    @click="showEnvModal = false"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    @click="submitEnvModal"
-                    :disabled="envModalSubmitting"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
-                  >
-                    {{ envModalSubmitting ? 'Saving…' : 'Save' }}
                   </button>
                 </div>
               </DialogPanel>
