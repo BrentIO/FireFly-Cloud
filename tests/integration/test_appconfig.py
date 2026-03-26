@@ -129,6 +129,21 @@ def appconfig_original(api_url, super_auth_headers):
 
     yield had_prior_app
 
+    # Wait for any in-progress deployment to reach a terminal state before cleanup.
+    # Without this, DELETE returns 409 and health-get is left stuck in DEPLOYING,
+    # causing the next run's pre-test poll to time out and skip the deploy test.
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        poll = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
+        if poll.status_code == 200:
+            app = next(
+                (a for a in poll.json().get("applications", []) if a["name"] == TEST_FUNCTION),
+                None,
+            )
+            if app is None or app.get("status") in (None, "COMPLETE", "ROLLED_BACK"):
+                break
+        time.sleep(5)
+
     if had_prior_app:
         # Restore to WARNING and deploy so the function is never left in a dirty state
         requests.patch(
@@ -243,23 +258,6 @@ class TestDeployAppConfig:
     def test_deploy_returns_200_with_correct_shape(
         self, api_url, super_auth_headers, appconfig_original
     ):
-        # Wait for any in-progress deployment to finish before staging+deploying.
-        # Skip (rather than fail) if the environment is stuck in DEPLOYING — this
-        # is an infrastructure state issue, not a code defect.
-        deadline = time.time() + 180
-        while time.time() < deadline:
-            get_resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
-            if get_resp.status_code == 200:
-                app = next(
-                    (a for a in get_resp.json().get("applications", []) if a["name"] == TEST_FUNCTION),
-                    None,
-                )
-                if app is None or app.get("status") in (None, "COMPLETE", "ROLLED_BACK"):
-                    break
-            time.sleep(5)
-        else:
-            pytest.skip(f"AppConfig environment for {TEST_FUNCTION} still DEPLOYING after 3 minutes; skipping deploy test")
-
         # Stage a version first (use DEBUG to ensure a real change is deployed)
         patch_resp = requests.patch(
             f"{api_url}/appconfig/{TEST_FUNCTION}",
