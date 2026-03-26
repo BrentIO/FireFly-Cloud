@@ -19,8 +19,10 @@ import requests
 
 pytestmark = pytest.mark.appconfig
 
-# A real function name that exists in the deployed environment
-TEST_FUNCTION = "firefly-func-api-appconfig-get"
+# A real function name that exists in the deployed environment.
+# health-get is used as the test target because it is low-traffic and disposable;
+# appconfig-get was avoided to prevent leaving its config in a dirty state.
+TEST_FUNCTION = "firefly-func-api-health-get"
 
 
 # ---------------------------------------------------------------------------
@@ -123,10 +125,15 @@ def appconfig_original(api_url, super_auth_headers):
 
     yield original_level
 
-    # Teardown: restore original level (stage only — no deploy needed for tests)
+    # Teardown: restore to WARNING and deploy so the function is never left in a dirty state
     requests.patch(
         f"{api_url}/appconfig/{TEST_FUNCTION}",
-        json={"logging": original_level},
+        json={"logging": "WARNING"},
+        headers=super_auth_headers,
+        timeout=15,
+    )
+    requests.post(
+        f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
         headers=super_auth_headers,
         timeout=15,
     )
@@ -240,10 +247,10 @@ class TestDeployAppConfig:
         else:
             pytest.skip(f"AppConfig environment for {TEST_FUNCTION} still DEPLOYING after 3 minutes; skipping deploy test")
 
-        # Stage a version first
+        # Stage a version first (use DEBUG to ensure a real change is deployed)
         patch_resp = requests.patch(
             f"{api_url}/appconfig/{TEST_FUNCTION}",
-            json={"logging": appconfig_original},
+            json={"logging": "DEBUG"},
             headers=super_auth_headers,
             timeout=15,
         )
