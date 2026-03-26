@@ -13,9 +13,6 @@ Parameters:
     Type: String
     Description: Name of the S3 bucket containing firmware ZIPs
 
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncS3FirmwareUploadedRole:
@@ -81,7 +78,7 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncS3FirmwareUploadedLogGroup:
     Type: AWS::Logs::LogGroup

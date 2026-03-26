@@ -25,9 +25,6 @@ Parameters:
     Type: String
     Description: ID of the Cognito JWT authorizer on the HTTP API
 
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncApiFirmwareStatusPatchRole:
@@ -99,7 +96,7 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           S3_FIRMWARE_PRIVATE_BUCKET_NAME: !Ref FirmwarePrivateBucketName
           S3_FIRMWARE_PUBLIC_BUCKET_NAME: !Ref FirmwarePublicBucketName
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncApiFirmwareStatusPatchIntegration:
     Type: AWS::ApiGatewayV2::Integration

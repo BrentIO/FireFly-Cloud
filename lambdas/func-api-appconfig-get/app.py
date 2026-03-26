@@ -42,7 +42,7 @@ appconfig = boto3.client("appconfig")
 lambda_client = boto3.client("lambda")
 
 SUPER_GROUP = "super_users"
-ENVIRONMENT_NAME = os.environ["ENVIRONMENT_NAME"]
+ENVIRONMENT_NAME = "default"
 PROFILE_NAME = "logging"
 FUNCTION_PREFIX = "firefly-func-"
 

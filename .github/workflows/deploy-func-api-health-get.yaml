@@ -81,7 +81,6 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
-              EnvironmentName=${{ inputs.target_env }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
             --no-confirm-changeset \

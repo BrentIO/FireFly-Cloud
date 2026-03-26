@@ -21,9 +21,6 @@ Parameters:
     Type: String
     Description: SSM parameter path containing a JSON object mapping application name to esp32FOTA firmware type (e.g., /firefly/dev/firmware_type_map)
 
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncApiOtaGetRole:
@@ -76,7 +73,7 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           CLOUDFRONT_DOMAIN: !Ref CloudFrontDomain
           FIRMWARE_TYPE_MAP: !Sub "{{resolve:ssm:${FirmwareTypeMapSsmPath}}}"
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncApiOtaGetIntegration:
     Type: AWS::ApiGatewayV2::Integration

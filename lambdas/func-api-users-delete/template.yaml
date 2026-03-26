@@ -22,9 +22,6 @@ Parameters:
     Type: String
     Description: ID of the Cognito User Pool
 
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncApiUsersDeleteRole:
@@ -82,7 +79,7 @@ Resources:
         Variables:
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
           DYNAMODB_USERS_TABLE_NAME: firefly-users
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncApiUsersDeleteIntegration:
     Type: AWS::ApiGatewayV2::Integration

@@ -9,8 +9,6 @@ Parameters:
   AppConfigExtensionLayerArn:
     Type: String
     Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
-  EnvironmentName:
-    Type: String
   ApiId:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
@@ -52,7 +50,7 @@ Resources:
         - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
       Handler: app.health
       Runtime: python3.13
       Architectures:

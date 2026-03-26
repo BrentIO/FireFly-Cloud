@@ -22,8 +22,6 @@ Parameters:
     Type: String
     Description: ID of the Cognito User Pool
 
-  EnvironmentName:
-    Type: String
 
 Resources:
 
@@ -77,7 +75,7 @@ Resources:
       Environment:
         Variables:
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncApiUsersPatchIntegration:
     Type: AWS::ApiGatewayV2::Integration

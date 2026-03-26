@@ -21,9 +21,6 @@ Parameters:
     Type: String
     Description: ID of the Cognito JWT authorizer on the HTTP API
 
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncApiFirmwareDeleteRole:
@@ -81,7 +78,7 @@ Resources:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           S3_FIRMWARE_PRIVATE_BUCKET_NAME: !Ref FirmwareBucketName
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncApiFirmwareDeleteIntegration:
     Type: AWS::ApiGatewayV2::Integration
