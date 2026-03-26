@@ -20,9 +20,9 @@ import requests
 pytestmark = pytest.mark.appconfig
 
 # A real function name that exists in the deployed environment.
-# health-get is used as the test target because it is low-traffic and disposable;
+# health is used as the test target because it is low-traffic and disposable;
 # appconfig-get was avoided to prevent leaving its config in a dirty state.
-TEST_FUNCTION = "firefly-func-api-health-get"
+TEST_FUNCTION = "firefly-func-api-health"
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +110,12 @@ class TestPatchAppConfigValidation:
 @pytest.fixture(scope="function")
 def appconfig_original(api_url, super_auth_headers):
     """
-    Captures the current config for TEST_FUNCTION before the test and
-    restores it (with a new deploy) at teardown.
+    Captures the current AppConfig state for TEST_FUNCTION before the test.
+
+    If the function had no AppConfig application (logging is null), teardown
+    deletes the application to restore the original unconfigured state.
+    If the function was already configured, teardown patches to WARNING and
+    deploys so it is never left in a dirty state.
     """
     resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
     if resp.status_code != 200:
@@ -121,22 +125,31 @@ def appconfig_original(api_url, super_auth_headers):
         (a for a in resp.json().get("applications", []) if a["name"] == TEST_FUNCTION),
         None,
     )
-    original_level = original["logging"] if original and original["logging"] else "WARNING"
+    had_prior_app = original is not None and original.get("logging") is not None
 
-    yield original_level
+    yield had_prior_app
 
-    # Teardown: restore to WARNING and deploy so the function is never left in a dirty state
-    requests.patch(
-        f"{api_url}/appconfig/{TEST_FUNCTION}",
-        json={"logging": "WARNING"},
-        headers=super_auth_headers,
-        timeout=15,
-    )
-    requests.post(
-        f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
-        headers=super_auth_headers,
-        timeout=15,
-    )
+    if had_prior_app:
+        # Restore to WARNING and deploy so the function is never left in a dirty state
+        requests.patch(
+            f"{api_url}/appconfig/{TEST_FUNCTION}",
+            json={"logging": "WARNING"},
+            headers=super_auth_headers,
+            timeout=15,
+        )
+        requests.post(
+            f"{api_url}/appconfig/{TEST_FUNCTION}/deploy",
+            headers=super_auth_headers,
+            timeout=15,
+        )
+    else:
+        # Function had no AppConfig application before the test — delete it to restore
+        # the original unconfigured state rather than leaving a permanent application behind
+        requests.delete(
+            f"{api_url}/appconfig/{TEST_FUNCTION}",
+            headers=super_auth_headers,
+            timeout=15,
+        )
 
 
 class TestPatchAppConfigMutation:
