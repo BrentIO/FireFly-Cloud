@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import {
   XMarkIcon,
   CheckCircleIcon,
@@ -30,6 +30,11 @@ const macAddress = ref('')
 const eraseMessage = ref('')
 const fileProgress = ref([]) // [{ name, address, written, total }]
 const eraseAll = ref(false)
+const destroyConfig = ref(false)
+
+// When eraseAll is toggled, mirror the state into destroyConfig.
+// Unchecking eraseAll always resets destroyConfig regardless of prior user input.
+watch(eraseAll, (val) => { destroyConfig.value = val })
 
 let transport = null
 
@@ -194,18 +199,18 @@ async function startFlash() {
     //    rejects it with "Must be handling a user gesture".
     phase.value = 'connecting'
     statusMessage.value = 'Waiting for port selection…'
-    console.log('[FireFly Flash] Requesting serial port…')
+    console.debug('[FireFly Flash] Requesting serial port…')
     const port = await navigator.serial.requestPort()
-    console.log('[FireFly Flash] Port selected:', port)
+    console.debug('[FireFly Flash] Port selected:', port)
 
     // 2. Get ZIP from local cache or download from S3
     phase.value = 'downloading'
     let zipBuffer = await getCachedZip(props.zipName)
     if (zipBuffer) {
-      console.log('[FireFly Flash] Cache hit for', props.zipName)
+      console.debug('[FireFly Flash] Cache hit for', props.zipName)
       statusMessage.value = 'Loading firmware from cache…'
     } else {
-      console.log('[FireFly Flash] Cache miss for', props.zipName, '— downloading')
+      console.debug('[FireFly Flash] Cache miss for', props.zipName, '— downloading')
       statusMessage.value = 'Fetching download URL…'
       const { url } = await getFirmwareDownloadUrl(props.zipName)
       statusMessage.value = 'Downloading firmware ZIP…'
@@ -222,6 +227,7 @@ async function startFlash() {
     const binFiles = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
     const fileArray = []
     for (const f of binFiles) {
+      if (destroyConfig.value && f.name === 'config.bin') continue // intentionally skipped
       const address = resolveFlashAddress(f.name)
       if (address === null) continue // address unknown; skip
       const entry = zip.file(f.name)
@@ -242,29 +248,29 @@ async function startFlash() {
     fileProgress.value = fileArray.map(f => ({ name: f.name, address: f.address, written: 0, total: 0 }))
 
     // 4. Connect via esptool-js (port already obtained in step 1)
-    console.log('[FireFly Flash] Creating Transport and ESPLoader…')
+    console.debug('[FireFly Flash] Creating Transport and ESPLoader…')
     transport = new Transport(port, false)
     const terminal = {
       clean() {},
       writeLine(s) {
-        console.log('[ESP]', s)
+        console.debug('[ESP]', s)
         const macMatch = s.match(/mac:\s*([0-9a-f]{2}(?::[0-9a-f]{2}){5})/i)
         if (macMatch) macAddress.value = macMatch[1].toUpperCase()
         if (s.toLowerCase().includes('erasing flash')) eraseMessage.value = s
       },
-      write(s) { console.log('[ESP]', s) },
+      write(s) { console.debug('[ESP]', s) },
     }
     const esploader = new ESPLoader({ transport, baudrate: 921600, terminal })
 
     statusMessage.value = 'Connecting to device…'
-    console.log('[FireFly Flash] Running ESPLoader.main()…')
+    console.debug('[FireFly Flash] Running ESPLoader.main()…')
     const chip = await esploader.main()
-    console.log('[FireFly Flash] Chip detected:', chip)
+    console.debug('[FireFly Flash] Chip detected:', chip)
     chipName.value = chip || 'ESP32'
 
     // 5. Flash
     phase.value = 'flashing'
-    console.log('[FireFly Flash] Starting writeFlash with', fileArray.length, 'file(s)…')
+    console.debug('[FireFly Flash] Starting writeFlash with', fileArray.length, 'file(s)…')
     await esploader.writeFlash({
       fileArray: fileArray.map(({ data, address }) => ({ data, address })),
       flashSize: 'keep',
@@ -283,10 +289,10 @@ async function startFlash() {
       },
     })
 
-    console.log('[FireFly Flash] writeFlash complete')
+    console.debug('[FireFly Flash] writeFlash complete')
     phase.value = 'done'
   } catch (err) {
-    console.log('[FireFly Flash] Error caught:', err)
+    console.debug('[FireFly Flash] Error caught:', err)
     if (err?.name === 'NotAllowedError' || err?.message?.includes('No port selected')) {
       phase.value = 'idle'
       return
@@ -309,6 +315,7 @@ function reset() {
   eraseMessage.value = ''
   fileProgress.value = []
   eraseAll.value = false
+  destroyConfig.value = false
 }
 
 function handleClose() {
@@ -355,7 +362,7 @@ onUnmounted(async () => {
               <!-- Header -->
               <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <div>
-                  <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Flash via USB</h3>
+                  <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Flash {{ item.application }} via USB</h3>
                   <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {{ item.product_id }} &mdash; {{ item.version }} ({{ item.commit?.slice(0, 7) }})
                   </p>
@@ -423,6 +430,21 @@ onUnmounted(async () => {
                     </span>
                   </label>
 
+                  <!-- Destroy config option -->
+                  <label class="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      v-model="destroyConfig"
+                      class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                      Destroy and flash config
+                      <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Skips writing config.bin, leaving configuration at factory defaults.
+                      </span>
+                    </span>
+                  </label>
+
                   <p class="text-xs text-gray-500 dark:text-gray-400">
                     If your device does not reset automatically, hold <strong>BOOT</strong>
                     while pressing <strong>EN</strong> to enter bootloader mode before connecting.
@@ -448,7 +470,7 @@ onUnmounted(async () => {
                   <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Flashing {{ chipName }}…
                   </p>
-                  <p v-if="macAddress" class="text-xs font-mono text-gray-500 dark:text-gray-400 -mt-2">
+                  <p v-if="macAddress" class="text-xs font-mono text-gray-400 dark:text-gray-500 -mt-3">
                     MAC: {{ macAddress }}
                   </p>
                   <p v-if="eraseMessage" class="text-xs text-amber-600 dark:text-amber-400">
@@ -483,9 +505,6 @@ onUnmounted(async () => {
                   <div class="flex flex-col items-center gap-3 py-6">
                     <CheckCircleIcon class="w-12 h-12 text-green-500" />
                     <p class="text-base font-semibold text-gray-900 dark:text-gray-100">Firmware flashed successfully!</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 text-center">
-                      Your device has been reset and is running the new firmware.
-                    </p>
                   </div>
                 </template>
 
@@ -522,7 +541,7 @@ onUnmounted(async () => {
                 <template v-else-if="phase === 'done'">
                   <button
                     @click="handleClose"
-                    class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                   >
                     Close
                   </button>
