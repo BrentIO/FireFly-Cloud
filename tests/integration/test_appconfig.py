@@ -117,20 +117,6 @@ def appconfig_original(api_url, super_auth_headers):
     If the function was already configured, teardown patches to WARNING and
     deploys so it is never left in a dirty state.
     """
-    # Wait for any in-progress deployment to settle before the test starts.
-    # Without this, back-to-back tests that each deploy can race and hit a 409.
-    deadline = time.time() + 120
-    while time.time() < deadline:
-        poll = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
-        if poll.status_code == 200:
-            app = next(
-                (a for a in poll.json().get("applications", []) if a["name"] == TEST_FUNCTION),
-                None,
-            )
-            if app is None or app.get("status") in (None, "COMPLETE", "ROLLED_BACK"):
-                break
-        time.sleep(5)
-
     resp = requests.get(f"{api_url}/appconfig", headers=super_auth_headers, timeout=15)
     if resp.status_code != 200:
         pytest.skip("GET /appconfig did not return 200 — skipping mutation tests")
