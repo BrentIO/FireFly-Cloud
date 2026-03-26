@@ -192,18 +192,18 @@ async function startFlash() {
     //    rejects it with "Must be handling a user gesture".
     phase.value = 'connecting'
     statusMessage.value = 'Waiting for port selection…'
-    console.debug('[FireFly Flash] Requesting serial port…')
+    console.log('[FireFly Flash] Requesting serial port…')
     const port = await navigator.serial.requestPort()
-    console.debug('[FireFly Flash] Port selected:', port)
+    console.log('[FireFly Flash] Port selected:', port)
 
     // 2. Get ZIP from local cache or download from S3
     phase.value = 'downloading'
     let zipBuffer = await getCachedZip(props.zipName)
     if (zipBuffer) {
-      console.debug('[FireFly Flash] Cache hit for', props.zipName)
+      console.log('[FireFly Flash] Cache hit for', props.zipName)
       statusMessage.value = 'Loading firmware from cache…'
     } else {
-      console.debug('[FireFly Flash] Cache miss for', props.zipName, '— downloading')
+      console.log('[FireFly Flash] Cache miss for', props.zipName, '— downloading')
       statusMessage.value = 'Fetching download URL…'
       const { url } = await getFirmwareDownloadUrl(props.zipName)
       statusMessage.value = 'Downloading firmware ZIP…'
@@ -240,20 +240,24 @@ async function startFlash() {
     fileProgress.value = fileArray.map(f => ({ name: f.name, address: f.address, written: 0, total: 0 }))
 
     // 4. Connect via esptool-js (port already obtained in step 1)
-    console.debug('[FireFly Flash] Creating Transport and ESPLoader…')
+    console.log('[FireFly Flash] Creating Transport and ESPLoader…')
     transport = new Transport(port, false)
-    const terminal = { clean() {}, writeLine() {}, write() {} }
+    const terminal = {
+      clean() {},
+      writeLine(s) { console.log('[ESP]', s) },
+      write(s) { console.log('[ESP]', s) },
+    }
     const esploader = new ESPLoader({ transport, baudrate: 921600, terminal })
 
     statusMessage.value = 'Connecting to device…'
-    console.debug('[FireFly Flash] Running ESPLoader.main()…')
+    console.log('[FireFly Flash] Running ESPLoader.main()…')
     const chip = await esploader.main()
-    console.debug('[FireFly Flash] Chip detected:', chip)
+    console.log('[FireFly Flash] Chip detected:', chip)
     chipName.value = chip || 'ESP32'
 
     // 5. Flash
     phase.value = 'flashing'
-    console.debug('[FireFly Flash] Starting writeFlash with', fileArray.length, 'file(s)…')
+    console.log('[FireFly Flash] Starting writeFlash with', fileArray.length, 'file(s)…')
     await esploader.writeFlash({
       fileArray: fileArray.map(({ data, address }) => ({ data, address })),
       flashSize: 'keep',
@@ -272,10 +276,10 @@ async function startFlash() {
       },
     })
 
-    console.debug('[FireFly Flash] writeFlash complete')
+    console.log('[FireFly Flash] writeFlash complete')
     phase.value = 'done'
   } catch (err) {
-    console.debug('[FireFly Flash] Error caught:', err)
+    console.log('[FireFly Flash] Error caught:', err)
     if (err?.name === 'NotAllowedError' || err?.message?.includes('No port selected')) {
       phase.value = 'idle'
       return
