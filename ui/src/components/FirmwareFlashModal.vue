@@ -112,7 +112,15 @@ async function startFlash() {
   fileProgress.value = []
 
   try {
-    // 1. Fetch pre-signed URL and download ZIP
+    // 1. Request Web Serial port first — must happen directly within the user
+    //    gesture handler before any awaited network calls, otherwise the browser
+    //    rejects it with "Must be handling a user gesture".
+    phase.value = 'connecting'
+    statusMessage.value = 'Waiting for port selection…'
+    const port = await navigator.serial.requestPort()
+
+    // 2. Fetch pre-signed URL and download ZIP
+    phase.value = 'downloading'
     statusMessage.value = 'Fetching download URL…'
     const { url } = await getFirmwareDownloadUrl(props.zipName)
 
@@ -121,7 +129,7 @@ async function startFlash() {
     if (!response.ok) throw new Error(`Download failed (HTTP ${response.status})`)
     const zipBuffer = await response.arrayBuffer()
 
-    // 2. Load ZIP and build the ordered file array
+    // 3. Load ZIP and build the ordered file array
     statusMessage.value = 'Extracting firmware files…'
     const zip = await JSZip.loadAsync(zipBuffer)
 
@@ -147,12 +155,7 @@ async function startFlash() {
     // Initialise progress tracking now that we have the final file list
     fileProgress.value = fileArray.map(f => ({ name: f.name, address: f.address, written: 0, total: 0 }))
 
-    // 3. Request Web Serial port (opens browser picker)
-    phase.value = 'connecting'
-    statusMessage.value = 'Waiting for port selection…'
-    const port = await navigator.serial.requestPort()
-
-    // 4. Connect via esptool-js
+    // 4. Connect via esptool-js (port already obtained in step 1)
     transport = new Transport(port, false)
     const terminal = { clean() {}, writeLine() {}, write() {} }
     const esploader = new ESPLoader({ transport, baudrate: 921600, terminal })
