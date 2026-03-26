@@ -99,7 +99,6 @@ jobs:
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               CognitoUserPoolId=${{ steps.lookup-cognito.outputs.user_pool_id }} \
-              EnvironmentName=${{ inputs.target_env }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
             --no-confirm-changeset \

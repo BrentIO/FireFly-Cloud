@@ -93,7 +93,6 @@ jobs:
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
               FirmwarePrivateBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               FirmwarePublicBucketName=${{ secrets.S3_FIRMWARE_PUBLIC_BUCKET_NAME }} \
-              EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

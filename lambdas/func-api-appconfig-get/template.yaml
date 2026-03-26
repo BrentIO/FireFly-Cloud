@@ -18,9 +18,6 @@ Parameters:
     Type: String
     Description: ID of the Cognito JWT authorizer on the HTTP API
 
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncApiAppConfigGetRole:
@@ -74,8 +71,7 @@ Resources:
       MemorySize: 128
       Environment:
         Variables:
-          ENVIRONMENT_NAME: !Ref EnvironmentName
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncApiAppConfigGetIntegration:
     Type: AWS::ApiGatewayV2::Integration

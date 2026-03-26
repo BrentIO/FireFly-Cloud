@@ -94,7 +94,6 @@ jobs:
               FirmwareTypeMapSsmPath=/firefly/${{ inputs.target_env }}/firmware_type_map \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
-              EnvironmentName=${{ inputs.target_env }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}

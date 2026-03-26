@@ -10,9 +10,6 @@ Parameters:
     Type: String
     Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
 
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncCognitoPreSignupRole:
@@ -62,7 +59,7 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_USERS_TABLE_NAME: firefly-users
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncCognitoPreSignupLogGroup:
     Type: AWS::Logs::LogGroup

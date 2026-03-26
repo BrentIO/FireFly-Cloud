@@ -9,9 +9,6 @@ Parameters:
   AppConfigExtensionLayerArn:
     Type: String
     Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
-  EnvironmentName:
-    Type: String
-
 Resources:
 
   FuncS3FirmwareDeletedRole:
@@ -63,7 +60,7 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
-          APP_CONFIG_ENV: !Ref EnvironmentName
+          APP_CONFIG_ENV: default
 
   FuncS3FirmwareDeletedLogGroup:
     Type: AWS::Logs::LogGroup
