@@ -320,7 +320,7 @@ function reset() {
 }
 
 function handleClose() {
-  if (phase.value === 'flashing') return
+  if (['downloading', 'connecting', 'flashing'].includes(phase.value)) return
   reset()
   emit('close')
 }
@@ -370,7 +370,7 @@ onUnmounted(async () => {
                 </div>
                 <button
                   @click="handleClose"
-                  :disabled="phase === 'flashing'"
+                  :disabled="['downloading', 'connecting', 'flashing'].includes(phase)"
                   class="ml-4 flex-shrink-0 rounded-md p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   aria-label="Close"
                 >
@@ -435,13 +435,12 @@ onUnmounted(async () => {
                     <!-- Destroy config option -->
                     <label
                       class="flex items-start gap-3 select-none"
-                      :class="eraseAll ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'"
+                      :class="eraseAll ? 'opacity-60 pointer-events-none' : 'cursor-pointer'"
                     >
                       <input
                         type="checkbox"
                         v-model="destroyConfig"
-                        :disabled="eraseAll"
-                        class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed cursor-pointer"
+                        class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
                       />
                       <span class="text-sm text-gray-700 dark:text-gray-300">
                         Destroy and flash config
@@ -486,12 +485,12 @@ onUnmounted(async () => {
                     <!-- Erase progress bar (shown while erasing, disappears when complete) -->
                     <div v-if="eraseProgress > 0 && eraseProgress < 100">
                       <div class="flex items-center justify-between mb-1">
-                        <span class="text-xs text-gray-700 dark:text-gray-300">Erasing flash</span>
+                        <span class="text-xs text-gray-700 dark:text-gray-300">Erasing flash (this may take a while)</span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">{{ eraseProgress }}%</span>
                       </div>
                       <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                         <div
-                          class="bg-amber-500 h-1.5 rounded-full transition-all duration-500"
+                          class="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
                           :style="{ width: `${eraseProgress}%` }"
                         />
                       </div>
