@@ -433,21 +433,19 @@ onUnmounted(async () => {
                     </label>
 
                     <!-- Destroy config option -->
-                    <div :class="eraseAll ? 'opacity-60 pointer-events-none' : ''">
-                      <label class="flex items-start gap-3 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          v-model="destroyConfig"
-                          class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                        />
-                        <span class="text-sm text-gray-700 dark:text-gray-300">
-                          Destroy and flash config
-                          <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            Skips writing config.bin, leaving configuration at factory defaults.
-                          </span>
+                    <label :class="['flex items-start gap-3 cursor-pointer select-none', eraseAll ? 'opacity-60 pointer-events-none' : '']">
+                      <input
+                        type="checkbox"
+                        v-model="destroyConfig"
+                        class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">
+                        Destroy and flash config
+                        <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Skips writing config.bin, leaving configuration at factory defaults.
                         </span>
-                      </label>
-                    </div>
+                      </span>
+                    </label>
                   </div>
 
                   <p class="text-xs text-gray-500 dark:text-gray-400">
