@@ -59,7 +59,7 @@ jobs:
       - name: Build UI
         working-directory: ui
         env:
-          VITE_API_URL: ${{ vars.API_URL }}
+          VITE_API_URL: https://${{ vars.API_DOMAIN_NAME }}
           VITE_COMMIT_SHA: ${{ github.sha }}
           VITE_COGNITO_DOMAIN: https://${{ vars.AUTH_DOMAIN_NAME }}
           VITE_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
