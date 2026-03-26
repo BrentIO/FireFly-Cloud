@@ -166,7 +166,7 @@ async function startFlash() {
 
     // 5. Flash
     phase.value = 'flashing'
-    await esploader.write_flash({
+    await esploader.writeFlash({
       fileArray: fileArray.map(({ data, address }) => ({ data, address })),
       flashSize: 'keep',
       flashMode: 'keep',
