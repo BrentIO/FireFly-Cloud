@@ -125,9 +125,9 @@ jobs:
         id: run-tests
         run: |
           if [ -n "${{ inputs.test_filter }}" ]; then
-            pytest tests/integration/ -v -m "${{ inputs.test_filter }}"
+            pytest tests/integration/ -v --durations=10 -m "${{ inputs.test_filter }}"
           else
-            pytest tests/integration/ -v
+            pytest tests/integration/ -v --durations=10
           fi
         env:
           FIREFLY_API_URL: ${{ steps.lookup-api.outputs.api_url }}
