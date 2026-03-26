@@ -7,6 +7,10 @@ Parameters:
     Type: String
     Description: Name of the S3 bucket to create
 
+  UiDomain:
+    Type: String
+    Description: Domain name of the UI (e.g. firefly-dev.p5software.com); used to scope the S3 CORS policy
+
   FirmwareUploadLambdaArn:
     Type: String
     Description: ARN of the firefly-func-s3-firmware-uploaded Lambda
@@ -21,6 +25,16 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref BucketName
+
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - !Sub "https://${UiDomain}"
+            AllowedMethods:
+              - GET
+            AllowedHeaders:
+              - "*"
+            MaxAge: 3000
 
       PublicAccessBlockConfiguration: 
         BlockPublicAcls: true
