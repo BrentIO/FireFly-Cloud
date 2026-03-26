@@ -421,7 +421,8 @@ onUnmounted(async () => {
                       <input
                         type="checkbox"
                         v-model="eraseAll"
-                        class="mt-0.5 !h-4 !w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        style="width: 1rem !important; height: 1rem !important; min-width: 1rem; flex-shrink: 0;"
                       />
                       <span class="text-sm text-gray-700 dark:text-gray-300">
                         Erase all flash before writing
@@ -437,7 +438,8 @@ onUnmounted(async () => {
                       <input
                         type="checkbox"
                         v-model="destroyConfig"
-                        class="mt-0.5 !h-4 !w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        style="width: 1rem !important; height: 1rem !important; min-width: 1rem; flex-shrink: 0;"
                       />
                       <span class="text-sm text-gray-700 dark:text-gray-300">
                         Destroy and flash config
