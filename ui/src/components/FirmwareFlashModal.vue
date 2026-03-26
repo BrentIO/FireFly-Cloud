@@ -27,7 +27,7 @@ const statusMessage = ref('')
 const errorMessage = ref('')
 const chipName = ref('')
 const macAddress = ref('')
-const eraseMessage = ref('')
+const eraseProgress = ref(0) // 0=not started, 10=in progress, 100=complete
 const fileProgress = ref([]) // [{ name, address, written, total }]
 const eraseAll = ref(false)
 const destroyConfig = ref(false)
@@ -256,7 +256,8 @@ async function startFlash() {
         console.debug('[ESP]', s)
         const macMatch = s.match(/mac:\s*([0-9a-f]{2}(?::[0-9a-f]{2}){5})/i)
         if (macMatch) macAddress.value = macMatch[1].toUpperCase()
-        if (s.toLowerCase().includes('erasing flash')) eraseMessage.value = s
+        if (s.toLowerCase().includes('erasing flash')) eraseProgress.value = 10
+        if (s.toLowerCase().includes('erase completed')) eraseProgress.value = 100
       },
       write(s) { console.debug('[ESP]', s) },
     }
@@ -312,7 +313,7 @@ function reset() {
   errorMessage.value = ''
   chipName.value = ''
   macAddress.value = ''
-  eraseMessage.value = ''
+  eraseProgress.value = 0
   fileProgress.value = []
   eraseAll.value = false
   destroyConfig.value = false
@@ -414,36 +415,42 @@ onUnmounted(async () => {
                     </table>
                   </div>
 
-                  <!-- Erase all flash option -->
-                  <label class="flex items-start gap-3 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      v-model="eraseAll"
-                      class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
-                      Erase all flash before writing
-                      <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Wipes the entire flash chip before flashing. Use when replacing firmware
-                        from a different project or to clear stale partition data.
+                  <div class="space-y-2">
+                    <!-- Erase all flash option -->
+                    <label class="flex items-start gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        v-model="eraseAll"
+                        class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">
+                        Erase all flash before writing
+                        <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Wipes the entire flash chip before flashing. Use when replacing firmware
+                          from a different project or to clear stale partition data.
+                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </label>
 
-                  <!-- Destroy config option -->
-                  <label class="flex items-start gap-3 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      v-model="destroyConfig"
-                      class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
-                      Destroy and flash config
-                      <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Skips writing config.bin, leaving configuration at factory defaults.
+                    <!-- Destroy config option -->
+                    <label
+                      class="flex items-start gap-3 select-none"
+                      :class="eraseAll ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'"
+                    >
+                      <input
+                        type="checkbox"
+                        v-model="destroyConfig"
+                        :disabled="eraseAll"
+                        class="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed cursor-pointer"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">
+                        Destroy and flash config
+                        <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Skips writing config.bin, leaving configuration at factory defaults.
+                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </label>
+                  </div>
 
                   <p class="text-xs text-gray-500 dark:text-gray-400">
                     If your device does not reset automatically, hold <strong>BOOT</strong>
@@ -467,16 +474,28 @@ onUnmounted(async () => {
 
                 <!-- ── Flashing ── -->
                 <template v-else-if="phase === 'flashing'">
-                  <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Flashing {{ chipName }}…
-                  </p>
-                  <p v-if="macAddress" class="text-xs font-mono text-gray-400 dark:text-gray-500 -mt-3">
-                    MAC: {{ macAddress }}
-                  </p>
-                  <p v-if="eraseMessage" class="text-xs text-amber-600 dark:text-amber-400">
-                    {{ eraseMessage }}
-                  </p>
+                  <div>
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Flashing {{ chipName }}…
+                    </p>
+                    <p v-if="macAddress" class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-0.5">
+                      MAC: {{ macAddress }}
+                    </p>
+                  </div>
                   <div class="space-y-3">
+                    <!-- Erase progress bar (shown while erasing, disappears when complete) -->
+                    <div v-if="eraseProgress > 0 && eraseProgress < 100">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-gray-700 dark:text-gray-300">Erasing flash</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ eraseProgress }}%</span>
+                      </div>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                        <div
+                          class="bg-amber-500 h-1.5 rounded-full transition-all duration-500"
+                          :style="{ width: `${eraseProgress}%` }"
+                        />
+                      </div>
+                    </div>
                     <div v-for="f in fileProgress" :key="f.name">
                       <div class="flex items-center justify-between mb-1">
                         <span class="font-mono text-xs text-gray-700 dark:text-gray-300">
@@ -495,9 +514,6 @@ onUnmounted(async () => {
                       </div>
                     </div>
                   </div>
-                  <p class="text-xs text-amber-600 dark:text-amber-400">
-                    Do not disconnect the device during flashing.
-                  </p>
                 </template>
 
                 <!-- ── Done ── -->
@@ -536,7 +552,13 @@ onUnmounted(async () => {
                   </button>
                 </template>
 
-                <template v-else-if="['downloading', 'connecting', 'flashing'].includes(phase)" />
+                <template v-else-if="phase === 'downloading' || phase === 'connecting'" />
+
+                <template v-else-if="phase === 'flashing'">
+                  <p class="text-sm font-medium text-red-600 dark:text-red-500 flex-1">
+                    Do not disconnect the device during flashing.
+                  </p>
+                </template>
 
                 <template v-else-if="phase === 'done'">
                   <button
