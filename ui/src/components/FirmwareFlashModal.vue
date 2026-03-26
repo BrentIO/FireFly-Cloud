@@ -26,6 +26,8 @@ const phase = ref('idle')
 const statusMessage = ref('')
 const errorMessage = ref('')
 const chipName = ref('')
+const macAddress = ref('')
+const eraseMessage = ref('')
 const fileProgress = ref([]) // [{ name, address, written, total }]
 const eraseAll = ref(false)
 
@@ -244,7 +246,12 @@ async function startFlash() {
     transport = new Transport(port, false)
     const terminal = {
       clean() {},
-      writeLine(s) { console.log('[ESP]', s) },
+      writeLine(s) {
+        console.log('[ESP]', s)
+        const macMatch = s.match(/mac:\s*([0-9a-f]{2}(?::[0-9a-f]{2}){5})/i)
+        if (macMatch) macAddress.value = macMatch[1].toUpperCase()
+        if (s.toLowerCase().includes('erasing flash')) eraseMessage.value = s
+      },
       write(s) { console.log('[ESP]', s) },
     }
     const esploader = new ESPLoader({ transport, baudrate: 921600, terminal })
@@ -272,7 +279,7 @@ async function startFlash() {
         }
       },
       calculateMD5Hash(image) {
-        return SparkMD5.hash(image, false)
+        return SparkMD5.hashBinary(image, false)
       },
     })
 
@@ -298,6 +305,8 @@ function reset() {
   phase.value = 'idle'
   errorMessage.value = ''
   chipName.value = ''
+  macAddress.value = ''
+  eraseMessage.value = ''
   fileProgress.value = []
   eraseAll.value = false
 }
@@ -438,6 +447,12 @@ onUnmounted(async () => {
                 <template v-else-if="phase === 'flashing'">
                   <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Flashing {{ chipName }}…
+                  </p>
+                  <p v-if="macAddress" class="text-xs font-mono text-gray-500 dark:text-gray-400 -mt-2">
+                    MAC: {{ macAddress }}
+                  </p>
+                  <p v-if="eraseMessage" class="text-xs text-amber-600 dark:text-amber-400">
+                    {{ eraseMessage }}
                   </p>
                   <div class="space-y-3">
                     <div v-for="f in fileProgress" :key="f.name">
