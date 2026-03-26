@@ -2,8 +2,7 @@
 Cognito pre-signup Lambda trigger.
 
 Fires before a new user is created in the User Pool. Blocks sign-in for any
-Google account that has not been added to the firefly-users allowed list AND
-has access to the current environment.
+Google account that has not been added to the firefly-users allowed list.
 
 Admin-created users (test users, first super user bootstrap) always pass through.
 """
@@ -14,14 +13,11 @@ import boto3
 import os
 import time
 
-from boto3.dynamodb.conditions import Key
-
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
 
 dynamodb = boto3.resource("dynamodb")
 TABLE_NAME = os.environ["DYNAMODB_USERS_TABLE_NAME"]
-ENVIRONMENT_NAME = os.environ["ENVIRONMENT_NAME"]
 
 users_table = dynamodb.Table(TABLE_NAME)
 
@@ -62,18 +58,6 @@ def lambda_handler(event, context):
         logger.warning(f"Pre-signup blocked: invitation for {email} has expired")
         raise Exception(
             "Sign-in is not permitted: this invitation has expired. Please ask a super user to re-invite you."
-        )
-
-    environments = item.get("environments", [])
-    if isinstance(environments, set):
-        environments = list(environments)
-
-    if ENVIRONMENT_NAME not in environments:
-        logger.warning(
-            f"Pre-signup blocked: {email} not allowed in environment '{ENVIRONMENT_NAME}'"
-        )
-        raise Exception(
-            f"Sign-in is not permitted: this account does not have access to the '{ENVIRONMENT_NAME}' environment."
         )
 
     logger.info(f"Pre-signup allowed: {email}")
