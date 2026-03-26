@@ -13,10 +13,6 @@ Parameters:
     Type: String
     Description: Name of the S3 bucket containing firmware ZIPs
 
-  DynamoDbFirmwareTableName:
-    Type: String
-    Description: Name of the DynamoDB firmware table
-
   EnvironmentName:
     Type: String
 
@@ -60,7 +56,7 @@ Resources:
                 Action:
                   - dynamodb:PutItem
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware
               - Effect: Allow
                 Action:
                   - appconfig:StartConfigurationSession
@@ -84,7 +80,7 @@ Resources:
         - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
-          DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncS3FirmwareUploadedLogGroup:

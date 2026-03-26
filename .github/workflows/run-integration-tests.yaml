@@ -76,15 +76,6 @@ jobs:
           echo "user_pool_id=$POOL_ID" >> $GITHUB_OUTPUT
           echo "client_id=$CLIENT_ID" >> $GITHUB_OUTPUT
 
-      - name: Look up DynamoDB Users Table Name
-        id: lookup-dynamodb-users
-        run: |
-          TABLE_NAME=$(aws cloudformation describe-stacks \
-            --stack-name firefly-dynamodb-users \
-            --query "Stacks[0].Outputs[?OutputKey=='UsersTableName'].OutputValue" \
-            --output text 2>/dev/null || echo "")
-          echo "table_name=$TABLE_NAME" >> $GITHUB_OUTPUT
-
       - name: Generate transient CI credentials
         id: ci-creds
         if: steps.lookup-cognito.outputs.user_pool_id != ''
@@ -147,7 +138,7 @@ jobs:
           FIREFLY_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
           FIREFLY_TEST_USER_EMAIL: ${{ steps.ci-creds.outputs.email }}
           FIREFLY_TEST_USER_PASSWORD: ${{ steps.ci-creds.outputs.password }}
-          FIREFLY_DYNAMODB_USERS_TABLE_NAME: ${{ steps.lookup-dynamodb-users.outputs.table_name }}
+          FIREFLY_DYNAMODB_USERS_TABLE_NAME: firefly-users
 
       - name: Delete CI test user
         if: always() && steps.lookup-cognito.outputs.user_pool_id != '' && steps.ci-creds.outputs.email != ''

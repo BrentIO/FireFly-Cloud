@@ -33,14 +33,13 @@ jobs:
       - name: Deploy dynamodb-users
         env:
           ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }}
-          TABLE_NAME: ${{ vars.DYNAMODB_USERS_TABLE_NAME }}
         run: |
           python3 << 'PYEOF'
           import boto3, json, os, subprocess, sys, time
           from botocore.exceptions import ClientError
 
           STACK    = 'firefly-dynamodb-users'
-          TABLE    = os.environ['TABLE_NAME']
+          TABLE    = 'firefly-users'
           ROLE     = os.environ['ROLE_ARN']
           TEMPLATE = 'templates/dynamodb-users.yaml'
 
@@ -63,7 +62,6 @@ jobs:
               '--role-arn', ROLE,
               '--template-file', TEMPLATE,
               '--stack-name', STACK,
-              '--parameter-overrides', f'DynamoDbUsersTableName={TABLE}',
               '--no-fail-on-empty-changeset',
             ])
             sys.exit(r.returncode)
@@ -84,7 +82,6 @@ jobs:
               '--role-arn', ROLE,
               '--template-file', TEMPLATE,
               '--stack-name', STACK,
-              '--parameter-overrides', f'DynamoDbUsersTableName={TABLE}',
               '--no-fail-on-empty-changeset',
             ])
             sys.exit(r.returncode)
@@ -111,10 +108,6 @@ jobs:
             ChangeSetType='IMPORT',
             RoleARN=ROLE,
             TemplateBody=import_template_body,
-            Parameters=[{
-              'ParameterKey': 'DynamoDbUsersTableName',
-              'ParameterValue': TABLE,
-            }],
             ResourcesToImport=[{
               'ResourceType': 'AWS::DynamoDB::Table',
               'LogicalResourceId': 'UsersTable',
@@ -156,7 +149,6 @@ jobs:
             '--role-arn', ROLE,
             '--template-file', TEMPLATE,
             '--stack-name', STACK,
-            '--parameter-overrides', f'DynamoDbUsersTableName={TABLE}',
             '--no-fail-on-empty-changeset',
           ])
           sys.exit(r.returncode)

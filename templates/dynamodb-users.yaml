@@ -1,11 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: DynamoDB table for FireFly user allowed list
 
-Parameters:
-  DynamoDbUsersTableName:
-    Type: String
-    Description: Name of the DynamoDB users table
-
 Resources:
 
   UsersTable:
@@ -13,7 +8,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      TableName: !Ref DynamoDbUsersTableName
+      TableName: firefly-users
       BillingMode: PAY_PER_REQUEST
       TableClass: STANDARD
       DeletionProtectionEnabled: true

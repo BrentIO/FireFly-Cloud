@@ -22,10 +22,6 @@ Parameters:
     Type: String
     Description: ID of the Cognito User Pool
 
-  DynamoDbUsersTableName:
-    Type: String
-    Description: Name of the DynamoDB users allowed-list table
-
   EnvironmentName:
     Type: String
 
@@ -59,7 +55,7 @@ Resources:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbUsersTableName}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-users
 
               - Effect: Allow
                 Action:
@@ -84,7 +80,7 @@ Resources:
       Environment:
         Variables:
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
-          DYNAMODB_USERS_TABLE_NAME: !Ref DynamoDbUsersTableName
+          DYNAMODB_USERS_TABLE_NAME: firefly-users
           APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncApiUsersPostIntegration:

@@ -13,10 +13,6 @@ Parameters:
     Type: String
     Description: The ID of the existing HTTP API to attach routes to
 
-  DynamoDbFirmwareTableName:
-    Type: String
-    Description: Name of the DynamoDB firmware table
-
   AuthorizerId:
     Type: String
     Description: ID of the Cognito JWT authorizer on the HTTP API
@@ -49,8 +45,8 @@ Resources:
                   - dynamodb:Query
                   - dynamodb:Scan
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDbFirmwareTableName}/index/*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware/index/*
               - Effect: Allow
                 Action:
                   - appconfig:StartConfigurationSession
@@ -74,7 +70,7 @@ Resources:
         - !Ref AppConfigExtensionLayerArn
       Environment:
         Variables:
-          DYNAMODB_FIRMWARE_TABLE_NAME: !Ref DynamoDbFirmwareTableName
+          DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           APP_CONFIG_ENV: !Ref EnvironmentName
 
   FuncApiFirmwareGetIntegration:
