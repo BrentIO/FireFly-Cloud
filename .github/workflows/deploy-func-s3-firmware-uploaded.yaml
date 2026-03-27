@@ -80,7 +80,7 @@ jobs:
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}
 
   run-integration-tests:
     if: inputs.run_tests

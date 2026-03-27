@@ -69,10 +69,10 @@ jobs:
               UiBucketName=${{ secrets.S3_UI_BUCKET_NAME }} \
               CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
               UiDomain=${{ vars.UI_DOMAIN_NAME }} \
-              HostedZoneId=${{ secrets.HOSTED_ZONE_ID }} \
+              HostedZoneId=${{ secrets.ROUTE_53_HOSTED_ZONE_ID }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }}
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}
 
   run-integration-tests:
     if: inputs.run_tests
