@@ -87,7 +87,7 @@ jobs:
             --parameter-overrides \
               ApiDomainName=${{ vars.API_DOMAIN_NAME }} \
               CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
-              HostedZoneId=${{ secrets.HOSTED_ZONE_ID }} \
+              HostedZoneId=${{ secrets.ROUTE_53_HOSTED_ZONE_ID }} \
               UiOrigin=https://${{ vars.UI_DOMAIN_NAME }} \
               CognitoUserPoolId=${{ steps.lookup-cognito.outputs.pool_id }} \
               CognitoUserPoolClientId=${{ steps.lookup-cognito.outputs.client_id }} \
