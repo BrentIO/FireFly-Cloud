@@ -22,6 +22,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy-s3-firmware-public:
     environment: ${{ inputs.target_env }}
