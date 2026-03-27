@@ -442,9 +442,9 @@ onUnmounted(async () => {
                         style="width: 1rem !important; height: 1rem !important; min-width: 1rem; flex-shrink: 0;"
                       />
                       <span class="text-sm text-gray-700 dark:text-gray-300">
-                        Destroy and flash config
+                        Factory reset device
                         <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          Skips writing config.bin, leaving configuration at factory defaults.
+                          Removes all configuration data and backups stored on the device.
                         </span>
                       </span>
                     </label>
