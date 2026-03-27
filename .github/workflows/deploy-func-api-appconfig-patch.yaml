@@ -105,3 +105,4 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
       test_filter: appconfig
+      run_appconfig_tests: true

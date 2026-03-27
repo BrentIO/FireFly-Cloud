@@ -14,6 +14,11 @@ on:
         description: "pytest marker expression to filter tests (leave blank to run all)"
         required: false
         default: ""
+      run_appconfig_tests:
+        type: boolean
+        description: "Include AppConfig tests (slow — triggers AWS AppConfig deployments)"
+        required: false
+        default: false
   workflow_call:
     inputs:
       target_env:
@@ -23,6 +28,10 @@ on:
         required: false
         type: string
         default: ""
+      run_appconfig_tests:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   run-integration-tests:
@@ -126,8 +135,19 @@ jobs:
       - name: Run integration tests
         id: run-tests
         run: |
+          MARKER=""
+          if [ "${{ inputs.run_appconfig_tests }}" != "true" ]; then
+            MARKER="not appconfig"
+          fi
           if [ -n "${{ inputs.test_filter }}" ]; then
-            pytest tests/integration/ -v --durations=10 -m "${{ inputs.test_filter }}"
+            if [ -n "$MARKER" ]; then
+              MARKER="(${{ inputs.test_filter }}) and $MARKER"
+            else
+              MARKER="${{ inputs.test_filter }}"
+            fi
+          fi
+          if [ -n "$MARKER" ]; then
+            pytest tests/integration/ -v --durations=10 -m "$MARKER"
           else
             pytest tests/integration/ -v --durations=10
           fi

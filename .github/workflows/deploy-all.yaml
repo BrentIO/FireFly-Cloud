@@ -255,3 +255,4 @@ jobs:
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
+      run_appconfig_tests: false
