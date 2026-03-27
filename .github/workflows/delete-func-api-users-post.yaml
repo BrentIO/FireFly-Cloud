@@ -39,5 +39,5 @@ jobs:
           sam delete \
             --stack-name firefly-func-api-users-post \
             --region ${{ secrets.AWS_REGION }} \
-            --s3-bucket ${{ secrets.SAM_DEPLOYMENT_BUCKET_NAME }} \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }} \
             --no-prompts
