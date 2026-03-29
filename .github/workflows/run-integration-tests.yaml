@@ -160,6 +160,7 @@ jobs:
           FIREFLY_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
           FIREFLY_TEST_USER_EMAIL: ${{ steps.ci-creds.outputs.email }}
           FIREFLY_TEST_USER_PASSWORD: ${{ steps.ci-creds.outputs.password }}
+          CLEANUP_TEST_RECORDS: ${{ vars.CLEANUP_TEST_RECORDS }}
 
       - name: Delete CI test user
         if: always() && steps.lookup-cognito.outputs.user_pool_id != '' && steps.ci-creds.outputs.email != ''
