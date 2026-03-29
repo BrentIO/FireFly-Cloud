@@ -171,6 +171,7 @@ jobs:
     needs:
       - deploy-func-s3-firmware-uploaded
       - deploy-func-s3-firmware-deleted
+      - deploy-cloudfront-ui
     uses: ./.github/workflows/deploy-s3-firmware.yaml
     secrets: inherit
     with:
