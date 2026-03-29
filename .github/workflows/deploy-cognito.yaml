@@ -190,7 +190,7 @@ jobs:
 
           if [ "$EXISTING_COUNT" = "0" ]; then
             echo "No A record found for $PARENT_DOMAIN — creating temporary one for Cognito validation"
-            aws route53 change-resource-record-sets \
+            CHANGE_ID=$(aws route53 change-resource-record-sets \
               --hosted-zone-id ${{ secrets.ROUTE_53_HOSTED_ZONE_ID }} \
               --change-batch "{
                 \"Changes\": [{
@@ -202,7 +202,12 @@ jobs:
                     \"ResourceRecords\": [{\"Value\": \"1.2.3.4\"}]
                   }
                 }]
-              }"
+              }" \
+              --query "ChangeInfo.Id" \
+              --output text)
+            echo "Waiting for Route 53 change $CHANGE_ID to propagate..."
+            aws route53 wait resource-record-sets-changed --id "$CHANGE_ID"
+            echo "Route 53 propagation complete"
             echo "created_parent_a_record=true" >> $GITHUB_OUTPUT
           else
             echo "A record already exists for $PARENT_DOMAIN — no action needed"
