@@ -20,6 +20,16 @@
         },
         {
             "Effect": "Allow",
+            "Action": "iam:CreateServiceLinkedRole",
+            "Resource": "arn:aws:iam::*:role/aws-service-role/ops.apigateway.amazonaws.com/*",
+            "Condition": {
+                "StringLike": {
+                    "iam:AWSServiceName": "ops.apigateway.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
             "Action": [
                 "lambda:AddPermission",
                 "lambda:CreateFunction",
