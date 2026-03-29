@@ -41,3 +41,9 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }} \
             --no-prompts
+
+      - name: Delete CloudWatch log group
+        run: |
+          aws logs delete-log-group \
+            --log-group-name /aws/lambda/firefly-func-api-ota-get \
+            --region ${{ secrets.AWS_REGION }} 2>/dev/null || true
