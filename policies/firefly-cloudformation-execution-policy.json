@@ -178,7 +178,8 @@
             ],
             "Resource": [
                 "arn:aws:s3:::S3_SAM_DEPLOYMENT_BUCKET_NAME",
-                "arn:aws:s3:::S3_SAM_DEPLOYMENT_BUCKET_NAME/*"
+                "arn:aws:s3:::S3_SAM_DEPLOYMENT_BUCKET_NAME/*",
+                "arn:aws:s3:::S3_DOCS_BUCKET_NAME/*"
             ]
         },
         {
