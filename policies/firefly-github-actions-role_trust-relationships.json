@@ -12,7 +12,11 @@
                     "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
                 },
                 "StringLike": {
-                    "token.actions.githubusercontent.com:sub": "repo:BrentIO/FireFly-Cloud:*"
+                    "token.actions.githubusercontent.com:sub": [
+                        "repo:BrentIO/FireFly-Cloud:*",
+                        "repo:BrentIO/FireFly:*",
+                        "repo:BrentIO/FireFly-Docs:*"
+                    ]
                 }
             }
         }
