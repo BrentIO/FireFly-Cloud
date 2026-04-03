@@ -98,7 +98,11 @@ const displayFiles = computed(() => {
   const bins = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
   const skipped = (props.item.files || []).filter(f => !f.name.endsWith('.bin'))
   return [
-    ...bins.map(f => ({ name: f.name, label: displayAddress(f.name), skipped: false })),
+    ...bins.map(f => {
+      const isConfigBin = f.name === 'config.bin'
+      const willSkip = isConfigBin && !destroyConfig.value
+      return { name: f.name, label: willSkip ? null : displayAddress(f.name), skipped: willSkip }
+    }),
     ...skipped.map(f => ({ name: f.name, label: null, skipped: true })),
   ]
 })
@@ -227,7 +231,7 @@ async function startFlash() {
     const binFiles = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
     const fileArray = []
     for (const f of binFiles) {
-      if (destroyConfig.value && f.name === 'config.bin') continue // intentionally skipped
+      if (!destroyConfig.value && f.name === 'config.bin') continue // skip unless factory reset requested
       const address = resolveFlashAddress(f.name)
       if (address === null) continue // address unknown; skip
       const entry = zip.file(f.name)
