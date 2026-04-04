@@ -100,7 +100,8 @@ const displayFiles = computed(() => {
   return [
     ...bins.map(f => {
       const isConfigBin = f.name === 'config.bin'
-      const willSkip = isConfigBin && !destroyConfig.value
+      const isBootloaderOrPartitions = f.name.endsWith('.bootloader.bin') || f.name.endsWith('.partitions.bin')
+      const willSkip = (isConfigBin && !destroyConfig.value) || (isBootloaderOrPartitions && !eraseAll.value)
       return { name: f.name, label: willSkip ? null : displayAddress(f.name), skipped: willSkip }
     }),
     ...skipped.map(f => ({ name: f.name, label: null, skipped: true })),
@@ -232,6 +233,7 @@ async function startFlash() {
     const fileArray = []
     for (const f of binFiles) {
       if (!destroyConfig.value && f.name === 'config.bin') continue // skip unless factory reset requested
+      if (!eraseAll.value && (f.name.endsWith('.bootloader.bin') || f.name.endsWith('.partitions.bin'))) continue // skip unless erase all requested
       const address = resolveFlashAddress(f.name)
       if (address === null) continue // address unknown; skip
       const entry = zip.file(f.name)
@@ -431,8 +433,7 @@ onUnmounted(async () => {
                       <span class="text-sm text-gray-700 dark:text-gray-300">
                         Erase all flash before writing
                         <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          Wipes the entire flash chip before flashing. Use when replacing firmware
-                          from a different project or to clear stale partition data.
+                          Wipes all flash. Device identity will need to be re-written using the Hardware Registration and Configuration app. Use when changing firmware projects or fixing stale partitions.
                         </span>
                       </span>
                     </label>
