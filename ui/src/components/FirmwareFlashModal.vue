@@ -100,7 +100,8 @@ const displayFiles = computed(() => {
   return [
     ...bins.map(f => {
       const isConfigBin = f.name === 'config.bin'
-      const willSkip = isConfigBin && !destroyConfig.value
+      const isBootloaderOrPartitions = f.name.endsWith('.bootloader.bin') || f.name.endsWith('.partitions.bin')
+      const willSkip = (isConfigBin && !destroyConfig.value) || (isBootloaderOrPartitions && !eraseAll.value)
       return { name: f.name, label: willSkip ? null : displayAddress(f.name), skipped: willSkip }
     }),
     ...skipped.map(f => ({ name: f.name, label: null, skipped: true })),
@@ -232,6 +233,7 @@ async function startFlash() {
     const fileArray = []
     for (const f of binFiles) {
       if (!destroyConfig.value && f.name === 'config.bin') continue // skip unless factory reset requested
+      if (!eraseAll.value && (f.name.endsWith('.bootloader.bin') || f.name.endsWith('.partitions.bin'))) continue // skip unless erase all requested
       const address = resolveFlashAddress(f.name)
       if (address === null) continue // address unknown; skip
       const entry = zip.file(f.name)
