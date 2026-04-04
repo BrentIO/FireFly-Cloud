@@ -433,7 +433,7 @@ onUnmounted(async () => {
                       <span class="text-sm text-gray-700 dark:text-gray-300">
                         Erase all flash before writing
                         <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          Wipes all flash. Device identity will need to be re-written using the Hardware Registration app. Use when changing firmware projects or fixing stale partitions.
+                          Wipes all flash. Device identity will need to be re-written using the Hardware Registration and Configuration app. Use when changing firmware projects or fixing stale partitions.
                         </span>
                       </span>
                     </label>
