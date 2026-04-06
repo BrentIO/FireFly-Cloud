@@ -17,7 +17,6 @@ FIRMWARE_TYPE_MAP = json.loads(os.environ["FIRMWARE_TYPE_MAP"])
 firmware_table = dynamodb.Table(TABLE_NAME)
 
 LFS_BINARY_NAME = "www.bin"
-MAIN_BINARY_NAME = "sketch.ino.bin"
 
 
 def _response(status_code, body):
@@ -96,11 +95,13 @@ def lambda_handler(event, context):
         url = None
         littlefs = None
 
+        main_binary_name = f"{application}.ino.bin"
+
         for f in files:
             name = f["name"]
             if name == LFS_BINARY_NAME:
                 littlefs = f"{base_url}/{name}"
-            elif name == MAIN_BINARY_NAME:
+            elif name == main_binary_name:
                 url = f"{base_url}/{name}"
 
         if not url:

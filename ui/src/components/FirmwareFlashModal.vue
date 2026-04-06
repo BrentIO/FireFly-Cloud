@@ -58,7 +58,7 @@ let transport = null
  * All other files (including unrecognised .bin files) are excluded entirely.
  */
 function isFlashableFile(filename) {
-  if (filename === 'sketch.ino.bin') return true
+  if (filename === `${props.item.application}.ino.bin`) return true
   if (filename === 'www.bin') return true
   if (filename === 'config.bin') return true
   if (filename.endsWith('.bootloader.bin')) return true
@@ -83,7 +83,7 @@ function resolveFlashAddress(filename) {
     const v = offsets['www']
     return v != null ? Number(v) : null
   }
-  if (filename === 'sketch.ino.bin') return 0x10000
+  if (filename === `${props.item.application}.ino.bin`) return 0x10000
   return null
 }
 
@@ -102,7 +102,7 @@ function displayAddress(filename) {
     const v = (props.item.partition_offsets || {})['www']
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
-  if (filename === 'sketch.ino.bin') return '0x10000'
+  if (filename === `${props.item.application}.ino.bin`) return '0x10000'
   return null
 }
 
