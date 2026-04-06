@@ -28,6 +28,8 @@ def _is_main_binary(name):
         return False
     if name.endswith(".bootloader.bin") or name.endswith(".partitions.bin"):
         return False
+    if name.endswith(".merged.bin"):
+        return False
     return name.endswith(".bin")
 
 

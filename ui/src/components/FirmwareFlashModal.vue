@@ -46,12 +46,29 @@ let transport = null
 //
 // Addresses for data partitions (config, www, etc.) are resolved from the
 // partition_offsets map stored in the DynamoDB record at ingestion time.
-// Non-.bin files (*.elf, *.map, manifest.json, etc.) are always skipped.
+//
+// Only explicitly whitelisted files are flashed.  Any .bin file not in the
+// whitelist (e.g. sketch.ino.merged.bin produced by ESP-IDF ≥ 3.3.7) is
+// silently ignored and never shown in the flash dialog.
+// Non-.bin files (*.elf, *.map, manifest.json, etc.) are shown as skipped.
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the flash address for a file.
- * Returns null for files that should be skipped.
+ * Returns true if the file should be shown and considered for flashing.
+ * All other files (including unrecognised .bin files) are excluded entirely.
+ */
+function isFlashableFile(filename) {
+  if (filename === 'sketch.ino.bin') return true
+  if (filename === 'www.bin') return true
+  if (filename === 'config.bin') return true
+  if (filename.endsWith('.bootloader.bin')) return true
+  if (filename.endsWith('.partitions.bin')) return true
+  return false
+}
+
+/**
+ * Resolve the flash address for a whitelisted file.
+ * Returns null for files whose address cannot be determined.
  * partition_offsets values may be strings (DynamoDB Decimal → JSON default=str).
  */
 function resolveFlashAddress(filename) {
@@ -66,7 +83,7 @@ function resolveFlashAddress(filename) {
     const v = offsets['www']
     return v != null ? Number(v) : null
   }
-  if (filename.endsWith('.bin')) return 0x10000
+  if (filename === 'sketch.ino.bin') return 0x10000
   return null
 }
 
@@ -85,7 +102,7 @@ function displayAddress(filename) {
     const v = (props.item.partition_offsets || {})['www']
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
-  if (filename.endsWith('.bin')) return '0x10000'
+  if (filename === 'sketch.ino.bin') return '0x10000'
   return null
 }
 
@@ -93,18 +110,21 @@ function formatAddress(addr) {
   return '0x' + addr.toString(16).toUpperCase().padStart(5, '0')
 }
 
-// Files shown in the idle-state table
+// Files shown in the idle-state table.
+// Whitelisted .bin files are shown (with address or "skipped" based on checkboxes).
+// Unrecognised .bin files are excluded entirely — not shown at all.
+// Non-.bin files (*.elf, *.map, manifest.json, etc.) are shown as skipped.
 const displayFiles = computed(() => {
-  const bins = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
-  const skipped = (props.item.files || []).filter(f => !f.name.endsWith('.bin'))
+  const flashable = (props.item.files || []).filter(f => isFlashableFile(f.name))
+  const nonBin = (props.item.files || []).filter(f => !f.name.endsWith('.bin'))
   return [
-    ...bins.map(f => {
+    ...flashable.map(f => {
       const isConfigBin = f.name === 'config.bin'
       const isBootloaderOrPartitions = f.name.endsWith('.bootloader.bin') || f.name.endsWith('.partitions.bin')
       const willSkip = (isConfigBin && !destroyConfig.value) || (isBootloaderOrPartitions && !eraseAll.value)
       return { name: f.name, label: willSkip ? null : displayAddress(f.name), skipped: willSkip }
     }),
-    ...skipped.map(f => ({ name: f.name, label: null, skipped: true })),
+    ...nonBin.map(f => ({ name: f.name, label: null, skipped: true })),
   ]
 })
 
@@ -229,7 +249,7 @@ async function startFlash() {
     statusMessage.value = 'Extracting firmware files…'
     const zip = await JSZip.loadAsync(zipBuffer)
 
-    const binFiles = (props.item.files || []).filter(f => f.name.endsWith('.bin'))
+    const binFiles = (props.item.files || []).filter(f => isFlashableFile(f.name))
     const fileArray = []
     for (const f of binFiles) {
       if (!destroyConfig.value && f.name === 'config.bin') continue // skip unless factory reset requested
