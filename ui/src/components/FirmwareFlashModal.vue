@@ -39,17 +39,18 @@ watch(eraseAll, (val) => { destroyConfig.value = val })
 let transport = null
 
 // ---------------------------------------------------------------------------
-// Addresses fixed by ESP32 architecture — the same on every board:
+// Two addresses are fixed by ESP32 architecture and the same on every board:
 //   bootloader  → 0x01000
 //   partitions  → 0x08000
-//   application → 0x10000  (standard app0 offset)
+// These do not appear in the partition table binary itself.
 //
-// Addresses for data partitions (config, www, etc.) are resolved from the
-// partition_offsets map stored in the DynamoDB record at ingestion time.
+// All other addresses — including the main application (app0), config, www,
+// etc. — are resolved from the partition_offsets map stored in the DynamoDB
+// record at ingestion time by parsing the partitions.bin binary.
 //
 // Only explicitly whitelisted files are flashed.  Any .bin file not in the
-// whitelist (e.g. sketch.ino.merged.bin produced by ESP-IDF ≥ 3.3.7) is
-// silently ignored and never shown in the flash dialog.
+// whitelist (e.g. {application}.ino.merged.bin produced by ESP-IDF ≥ 3.3.7)
+// is silently ignored and never shown in the flash dialog.
 // Non-.bin files (*.elf, *.map, manifest.json, etc.) are shown as skipped.
 // ---------------------------------------------------------------------------
 
@@ -75,34 +76,42 @@ function resolveFlashAddress(filename) {
   const offsets = props.item.partition_offsets || {}
   if (filename.endsWith('.bootloader.bin')) return 0x01000
   if (filename.endsWith('.partitions.bin')) return 0x08000
-  if (filename === 'config.bin') {
-    const v = offsets['config']
+  if (filename === `${props.item.application}.ino.bin`) {
+    const v = offsets['app0']
     return v != null ? Number(v) : null
   }
   if (filename === 'www.bin') {
     const v = offsets['www']
     return v != null ? Number(v) : null
   }
-  if (filename === `${props.item.application}.ino.bin`) return 0x10000
+  if (filename === 'config.bin') {
+    const v = offsets['config']
+    return v != null ? Number(v) : null
+  }
   return null
 }
 
 /**
  * Display label for the idle-state file table.
- * Uses stored partition_offsets for data partitions when available.
+ * Uses stored partition_offsets for all addresses except bootloader and
+ * partition table, which are fixed by ESP32 architecture.
  */
 function displayAddress(filename) {
+  const offsets = props.item.partition_offsets || {}
   if (filename.endsWith('.bootloader.bin')) return '0x01000'
   if (filename.endsWith('.partitions.bin')) return '0x08000'
-  if (filename === 'config.bin') {
-    const v = (props.item.partition_offsets || {})['config']
+  if (filename === `${props.item.application}.ino.bin`) {
+    const v = offsets['app0']
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
   if (filename === 'www.bin') {
-    const v = (props.item.partition_offsets || {})['www']
+    const v = offsets['www']
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
-  if (filename === `${props.item.application}.ino.bin`) return '0x10000'
+  if (filename === 'config.bin') {
+    const v = offsets['config']
+    return v != null ? formatAddress(Number(v)) : 'from partition table'
+  }
   return null
 }
 
