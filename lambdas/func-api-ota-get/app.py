@@ -17,20 +17,7 @@ FIRMWARE_TYPE_MAP = json.loads(os.environ["FIRMWARE_TYPE_MAP"])
 firmware_table = dynamodb.Table(TABLE_NAME)
 
 LFS_BINARY_NAME = "www.bin"
-EXCLUDE_FROM_OTA = {"config.bin", "manifest.json"}
-
-
-def _is_main_binary(name):
-    """Return True if name is the main application firmware binary."""
-    if name in EXCLUDE_FROM_OTA:
-        return False
-    if name == LFS_BINARY_NAME:
-        return False
-    if name.endswith(".bootloader.bin") or name.endswith(".partitions.bin"):
-        return False
-    if name.endswith(".merged.bin"):
-        return False
-    return name.endswith(".bin")
+MAIN_BINARY_NAME = "sketch.ino.bin"
 
 
 def _response(status_code, body):
@@ -113,7 +100,7 @@ def lambda_handler(event, context):
             name = f["name"]
             if name == LFS_BINARY_NAME:
                 littlefs = f"{base_url}/{name}"
-            elif _is_main_binary(name) and url is None:
+            elif name == MAIN_BINARY_NAME:
                 url = f"{base_url}/{name}"
 
         if not url:
