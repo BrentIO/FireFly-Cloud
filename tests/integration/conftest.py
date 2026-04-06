@@ -113,6 +113,9 @@ def _create_test_zip(
     partitions_payload = b"FIREFLY_TEST_PARTITIONS_PAYLOAD"
     partitions_sha256 = hashlib.sha256(partitions_payload).hexdigest()
 
+    main_bin = f"{application}.ino.bin"
+    partitions_bin = f"{application}.ino.partitions.bin"
+
     manifest = {
         "product_id": product_id,
         "version": version,
@@ -122,16 +125,16 @@ def _create_test_zip(
         "commit": TEST_COMMIT,
         "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "files": [
-            {"name": "firmware.bin", "sha256": sha256},
-            {"name": "firmware.partitions.bin", "sha256": partitions_sha256},
+            {"name": main_bin, "sha256": sha256},
+            {"name": partitions_bin, "sha256": partitions_sha256},
         ],
     }
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("manifest.json", json.dumps(manifest))
-        zf.writestr("firmware.bin", payload)
-        zf.writestr("firmware.partitions.bin", partitions_payload)
+        zf.writestr(main_bin, payload)
+        zf.writestr(partitions_bin, partitions_payload)
     return buf.getvalue()
 
 
