@@ -280,6 +280,18 @@
         {
             "Effect": "Allow",
             "Action": [
+                "cloudfront:DescribeFunction",
+                "cloudfront:CreateFunction",
+                "cloudfront:UpdateFunction",
+                "cloudfront:PublishFunction",
+                "cloudfront:DeleteFunction",
+                "cloudfront:GetFunction"
+            ],
+            "Resource": "arn:aws:cloudfront::AWS_ACCOUNT_ID:function/firefly-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "ssm:GetParameter",
                 "ssm:GetParameters"
             ],
