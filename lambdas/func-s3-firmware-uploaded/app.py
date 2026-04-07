@@ -222,6 +222,9 @@ def lambda_handler(event, context):
                 "partition_offsets": partition_offsets,
             }
 
+            if manifest.get("bootloader_addr"):
+                item["bootloader_addr"] = manifest["bootloader_addr"]
+
             firmware_table.put_item(Item=item)
             logger.debug(f"DynamoDB record written for product_id='{product_id}' version='{version}'")
 

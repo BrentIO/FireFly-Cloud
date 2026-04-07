@@ -39,10 +39,16 @@ watch(eraseAll, (val) => { destroyConfig.value = val })
 let transport = null
 
 // ---------------------------------------------------------------------------
-// Two addresses are fixed by ESP32 architecture and the same on every board:
-//   bootloader  → 0x01000
-//   partitions  → 0x08000
-// These do not appear in the partition table binary itself.
+// The bootloader address varies by chip family:
+//   ESP32 (Xtensa LX6)      → 0x01000
+//   ESP32-S2/S3 (LX7)       → 0x00000
+//   ESP32-C3/C6 (RISC-V)    → 0x00000
+// It is stored in the DynamoDB record as bootloader_addr (populated from the
+// manifest at upload time). Older records without this field fall back to
+// 0x01000.
+//
+// The partition table address (0x08000) is fixed across all current supported
+// variants and is not stored in the manifest.
 //
 // All other addresses — including the main application (app0), config, www,
 // etc. — are resolved from the partition_offsets map stored in the DynamoDB
@@ -53,6 +59,10 @@ let transport = null
 // is silently ignored and never shown in the flash dialog.
 // Non-.bin files (*.elf, *.map, manifest.json, etc.) are shown as skipped.
 // ---------------------------------------------------------------------------
+
+const bootloaderAddr = computed(() =>
+  props.item.bootloader_addr != null ? Number(props.item.bootloader_addr) : 0x01000
+)
 
 /**
  * Returns true if the file should be shown and considered for flashing.
@@ -74,7 +84,7 @@ function isFlashableFile(filename) {
  */
 function resolveFlashAddress(filename) {
   const offsets = props.item.partition_offsets || {}
-  if (filename.endsWith('.bootloader.bin')) return 0x01000
+  if (filename.endsWith('.bootloader.bin')) return bootloaderAddr.value
   if (filename.endsWith('.partitions.bin')) return 0x08000
   if (filename === `${props.item.application}.ino.bin`) {
     const v = offsets['app0']
@@ -98,7 +108,7 @@ function resolveFlashAddress(filename) {
  */
 function displayAddress(filename) {
   const offsets = props.item.partition_offsets || {}
-  if (filename.endsWith('.bootloader.bin')) return '0x01000'
+  if (filename.endsWith('.bootloader.bin')) return formatAddress(bootloaderAddr.value)
   if (filename.endsWith('.partitions.bin')) return '0x08000'
   if (filename === `${props.item.application}.ino.bin`) {
     const v = offsets['app0']
