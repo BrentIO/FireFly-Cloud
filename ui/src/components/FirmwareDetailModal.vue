@@ -416,19 +416,8 @@ function transitionButtonClass(nextStatus) {
                   </button>
                   <div v-else />
 
-                  <!-- Right: Flash + Download -->
+                  <!-- Right: Download + Flash -->
                   <div class="flex items-center gap-2">
-                    <!-- Flash via USB (Chrome / Web Serial only; not available for deleted firmware or missing partition data) -->
-                    <button
-                      v-if="webSerialSupported && item.release_status !== 'DELETED'"
-                      @click="flashOpen = true"
-                      :disabled="!hasPartitionOffsets"
-                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                    >
-                      <BoltIcon class="w-4 h-4" />
-                      Flash via USB
-                    </button>
-
                     <!-- Download ZIP -->
                     <button
                       v-if="item.release_status !== 'DELETED'"
@@ -447,6 +436,17 @@ function transitionButtonClass(nextStatus) {
                         <ArrowDownTrayIcon class="w-4 h-4" />
                         Download ZIP
                       </template>
+                    </button>
+
+                    <!-- Flash via USB (Chrome / Web Serial only; not available for deleted firmware or missing partition data) -->
+                    <button
+                      v-if="webSerialSupported && item.release_status !== 'DELETED'"
+                      @click="flashOpen = true"
+                      :disabled="!hasPartitionOffsets"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    >
+                      <BoltIcon class="w-4 h-4" />
+                      Flash via USB
                     </button>
                   </div>
                 </div>
