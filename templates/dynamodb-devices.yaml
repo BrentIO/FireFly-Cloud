@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB table for FireFly registered devices
+
+Resources:
+
+  DevicesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: firefly-devices
+      BillingMode: PAY_PER_REQUEST
+      TableClass: STANDARD
+      DeletionProtectionEnabled: true
+      AttributeDefinitions:
+        - AttributeName: uuid
+          AttributeType: S
+        - AttributeName: product_hex
+          AttributeType: S
+      KeySchema:
+        - AttributeName: uuid
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: product_hex-index
+          KeySchema:
+            - AttributeName: product_hex
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+Outputs:
+
+  DevicesTableName:
+    Description: Name of the devices DynamoDB table
+    Value: !Ref DevicesTable
+    Export:
+      Name: firefly-devices-table-name
+
+  DevicesTableArn:
+    Description: ARN of the devices DynamoDB table
+    Value: !GetAtt DevicesTable.Arn
+    Export:
+      Name: firefly-devices-table-arn
