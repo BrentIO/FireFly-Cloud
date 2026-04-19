@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB table for FireFly one-time device registration keys
+
+Resources:
+
+  RegistrationKeysTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: firefly-registration-keys
+      BillingMode: PAY_PER_REQUEST
+      TableClass: STANDARD
+      DeletionProtectionEnabled: true
+      AttributeDefinitions:
+        - AttributeName: key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: key
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+Outputs:
+
+  RegistrationKeysTableName:
+    Description: Name of the registration keys DynamoDB table
+    Value: !Ref RegistrationKeysTable
+    Export:
+      Name: firefly-registration-keys-table-name
+
+  RegistrationKeysTableArn:
+    Description: ARN of the registration keys DynamoDB table
+    Value: !GetAtt RegistrationKeysTable.Arn
+    Export:
+      Name: firefly-registration-keys-table-arn

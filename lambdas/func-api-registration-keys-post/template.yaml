@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API POST /registration-keys
+
+Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
+
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
+Resources:
+
+  FuncApiRegistrationKeysPostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-registration-keys-post-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: RegistrationKeysPostPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-registration-keys
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
+
+  FuncApiRegistrationKeysPost:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-registration-keys-post
+      Role: !GetAtt FuncApiRegistrationKeysPostRole.Arn
+      CodeUri: .
+      Layers:
+        - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          DYNAMODB_REGISTRATION_KEYS_TABLE_NAME: firefly-registration-keys
+          APP_CONFIG_ENV: default
+
+  FuncApiRegistrationKeysPostIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiRegistrationKeysPost.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiRegistrationKeysPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: POST /registration-keys
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
+      Target: !Sub integrations/${FuncApiRegistrationKeysPostIntegration.IntegrationId}
+
+  FuncApiRegistrationKeysPostPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiRegistrationKeysPost
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/POST/registration-keys
+
+  FuncApiRegistrationKeysPostLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncApiRegistrationKeysPost}
+      RetentionInDays: 30
+
+Outputs:
+  FuncApiRegistrationKeysPostArn:
+    Value: !GetAtt FuncApiRegistrationKeysPost.Arn
+    Description: ARN of the registration-keys POST Lambda
