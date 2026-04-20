@@ -11,6 +11,7 @@ Required headers:
 
 Body fields (required): uuid, product_id, product_hex, device_class, public_key,
                         registering_application, registering_version, mcu
+Body fields (optional): network (array of {interface, mac_address} objects)
 """
 
 import json
@@ -101,18 +102,23 @@ def lambda_handler(event, context):
 
         now = datetime.now(timezone.utc).isoformat()
 
+        item = {
+            "uuid": uuid,
+            "product_id": body["product_id"],
+            "product_hex": product_hex,
+            "device_class": body["device_class"],
+            "public_key": public_key,
+            "registration_date": now,
+            "registering_application": body["registering_application"],
+            "registering_version": body["registering_version"],
+            "mcu": body["mcu"],
+        }
+
+        if body.get("network") is not None:
+            item["network"] = body["network"]
+
         devices_table.put_item(
-            Item={
-                "uuid": uuid,
-                "product_id": body["product_id"],
-                "product_hex": product_hex,
-                "device_class": body["device_class"],
-                "public_key": public_key,
-                "registration_date": now,
-                "registering_application": body["registering_application"],
-                "registering_version": body["registering_version"],
-                "mcu": body["mcu"],
-            },
+            Item=item,
             ConditionExpression=Attr("uuid").not_exists(),
         )
 
