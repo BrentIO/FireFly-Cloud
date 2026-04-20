@@ -81,11 +81,6 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/*/health
 
-  FuncApiHealthLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncApiHealth}
-      RetentionInDays: 30
 
 Outputs:
   FuncApiHealthArn:

@@ -98,11 +98,6 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/appconfig
 
-  FuncApiAppConfigGetLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncApiAppConfigGet}
-      RetentionInDays: 30
 
 Outputs:
   FuncApiAppConfigGetArn:

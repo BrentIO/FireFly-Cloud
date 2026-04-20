@@ -86,11 +86,6 @@ jobs:
             --output text)
           echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
 
-      - name: Remove existing log group if present
-        run: |
-          aws logs delete-log-group \
-            --log-group-name /aws/lambda/firefly-func-api-ota-get 2>/dev/null || true
-
       - name: Deploy func-api-ota-get
         run: |
           sam deploy \

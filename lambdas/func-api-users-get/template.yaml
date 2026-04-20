@@ -105,11 +105,6 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/users
 
-  FuncApiUsersGetLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncApiUsersGet}
-      RetentionInDays: 30
 
 Outputs:
   FuncApiUsersGetArn:

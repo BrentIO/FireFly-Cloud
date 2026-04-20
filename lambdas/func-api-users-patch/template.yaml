@@ -102,11 +102,6 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/PATCH/users/*
 
-  FuncApiUsersPatchLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncApiUsersPatch}
-      RetentionInDays: 30
 
 Outputs:
   FuncApiUsersPatchArn:

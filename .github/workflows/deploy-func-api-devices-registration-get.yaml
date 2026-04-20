@@ -90,11 +90,6 @@ jobs:
             --target lambdas/func-api-devices-registration-get/ \
             pycparser
 
-      - name: Remove existing log group if present
-        run: |
-          aws logs delete-log-group \
-            --log-group-name /aws/lambda/firefly-func-api-devices-registration-get 2>/dev/null || true
-
       - name: Deploy func-api-devices-registration-get
         run: |
           sam deploy \

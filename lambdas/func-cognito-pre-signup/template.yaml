@@ -61,11 +61,6 @@ Resources:
           DYNAMODB_USERS_TABLE_NAME: firefly-users
           APP_CONFIG_ENV: default
 
-  FuncCognitoPreSignupLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncCognitoPreSignup}
-      RetentionInDays: 30
 
 Outputs:
 

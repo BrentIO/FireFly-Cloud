@@ -62,11 +62,6 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           APP_CONFIG_ENV: default
 
-  FuncS3FirmwareDeletedLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncS3FirmwareDeleted}
-      RetentionInDays: 30
 
 Outputs:
   FuncS3FirmwareDeletedArn:

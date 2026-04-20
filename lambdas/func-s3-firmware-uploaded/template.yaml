@@ -80,11 +80,6 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           APP_CONFIG_ENV: default
 
-  FuncS3FirmwareUploadedLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncS3FirmwareUploaded}
-      RetentionInDays: 30
 
 Outputs:
   FuncS3FirmwareUploadedArn:

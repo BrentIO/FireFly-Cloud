@@ -97,11 +97,6 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/POST/devices/register
 
-  FuncApiDevicesRegisterPostLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncApiDevicesRegisterPost}
-      RetentionInDays: 30
 
 Outputs:
   FuncApiDevicesRegisterPostArn:

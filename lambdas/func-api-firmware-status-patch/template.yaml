@@ -123,11 +123,6 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/PATCH/firmware/*/status
 
-  FuncApiFirmwareStatusPatchLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${FuncApiFirmwareStatusPatch}
-      RetentionInDays: 30
 
 Outputs:
   FuncApiFirmwareStatusPatchArn:
