@@ -75,6 +75,16 @@ jobs:
             --output text)
           echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
 
+      - name: Install Python dependencies (arm64)
+        run: |
+          pip install \
+            --platform manylinux_2_28_aarch64 \
+            --python-version 3.13 \
+            --implementation cp \
+            --only-binary :all: \
+            --target lambdas/func-api-devices-registration-get/ \
+            -r lambdas/func-api-devices-registration-get/requirements.txt
+
       - name: Deploy func-api-devices-registration-get
         run: |
           sam deploy \
