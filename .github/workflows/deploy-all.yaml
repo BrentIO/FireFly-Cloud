@@ -29,6 +29,18 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-dynamodb-devices:
+    uses: ./.github/workflows/deploy-dynamodb-devices.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-dynamodb-registration-keys:
+    uses: ./.github/workflows/deploy-dynamodb-registration-keys.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-func-cognito-pre-signup:
     needs: deploy-dynamodb-users
     uses: ./.github/workflows/deploy-func-cognito-pre-signup.yaml
@@ -100,6 +112,37 @@ jobs:
       - deploy-api-gateway
       - deploy-cognito
     uses: ./.github/workflows/deploy-func-api-users-patch.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-devices-register-post:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-devices
+      - deploy-dynamodb-registration-keys
+      - deploy-shared-layer
+    uses: ./.github/workflows/deploy-func-api-devices-register-post.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-devices-registration-get:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-devices
+      - deploy-shared-layer
+    uses: ./.github/workflows/deploy-func-api-devices-registration-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-registration-keys-post:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-registration-keys
+      - deploy-shared-layer
+    uses: ./.github/workflows/deploy-func-api-registration-keys-post.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
@@ -251,6 +294,9 @@ jobs:
       - deploy-func-api-users-patch
       - deploy-func-api-appconfig-get
       - deploy-func-api-appconfig-patch
+      - deploy-func-api-devices-register-post
+      - deploy-func-api-devices-registration-get
+      - deploy-func-api-registration-keys-post
       - deploy-ui-app
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
