@@ -82,6 +82,7 @@ jobs:
             --python-version 3.13 \
             --implementation cp \
             --only-binary :all: \
+            --no-deps \
             --target lambdas/func-api-devices-registration-get/ \
             -r lambdas/func-api-devices-registration-get/requirements.txt
 
