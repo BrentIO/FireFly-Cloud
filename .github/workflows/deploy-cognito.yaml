@@ -135,8 +135,25 @@ jobs:
               desc = resp.get("DomainDescription", {})
               pool_id = desc.get("UserPoolId")
               status = desc.get("Status")
-              if not pool_id:
-                  print(f"Domain {domain} not found or already unregistered — no action needed")
+              if not desc:
+                  print(f"Domain {domain} not found — no action needed")
+              elif not pool_id:
+                  # Zombie state: domain entry exists but UserPoolId is empty because the
+                  # pool was deleted without first deleting the domain. Cognito still considers
+                  # the domain reserved; we must wait for it to fully release.
+                  print(f"Domain {domain} is in zombie state (no pool attached, status={status}) — waiting for Cognito to release it...")
+                  for attempt in range(20):
+                      resp = cognito.describe_user_pool_domain(Domain=domain)
+                      desc = resp.get("DomainDescription", {})
+                      if not desc:
+                          print(f"Domain {domain} is fully released (attempt {attempt + 1})")
+                          break
+                      pool_id = desc.get("UserPoolId")
+                      status = desc.get("Status", "")
+                      print(f"  Attempt {attempt + 1}: zombie domain still present (pool={pool_id!r}, status={status!r}) — waiting 30s")
+                      time.sleep(30)
+                  else:
+                      print(f"WARNING: domain {domain} did not release after 10 minutes — proceeding anyway")
               elif pool_id == current_pool_id:
                   print(f"Domain {domain} is on current stack pool {pool_id} — skipping deletion")
               else:
@@ -149,11 +166,11 @@ jobs:
                   for attempt in range(20):
                       resp = cognito.describe_user_pool_domain(Domain=domain)
                       desc = resp.get("DomainDescription", {})
-                      pool_id = desc.get("UserPoolId")
-                      status = desc.get("Status", "")
-                      if not pool_id and status not in ("DELETING", "ACTIVE", "CREATING"):
+                      if not desc:
                           print(f"Domain {domain} is clear (attempt {attempt + 1})")
                           break
+                      pool_id = desc.get("UserPoolId")
+                      status = desc.get("Status", "")
                       print(f"  Attempt {attempt + 1}: domain still present (pool={pool_id}, status={status}) — waiting 15s")
                       time.sleep(15)
                   else:
