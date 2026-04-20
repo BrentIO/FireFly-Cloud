@@ -42,7 +42,21 @@ TEST_MCU = {
     "flash_chip_mode": "QIO",
     "psram_size": 0,
     "features": ["WiFi-bgn", "BLE", "Embedded-Flash"],
+    "idf_version": "v5.3.2",
 }
+
+TEST_NETWORK = [
+    {"interface": "wifi", "mac_address": "DE:AD:BE:EF:00:01"},
+    {"interface": "wifi_ap", "mac_address": "DE:AD:BE:EF:00:02"},
+    {"interface": "bluetooth", "mac_address": "DE:AD:BE:EF:00:03"},
+    {"interface": "ethernet", "mac_address": "DE:AD:BE:EF:00:04"},
+]
+
+TEST_PARTITIONS = [
+    {"type": 0, "subtype": 0, "address": 36864, "size": 16384, "label": "nvs"},
+    {"type": 1, "subtype": 2, "address": 57344, "size": 8192, "label": "phy_init"},
+    {"type": 0, "subtype": 16, "address": 65536, "size": 6815744, "label": "app0"},
+]
 
 
 def _make_device_payload(test_uuid: str, public_key_b64: str) -> dict:
@@ -55,6 +69,8 @@ def _make_device_payload(test_uuid: str, public_key_b64: str) -> dict:
         "registering_application": "Hardware-Registration-and-Configuration",
         "registering_version": "9999.99.99",
         "mcu": TEST_MCU,
+        "network": TEST_NETWORK,
+        "partitions": TEST_PARTITIONS,
     }
 
 

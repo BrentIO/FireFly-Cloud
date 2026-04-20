@@ -117,6 +117,9 @@ def lambda_handler(event, context):
         if body.get("network") is not None:
             item["network"] = body["network"]
 
+        if body.get("partitions") is not None:
+            item["partitions"] = body["partitions"]
+
         devices_table.put_item(
             Item=item,
             ConditionExpression=Attr("uuid").not_exists(),
