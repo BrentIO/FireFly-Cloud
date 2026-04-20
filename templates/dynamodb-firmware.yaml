@@ -6,6 +6,7 @@ Resources:
 
   FireflyFirmwareTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
     Properties:
       TableName: firefly-firmware
       BillingMode: PAY_PER_REQUEST

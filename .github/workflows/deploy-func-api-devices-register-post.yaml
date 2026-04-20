@@ -1,0 +1,101 @@
+name: 🚀 Deploy func-api-devices-register-post
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+      run_tests:
+        type: boolean
+        description: "Run integration tests after deploy"
+        default: true
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+      run_tests:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-func-api-devices-register-post:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Look up API Gateway ID
+        id: lookup-api
+        run: |
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-api-gateway \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
+            --output text)
+          echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+
+      - name: Look up shared layer ARN
+        id: lookup-layer
+        run: |
+          LAYER_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='SharedLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$LAYER_ARN" >> $GITHUB_OUTPUT
+
+      - name: Look up AppConfig extension layer ARN
+        id: lookup-appconfig-ext
+        run: |
+          APPCONFIG_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-shared-layer \
+            --query "Stacks[0].Outputs[?OutputKey=='AppConfigExtensionLayerArn'].OutputValue" \
+            --output text)
+          echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy func-api-devices-register-post
+        run: |
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file lambdas/func-api-devices-register-post/template.yaml \
+            --stack-name firefly-func-api-devices-register-post \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              ApiId=${{ steps.lookup-api.outputs.api_id }} \
+              SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
+              AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}
+
+  run-integration-tests:
+    if: inputs.run_tests
+    needs: deploy-func-api-devices-register-post
+    uses: ./.github/workflows/run-integration-tests.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+      test_filter: devices

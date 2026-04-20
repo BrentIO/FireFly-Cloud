@@ -1,0 +1,49 @@
+name: ⚠️ Delete func-api-devices-register-post
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+
+jobs:
+  delete-func-api-devices-register-post:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Delete func-api-devices-register-post
+        run: |
+          sam delete \
+            --stack-name firefly-func-api-devices-register-post \
+            --region ${{ secrets.AWS_REGION }} \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }} \
+            --no-prompts
+
+      - name: Delete CloudWatch log group
+        run: |
+          aws logs delete-log-group \
+            --log-group-name /aws/lambda/firefly-func-api-devices-register-post \
+            --region ${{ secrets.AWS_REGION }} 2>/dev/null || true
