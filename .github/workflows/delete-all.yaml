@@ -23,6 +23,19 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  delete-cloudfront-configurator:
+    uses: ./.github/workflows/delete-cloudfront-configurator.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-s3-configurator:
+    needs: delete-cloudfront-configurator
+    uses: ./.github/workflows/delete-s3-configurator.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   delete-cloudfront-ui:
     needs: delete-ui-app
     uses: ./.github/workflows/delete-cloudfront-ui.yaml
@@ -196,6 +209,7 @@ jobs:
       - delete-api-gateway
       - delete-cloudfront-firmware
       - delete-cloudfront-ui
+      - delete-cloudfront-configurator
       - delete-cognito
     uses: ./.github/workflows/delete-acm.yaml
     secrets: inherit
