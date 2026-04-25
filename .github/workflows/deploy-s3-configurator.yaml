@@ -1,0 +1,55 @@
+name: 🚀 Deploy S3 Configurator
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-s3-configurator:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Deploy s3-configurator
+        run: |
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file templates/s3-configurator.yaml \
+            --stack-name firefly-configurator-s3 \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              BucketName=${{ secrets.S3_CONFIGURATOR_BUCKET_NAME }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}

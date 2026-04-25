@@ -1,0 +1,83 @@
+name: ⚠️ Delete S3 Configurator
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+
+jobs:
+  delete-s3-configurator:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Empty S3 configurator bucket
+        run: |
+          BUCKET="${{ secrets.S3_CONFIGURATOR_BUCKET_NAME }}"
+          STDERR=$(mktemp)
+          if ! aws s3 rm "s3://$BUCKET" --recursive 2>"$STDERR"; then
+            if grep -qiE "NoSuchBucket|does not exist" "$STDERR"; then
+              echo "Bucket does not exist, skipping"
+              rm -f "$STDERR"
+              exit 0
+            fi
+            cat "$STDERR" >&2
+            rm -f "$STDERR"
+            exit 1
+          fi
+          rm -f "$STDERR"
+
+      - name: Abort S3 configurator multipart uploads
+        run: |
+          python3 << 'PYEOF'
+          import boto3
+          from botocore.exceptions import ClientError
+
+          s3 = boto3.client('s3')
+          bucket = '${{ secrets.S3_CONFIGURATOR_BUCKET_NAME }}'
+          try:
+            while True:
+              resp = s3.list_multipart_uploads(Bucket=bucket, MaxUploads=100)
+              uploads = resp.get('Uploads', [])
+              if not uploads:
+                break
+              for u in uploads:
+                s3.abort_multipart_upload(Bucket=bucket, Key=u['Key'], UploadId=u['UploadId'])
+                print(f'  Aborted: {u["Key"]}')
+          except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchBucket':
+              print('Bucket does not exist, skipping')
+            else:
+              raise
+          PYEOF
+
+      - name: Delete s3-configurator
+        run: |
+          sam delete \
+            --stack-name firefly-configurator-s3 \
+            --region ${{ secrets.AWS_REGION }} \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }} \
+            --no-prompts

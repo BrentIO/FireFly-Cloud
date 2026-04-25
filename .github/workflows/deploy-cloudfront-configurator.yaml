@@ -1,0 +1,67 @@
+name: 🚀 Deploy CloudFront Configurator
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        type: choice
+        description: "Select environment"
+        options:
+          - dev
+          - production
+  workflow_call:
+    inputs:
+      target_env:
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-cloudfront-configurator:
+    environment: ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install AWS SAM CLI
+        if: ${{ !env.ACT }}
+        run: pip install aws-sam-cli
+
+      - name: Look up Certificate ARN from firefly-acm
+        id: lookup-cert
+        run: |
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-acm \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
+            --output text)
+          echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy cloudfront-configurator
+        run: |
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file templates/cloudfront-configurator.yaml \
+            --stack-name firefly-configurator-cloudfront \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              ConfiguratorBucketName=${{ secrets.S3_CONFIGURATOR_BUCKET_NAME }} \
+              CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
+              ConfiguratorDomain=${{ vars.CONFIGURATOR_DOMAIN_NAME }} \
+              HostedZoneId=${{ secrets.ROUTE_53_HOSTED_ZONE_ID }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}

@@ -270,6 +270,21 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-s3-configurator:
+    uses: ./.github/workflows/deploy-s3-configurator.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-cloudfront-configurator:
+    needs:
+      - deploy-acm
+      - deploy-s3-configurator
+    uses: ./.github/workflows/deploy-cloudfront-configurator.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-ui-app:
     needs:
       - deploy-cloudfront-ui
