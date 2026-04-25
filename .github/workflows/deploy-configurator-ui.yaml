@@ -61,6 +61,7 @@ jobs:
         working-directory: Controller/ui
         env:
           VITE_UI_VERSION: "${{ env.BRANCH }} (${{ env.COMMIT_HASH }})"
+          VITE_CLOUD_MODE: "true"
         run: npm run build -- --outDir dist
 
       - name: Look up S3 bucket name
