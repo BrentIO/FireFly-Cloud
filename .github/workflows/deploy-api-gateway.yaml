@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -106,16 +106,6 @@ jobs:
             --api-id "$API_ID" \
             --cors-configuration '{"AllowOrigins":["https://${{ vars.UI_DOMAIN_NAME }}"],"AllowMethods":["GET","POST","PUT","PATCH","DELETE","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}'
 
-      - name: Stamp OpenAPI version
-        if: inputs.target_env == 'production'
-        run: |
-          VERSION=$(date -u +%Y.%m.%d)
-          sed -i "s/  version: .*/  version: \"$VERSION\"/" docs/openapi.yaml
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/openapi.yaml
-          git commit -m "Stamp OpenAPI version $VERSION [skip ci]"
-          git push
 
   run-integration-tests:
     if: inputs.run_tests
