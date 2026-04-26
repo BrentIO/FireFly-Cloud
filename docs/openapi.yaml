@@ -2,10 +2,10 @@ openapi: 3.0.3
 
 info:
   title: FireFly Cloud API
-  version: 2026.03.01
+  version: 2026.04.01
 
 servers:
-  - url: https://api.p5software.com
+  - url: https://api.fireflylx.com
 
 security:
   - CognitoJWT: []
