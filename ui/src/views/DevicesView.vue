@@ -390,14 +390,13 @@ async function copyKey() {
               leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
             >
               <DialogPanel
-                v-if="selectedDevice"
                 class="relative w-full max-w-2xl rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 divide-y divide-gray-100 dark:divide-gray-800"
                 @click.stop
               >
                 <!-- Header -->
                 <div class="flex items-start justify-between px-6 py-4 gap-4">
                   <div class="min-w-0">
-                    <h3 class="text-base font-semibold font-mono text-gray-900 dark:text-gray-100 break-all">{{ selectedDevice.uuid }}</h3>
+                    <h3 class="text-base font-semibold font-mono text-gray-900 dark:text-gray-100 break-all">{{ selectedDevice?.uuid }}</h3>
                   </div>
                   <button
                     @click="selectedDevice = null"
@@ -413,7 +412,7 @@ async function copyKey() {
                   <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Device Class</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ formatDeviceClass(selectedDevice.device_class) }}</dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ formatDeviceClass(selectedDevice?.device_class) }}</dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Product ID</dt>
@@ -423,53 +422,53 @@ async function copyKey() {
                         :title="showProductHex ? 'Click for Product ID' : 'Click for Product Hex'"
                         @click="showProductHex = !showProductHex"
                       >
-                        {{ showProductHex ? selectedDevice.product_hex : selectedDevice.product_id }}
+                        {{ showProductHex ? selectedDevice?.product_hex : selectedDevice?.product_id }}
                       </dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Registered</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ formatDate(selectedDevice.registration_date) }}</dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ formatDate(selectedDevice?.registration_date) }}</dd>
                     </div>
                     <div class="col-span-2">
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Registering Application</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.registering_application }} <span class="text-gray-400 dark:text-gray-500">{{ selectedDevice.registering_version }}</span></dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice?.registering_application }} <span class="text-gray-400 dark:text-gray-500">{{ selectedDevice?.registering_version }}</span></dd>
                     </div>
                   </dl>
                 </div>
 
                 <!-- MCU -->
-                <div v-if="selectedDevice.mcu" class="px-6 py-4 space-y-3">
+                <div v-if="selectedDevice?.mcu" class="px-6 py-4 space-y-3">
                   <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">MCU</h4>
                   <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Model</dt>
-                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.model ?? '—' }}</dd>
+                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice?.mcu.model ?? '—' }}</dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Revision</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.revision ?? '—' }}</dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice?.mcu.revision ?? '—' }}</dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">CPU</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.cores ?? '—' }} cores @ {{ formatHz(selectedDevice.mcu.cpu_freq_mhz ? selectedDevice.mcu.cpu_freq_mhz * 1000000 : null) }}</dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice?.mcu.cores ?? '—' }} cores @ {{ formatHz(selectedDevice?.mcu.cpu_freq_mhz ? selectedDevice?.mcu.cpu_freq_mhz * 1000000 : null) }}</dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">IDF Version</dt>
-                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.idf_version ?? '—' }}</dd>
+                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice?.mcu.idf_version ?? '—' }}</dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Flash</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ formatBytes(selectedDevice.mcu.flash_chip_size) }} · {{ formatHz(selectedDevice.mcu.flash_chip_speed) }} · {{ selectedDevice.mcu.flash_chip_mode ?? '—' }}</dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ formatBytes(selectedDevice?.mcu.flash_chip_size) }} · {{ formatHz(selectedDevice?.mcu.flash_chip_speed) }} · {{ selectedDevice?.mcu.flash_chip_mode ?? '—' }}</dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">PSRAM</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.psram_size ? formatBytes(selectedDevice.mcu.psram_size) : 'None' }}</dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice?.mcu.psram_size ? formatBytes(selectedDevice?.mcu.psram_size) : 'None' }}</dd>
                     </div>
-                    <div v-if="selectedDevice.mcu.features?.length" class="col-span-2">
+                    <div v-if="selectedDevice?.mcu.features?.length" class="col-span-2">
                       <dt class="text-xs text-gray-500 dark:text-gray-400 mb-1">Features</dt>
                       <dd class="flex flex-wrap gap-1">
                         <span
-                          v-for="f in selectedDevice.mcu.features"
+                          v-for="f in selectedDevice?.mcu.features"
                           :key="f"
                           class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                         >{{ f }}</span>
@@ -479,7 +478,7 @@ async function copyKey() {
                 </div>
 
                 <!-- Network -->
-                <div v-if="selectedDevice.network?.length" class="px-6 py-4 space-y-3">
+                <div v-if="selectedDevice?.network?.length" class="px-6 py-4 space-y-3">
                   <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Network</h4>
                   <table class="w-full text-sm">
                     <thead>
@@ -489,7 +488,7 @@ async function copyKey() {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                      <tr v-for="iface in [...selectedDevice.network].sort((a, b) => formatInterface(a.interface).localeCompare(formatInterface(b.interface)))" :key="iface.interface">
+                      <tr v-for="iface in [...selectedDevice?.network].sort((a, b) => formatInterface(a.interface).localeCompare(formatInterface(b.interface)))" :key="iface.interface">
                         <td class="py-1.5 pr-6 text-gray-700 dark:text-gray-300">{{ formatInterface(iface.interface) }}</td>
                         <td class="py-1.5 font-mono text-gray-900 dark:text-gray-100">{{ iface.mac_address }}</td>
                       </tr>
@@ -498,7 +497,7 @@ async function copyKey() {
                 </div>
 
                 <!-- Partitions -->
-                <div v-if="selectedDevice.partitions?.length" class="px-6 py-4 space-y-3">
+                <div v-if="selectedDevice?.partitions?.length" class="px-6 py-4 space-y-3">
                   <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Partitions</h4>
                   <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -512,7 +511,7 @@ async function copyKey() {
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        <tr v-for="part in [...selectedDevice.partitions].sort((a, b) => a.address - b.address)" :key="part.address">
+                        <tr v-for="part in [...selectedDevice?.partitions].sort((a, b) => a.address - b.address)" :key="part.address">
                           <td class="py-1.5 pr-4 font-mono text-gray-900 dark:text-gray-100">{{ part.label }}</td>
                           <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionType(part.type) }}</td>
                           <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionSubtype(part.type, part.subtype) }}</td>
