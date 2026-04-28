@@ -336,3 +336,41 @@ class TestDevicesRegistrationGet:
             timeout=10,
         )
         assert r.json().get("registration_date")
+
+
+class TestDevicesGet:
+    def test_get_devices_missing_auth_returns_401(self, api_url):
+        r = requests.get(f"{api_url}/devices", timeout=10)
+        assert r.status_code == 401
+
+    def test_get_devices_non_super_user_returns_403(self, api_url, auth_headers):
+        r = requests.get(f"{api_url}/devices", headers=auth_headers, timeout=10)
+        assert r.status_code == 403
+
+    def test_get_devices_super_user_returns_200(self, api_url, super_auth_headers):
+        r = requests.get(f"{api_url}/devices", headers=super_auth_headers, timeout=10)
+        assert r.status_code == 200
+
+    def test_get_devices_response_has_devices_key(self, api_url, super_auth_headers):
+        r = requests.get(f"{api_url}/devices", headers=super_auth_headers, timeout=10)
+        assert "devices" in r.json()
+
+    def test_get_devices_devices_is_list(self, api_url, super_auth_headers):
+        r = requests.get(f"{api_url}/devices", headers=super_auth_headers, timeout=10)
+        assert isinstance(r.json()["devices"], list)
+
+    def test_get_devices_registered_device_appears_in_list(self, api_url, super_auth_headers, registered_device):
+        test_uuid, _, _ = registered_device
+        r = requests.get(f"{api_url}/devices", headers=super_auth_headers, timeout=10)
+        assert r.status_code == 200
+        uuids = [d.get("uuid") for d in r.json()["devices"]]
+        assert test_uuid in uuids
+
+    def test_get_devices_item_has_required_fields(self, api_url, super_auth_headers, registered_device):
+        test_uuid, _, _ = registered_device
+        r = requests.get(f"{api_url}/devices", headers=super_auth_headers, timeout=10)
+        device = next((d for d in r.json()["devices"] if d.get("uuid") == test_uuid), None)
+        assert device is not None
+        for field in ("uuid", "product_id", "product_hex", "device_class",
+                      "registration_date", "registering_application", "registering_version", "mcu"):
+            assert field in device, f"Missing field: {field}"

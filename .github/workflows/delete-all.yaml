@@ -146,6 +146,12 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  delete-func-api-devices-get:
+    uses: ./.github/workflows/delete-func-api-devices-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   delete-func-api-registration-keys-post:
     uses: ./.github/workflows/delete-func-api-registration-keys-post.yaml
     secrets: inherit
@@ -168,6 +174,7 @@ jobs:
       - delete-func-api-appconfig-patch
       - delete-func-api-devices-register-post
       - delete-func-api-devices-registration-get
+      - delete-func-api-devices-get
       - delete-func-api-registration-keys-post
     uses: ./.github/workflows/delete-api-gateway.yaml
     secrets: inherit
@@ -230,6 +237,7 @@ jobs:
     needs:
       - delete-func-api-devices-register-post
       - delete-func-api-devices-registration-get
+      - delete-func-api-devices-get
     uses: ./.github/workflows/delete-dynamodb-devices.yaml
     secrets: inherit
     with:
