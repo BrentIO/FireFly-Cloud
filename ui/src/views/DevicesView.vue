@@ -35,6 +35,7 @@ const keyCopied     = ref(false)
 // ── Detail modal ──────────────────────────────────────────────────────────────
 const selectedDevice   = ref(null)
 const partitionHexSize = ref(new Set()) // indices of partition rows showing hex size
+const showProductHex   = ref(false)
 
 // ── Sort ──────────────────────────────────────────────────────────────────────
 const sortKey = ref('registration_date')
@@ -112,6 +113,7 @@ function toggleSort(key) {
 function openDetail(device) {
   selectedDevice.value = device
   partitionHexSize.value = new Set()
+  showProductHex.value = false
 }
 
 function togglePartitionSize(i) {
@@ -395,8 +397,7 @@ async function copyKey() {
                 <!-- Header -->
                 <div class="flex items-start justify-between px-6 py-4 gap-4">
                   <div class="min-w-0">
-                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ selectedDevice.product_id }}</h3>
-                    <p class="mt-0.5 text-xs font-mono text-gray-400 dark:text-gray-500 break-all">{{ selectedDevice.uuid }}</p>
+                    <h3 class="text-base font-semibold font-mono text-gray-900 dark:text-gray-100 break-all">{{ selectedDevice.uuid }}</h3>
                   </div>
                   <button
                     @click="selectedDevice = null"
@@ -416,11 +417,14 @@ async function copyKey() {
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Product ID</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.product_id }}</dd>
-                    </div>
-                    <div>
-                      <dt class="text-xs text-gray-500 dark:text-gray-400">Product Hex</dt>
-                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice.product_hex }}</dd>
+                      <dd
+                        class="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 select-none"
+                        :class="showProductHex ? 'font-mono text-gray-900 dark:text-gray-100' : 'text-gray-900 dark:text-gray-100'"
+                        :title="showProductHex ? 'Click for Product ID' : 'Click for Product Hex'"
+                        @click="showProductHex = !showProductHex"
+                      >
+                        {{ showProductHex ? selectedDevice.product_hex : selectedDevice.product_id }}
+                      </dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Registered</dt>
@@ -485,7 +489,7 @@ async function copyKey() {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                      <tr v-for="iface in selectedDevice.network" :key="iface.interface">
+                      <tr v-for="iface in [...selectedDevice.network].sort((a, b) => formatInterface(a.interface).localeCompare(formatInterface(b.interface)))" :key="iface.interface">
                         <td class="py-1.5 pr-6 text-gray-700 dark:text-gray-300">{{ formatInterface(iface.interface) }}</td>
                         <td class="py-1.5 font-mono text-gray-900 dark:text-gray-100">{{ iface.mac_address }}</td>
                       </tr>
@@ -508,17 +512,17 @@ async function copyKey() {
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        <tr v-for="(part, i) in selectedDevice.partitions" :key="i">
+                        <tr v-for="part in [...selectedDevice.partitions].sort((a, b) => a.address - b.address)" :key="part.address">
                           <td class="py-1.5 pr-4 font-mono text-gray-900 dark:text-gray-100">{{ part.label }}</td>
                           <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionType(part.type) }}</td>
                           <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionSubtype(part.type, part.subtype) }}</td>
                           <td class="py-1.5 pr-4 font-mono text-gray-700 dark:text-gray-300">{{ `0x${part.address.toString(16).padStart(6, '0').toUpperCase()}` }}</td>
                           <td
                             class="py-1.5 font-mono text-gray-700 dark:text-gray-300 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 select-none"
-                            :title="partitionHexSize.has(i) ? 'Click for human-readable' : 'Click for hex'"
-                            @click="togglePartitionSize(i)"
+                            :title="partitionHexSize.has(part.address) ? 'Click for human-readable' : 'Click for hex'"
+                            @click="togglePartitionSize(part.address)"
                           >
-                            {{ partitionHexSize.has(i) ? formatPartitionSizeHex(part.size) : formatPartitionSizeHuman(part.size) }}
+                            {{ partitionHexSize.has(part.address) ? formatPartitionSizeHex(part.size) : formatPartitionSizeHuman(part.size) }}
                           </td>
                         </tr>
                       </tbody>
