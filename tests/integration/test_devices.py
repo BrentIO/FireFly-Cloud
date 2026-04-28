@@ -104,7 +104,12 @@ def registration_key(api_url, auth_headers):
 
 @pytest.fixture(scope="module")
 def registered_device(api_url, registration_key):
-    """Register a test device; yield (test_uuid, private_key, public_key_b64); clean up at teardown."""
+    """Register a test device; yield (test_uuid, private_key, public_key_b64).
+
+    Teardown always removes the device record from DynamoDB directly so that
+    test records never accumulate in any environment, including production.
+    AWS credentials must be available in the test environment (they are in CI).
+    """
     private_key, public_key_b64 = _generate_keypair()
     test_uuid = str(uuid.uuid4())
     payload = _make_device_payload(test_uuid, public_key_b64)
@@ -117,6 +122,15 @@ def registered_device(api_url, registration_key):
     if resp.status_code != 204:
         pytest.fail(f"registered_device fixture: POST /devices/register returned {resp.status_code}: {resp.text}")
     yield test_uuid, private_key, public_key_b64
+
+    # Always clean up — device records have no value after tests complete
+    # and must not accumulate in production.
+    import boto3
+    table_name = os.environ.get("FIREFLY_DEVICES_TABLE_NAME", "firefly-devices")
+    try:
+        boto3.resource("dynamodb").Table(table_name).delete_item(Key={"uuid": test_uuid})
+    except Exception as e:
+        print(f"Warning: could not delete test device {test_uuid} from {table_name}: {e}")
 
 
 class TestRegistrationKeys:

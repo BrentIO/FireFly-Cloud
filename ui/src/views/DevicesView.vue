@@ -6,6 +6,7 @@ import {
   ChevronDownIcon,
   ClipboardDocumentIcon,
   ClipboardDocumentCheckIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import {
   Dialog,
@@ -26,10 +27,13 @@ const devices  = ref([])
 const loading  = ref(true)
 
 // ── Key modal ─────────────────────────────────────────────────────────────────
-const showKeyModal    = ref(false)
-const generatingKey   = ref(false)
-const generatedKey    = ref(null)
-const keyCopied       = ref(false)
+const showKeyModal  = ref(false)
+const generatingKey = ref(false)
+const generatedKey  = ref(null)
+const keyCopied     = ref(false)
+
+// ── Detail modal ──────────────────────────────────────────────────────────────
+const selectedDevice = ref(null)
 
 // ── Sort ──────────────────────────────────────────────────────────────────────
 const sortKey = ref('registration_date')
@@ -103,10 +107,36 @@ function toggleSort(key) {
   currentPage.value = 1
 }
 
+// ── Detail modal ──────────────────────────────────────────────────────────────
+function openDetail(device) {
+  selectedDevice.value = device
+}
+
+function formatBytes(n) {
+  if (!n && n !== 0) return '—'
+  const mb = n / (1024 * 1024)
+  return mb >= 1 ? `${mb.toFixed(mb % 1 === 0 ? 0 : 1)} MB` : `${(n / 1024).toFixed(0)} KB`
+}
+
+function formatHz(n) {
+  if (!n && n !== 0) return '—'
+  return `${n / 1000000} MHz`
+}
+
+function formatHex(n) {
+  if (n === undefined || n === null) return '—'
+  return `0x${n.toString(16).toUpperCase().padStart(8, '0')}`
+}
+
+function formatDate(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString()
+}
+
 // ── Registration key generation ───────────────────────────────────────────────
 async function openKeyModal() {
-  generatedKey.value = null
-  keyCopied.value    = false
+  generatedKey.value  = null
+  keyCopied.value     = false
   generatingKey.value = true
   showKeyModal.value  = true
   try {
@@ -173,9 +203,17 @@ async function copyKey() {
               </th>
               <th
                 class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
+                @click="toggleSort('device_class')"
+              >
+                Device Class
+                <ChevronUpIcon   v-if="sortKey === 'device_class' && sortDir === 'asc'"   class="inline w-3 h-3 ml-0.5" />
+                <ChevronDownIcon v-else-if="sortKey === 'device_class' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
+              </th>
+              <th
+                class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
                 @click="toggleSort('product_id')"
               >
-                Product
+                Product ID
                 <ChevronUpIcon   v-if="sortKey === 'product_id' && sortDir === 'asc'"   class="inline w-3 h-3 ml-0.5" />
                 <ChevronDownIcon v-else-if="sortKey === 'product_id' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
@@ -187,12 +225,6 @@ async function copyKey() {
                 <ChevronUpIcon   v-if="sortKey === 'registration_date' && sortDir === 'asc'"   class="inline w-3 h-3 ml-0.5" />
                 <ChevronDownIcon v-else-if="sortKey === 'registration_date' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none whitespace-nowrap">
-                Application
-              </th>
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none whitespace-nowrap">
-                MCU
-              </th>
             </tr>
           </thead>
 
@@ -201,16 +233,15 @@ async function copyKey() {
             <template v-if="loading">
               <tr v-for="i in 8" :key="i" class="border-b border-gray-100 dark:border-gray-800">
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-72" /></td>
+                <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24" /></td>
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28" /></td>
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24" /></td>
-                <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-36" /></td>
-                <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" /></td>
               </tr>
             </template>
 
             <!-- Empty state -->
             <tr v-else-if="paginatedDevices.length === 0">
-              <td colspan="5" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+              <td colspan="4" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                 No registered devices found.
               </td>
             </tr>
@@ -220,21 +251,15 @@ async function copyKey() {
               v-else
               v-for="device in paginatedDevices"
               :key="device.uuid"
-              class="border-b border-gray-100 dark:border-gray-800 odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              class="border-b border-gray-100 dark:border-gray-800 odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer"
+              @click="openDetail(device)"
             >
               <td class="px-4 py-3 font-mono text-xs text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ device.uuid }}</td>
-              <td class="px-4 py-3 whitespace-nowrap">
-                <div class="font-medium text-gray-900 dark:text-gray-100">{{ device.product_id }}</div>
-                <div class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ device.product_hex }}</div>
-              </td>
+              <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ device.device_class }}</td>
+              <td class="px-4 py-3 text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ device.product_id }}</td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <RelativeTime :value="device.registration_date" />
               </td>
-              <td class="px-4 py-3 whitespace-nowrap">
-                <div class="text-gray-900 dark:text-gray-100">{{ device.registering_application }}</div>
-                <div class="text-xs text-gray-400 dark:text-gray-500">{{ device.registering_version }}</div>
-              </td>
-              <td class="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs font-mono">{{ device.mcu }}</td>
             </tr>
           </tbody>
         </table>
@@ -293,6 +318,173 @@ async function copyKey() {
       </div>
     </div>
 
+    <!-- Device detail modal -->
+    <TransitionRoot :show="selectedDevice !== null" as="template">
+      <Dialog as="div" class="relative z-50" @close="selectedDevice = null">
+        <TransitionChild
+          as="template"
+          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
+          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
+        >
+          <div class="fixed inset-0 bg-black/50 transition-opacity" />
+        </TransitionChild>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto p-4">
+          <div class="flex min-h-full items-start justify-center pt-8">
+            <TransitionChild
+              as="template"
+              enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
+              leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
+            >
+              <DialogPanel
+                v-if="selectedDevice"
+                class="relative w-full max-w-2xl rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 divide-y divide-gray-100 dark:divide-gray-800"
+                @click.stop
+              >
+                <!-- Header -->
+                <div class="flex items-start justify-between px-6 py-4 gap-4">
+                  <div class="min-w-0">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ selectedDevice.product_id }}</h3>
+                    <p class="mt-0.5 text-xs font-mono text-gray-400 dark:text-gray-500 break-all">{{ selectedDevice.uuid }}</p>
+                  </div>
+                  <button
+                    @click="selectedDevice = null"
+                    class="flex-shrink-0 rounded-md p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <XMarkIcon class="w-5 h-5" />
+                  </button>
+                </div>
+
+                <!-- Identity -->
+                <div class="px-6 py-4 space-y-3">
+                  <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Identity</h4>
+                  <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Device Class</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.device_class }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Product ID</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.product_id }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Product Hex</dt>
+                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice.product_hex }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Registered</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ formatDate(selectedDevice.registration_date) }}</dd>
+                    </div>
+                    <div class="col-span-2">
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Registering Application</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.registering_application }} <span class="text-gray-400 dark:text-gray-500">{{ selectedDevice.registering_version }}</span></dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <!-- MCU -->
+                <div v-if="selectedDevice.mcu" class="px-6 py-4 space-y-3">
+                  <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">MCU</h4>
+                  <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Model</dt>
+                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.model ?? '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Revision</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.revision ?? '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">CPU</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.cores ?? '—' }} cores @ {{ formatHz(selectedDevice.mcu.cpu_freq_mhz ? selectedDevice.mcu.cpu_freq_mhz * 1000000 : null) }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">IDF Version</dt>
+                      <dd class="font-mono text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.idf_version ?? '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Flash</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ formatBytes(selectedDevice.mcu.flash_chip_size) }} · {{ formatHz(selectedDevice.mcu.flash_chip_speed) }} · {{ selectedDevice.mcu.flash_chip_mode ?? '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">PSRAM</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.mcu.psram_size ? formatBytes(selectedDevice.mcu.psram_size) : 'None' }}</dd>
+                    </div>
+                    <div v-if="selectedDevice.mcu.features?.length" class="col-span-2">
+                      <dt class="text-xs text-gray-500 dark:text-gray-400 mb-1">Features</dt>
+                      <dd class="flex flex-wrap gap-1">
+                        <span
+                          v-for="f in selectedDevice.mcu.features"
+                          :key="f"
+                          class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                        >{{ f }}</span>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <!-- Network -->
+                <div v-if="selectedDevice.network?.length" class="px-6 py-4 space-y-3">
+                  <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Network</h4>
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="text-left">
+                        <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 pr-6">Interface</th>
+                        <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">MAC Address</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                      <tr v-for="iface in selectedDevice.network" :key="iface.interface">
+                        <td class="py-1.5 pr-6 text-gray-700 dark:text-gray-300">{{ iface.interface }}</td>
+                        <td class="py-1.5 font-mono text-gray-900 dark:text-gray-100">{{ iface.mac_address }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Partitions -->
+                <div v-if="selectedDevice.partitions?.length" class="px-6 py-4 space-y-3">
+                  <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Partitions</h4>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                      <thead>
+                        <tr class="text-left">
+                          <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 pr-4">Label</th>
+                          <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 pr-4">Type</th>
+                          <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 pr-4">Subtype</th>
+                          <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 pr-4">Address</th>
+                          <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Size</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        <tr v-for="part in selectedDevice.partitions" :key="part.label">
+                          <td class="py-1.5 pr-4 font-mono text-gray-900 dark:text-gray-100">{{ part.label }}</td>
+                          <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300">{{ part.type }}</td>
+                          <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300">{{ part.subtype }}</td>
+                          <td class="py-1.5 pr-4 font-mono text-gray-700 dark:text-gray-300">{{ formatHex(part.address) }}</td>
+                          <td class="py-1.5 font-mono text-gray-700 dark:text-gray-300">{{ formatHex(part.size) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-4 flex justify-end">
+                  <button
+                    @click="selectedDevice = null"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
+
     <!-- Registration key modal -->
     <TransitionRoot :show="showKeyModal" as="template">
       <Dialog as="div" class="relative z-50" @close="showKeyModal = false">
@@ -317,12 +509,10 @@ async function copyKey() {
               >
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Registration Key</h3>
 
-                <!-- Generating spinner -->
                 <div v-if="generatingKey" class="flex items-center justify-center py-6">
                   <ArrowPathIcon class="w-8 h-8 text-blue-500 animate-spin" />
                 </div>
 
-                <!-- Key display -->
                 <template v-else-if="generatedKey">
                   <div class="flex items-center gap-3">
                     <span class="flex-1 text-center text-4xl font-mono font-bold tracking-widest text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 rounded-lg py-4 select-all">
