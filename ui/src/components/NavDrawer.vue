@@ -83,6 +83,20 @@ const commitSha = import.meta.env.VITE_COMMIT_SHA || null
 
               <RouterLink
                 v-if="isSuperUser"
+                to="/devices"
+                @click="emit('close')"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                :class="
+                  route.path.startsWith('/devices')
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                "
+              >
+                Devices
+              </RouterLink>
+
+              <RouterLink
+                v-if="isSuperUser"
                 to="/users"
                 @click="emit('close')"
                 class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"

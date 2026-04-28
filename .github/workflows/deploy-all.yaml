@@ -137,6 +137,16 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-func-api-devices-get:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-devices
+      - deploy-shared-layer
+    uses: ./.github/workflows/deploy-func-api-devices-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-func-api-registration-keys-post:
     needs:
       - deploy-api-gateway
@@ -311,6 +321,7 @@ jobs:
       - deploy-func-api-appconfig-patch
       - deploy-func-api-devices-register-post
       - deploy-func-api-devices-registration-get
+      - deploy-func-api-devices-get
       - deploy-func-api-registration-keys-post
       - deploy-ui-app
     uses: ./.github/workflows/run-integration-tests.yaml

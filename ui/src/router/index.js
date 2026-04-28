@@ -4,6 +4,7 @@ import CallbackView   from '../views/CallbackView.vue'
 import FirmwareView   from '../views/FirmwareView.vue'
 import UsersView      from '../views/UsersView.vue'
 import AppConfigView  from '../views/AppConfigView.vue'
+import DevicesView    from '../views/DevicesView.vue'
 import { useAuth }    from '../composables/useAuth.js'
 
 const routes = [
@@ -42,6 +43,11 @@ const routes = [
     path: '/appconfig',
     name: 'appconfig',
     component: AppConfigView,
+  },
+  {
+    path: '/devices',
+    name: 'devices',
+    component: DevicesView,
   },
 ]
 
