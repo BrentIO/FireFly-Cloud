@@ -33,7 +33,8 @@ const generatedKey  = ref(null)
 const keyCopied     = ref(false)
 
 // ── Detail modal ──────────────────────────────────────────────────────────────
-const selectedDevice = ref(null)
+const selectedDevice   = ref(null)
+const partitionHexSize = ref(new Set()) // indices of partition rows showing hex size
 
 // ── Sort ──────────────────────────────────────────────────────────────────────
 const sortKey = ref('registration_date')
@@ -110,6 +111,63 @@ function toggleSort(key) {
 // ── Detail modal ──────────────────────────────────────────────────────────────
 function openDetail(device) {
   selectedDevice.value = device
+  partitionHexSize.value = new Set()
+}
+
+function togglePartitionSize(i) {
+  const s = new Set(partitionHexSize.value)
+  s.has(i) ? s.delete(i) : s.add(i)
+  partitionHexSize.value = s
+}
+
+// Formatting helpers
+function formatDeviceClass(cls) {
+  if (!cls) return '—'
+  return cls.charAt(0).toUpperCase() + cls.slice(1).toLowerCase()
+}
+
+const INTERFACE_NAMES = {
+  wifi:      'WiFi',
+  wifi_ap:   'SoftAP',
+  bluetooth: 'Bluetooth',
+  ethernet:  'Ethernet',
+}
+function formatInterface(iface) {
+  return INTERFACE_NAMES[iface?.toLowerCase()] ?? iface
+}
+
+const APP_SUBTYPES  = {
+  0: 'Factory', 16: 'OTA_0', 17: 'OTA_1', 18: 'OTA_2', 19: 'OTA_3',
+  20: 'OTA_4', 21: 'OTA_5', 22: 'OTA_6', 23: 'OTA_7', 24: 'OTA_8',
+  25: 'OTA_9', 26: 'OTA_10', 27: 'OTA_11', 28: 'OTA_12', 29: 'OTA_13',
+  30: 'OTA_14', 31: 'OTA_15', 32: 'Test',
+}
+const DATA_SUBTYPES = {
+  0: 'OTA', 1: 'PHY', 2: 'NVS', 3: 'CoreDump', 4: 'NVS Keys',
+  5: 'eFuse EM', 6: 'Undefined', 128: 'ESPHTTPD', 129: 'FAT',
+  130: 'SPIFFS/LittleFS', 131: 'LittleFS',
+}
+const TYPE_NAMES = { 0: 'App', 1: 'Data', 2: 'Bootloader', 3: 'Partition Table' }
+
+function formatPartitionType(type) {
+  const name = TYPE_NAMES[type] ?? 'Unknown'
+  return `${name} (0x${type.toString(16).padStart(2, '0').toUpperCase()})`
+}
+function formatPartitionSubtype(type, subtype) {
+  const map = type === 0 ? APP_SUBTYPES : type === 1 ? DATA_SUBTYPES : {}
+  const name = map[subtype]
+  const hex  = `0x${subtype.toString(16).padStart(2, '0').toUpperCase()}`
+  return name ? `${name} (${hex})` : hex
+}
+function formatPartitionSizeHuman(bytes) {
+  if (bytes === undefined || bytes === null) return '—'
+  return bytes >= 1048576
+    ? `${(bytes / 1048576).toFixed(1)} MB`
+    : `${(bytes / 1024).toFixed(1)} KB`
+}
+function formatPartitionSizeHex(bytes) {
+  if (bytes === undefined || bytes === null) return '—'
+  return `0x${bytes.toString(16).padStart(6, '0').toUpperCase()}`
 }
 
 function formatBytes(n) {
@@ -117,17 +175,10 @@ function formatBytes(n) {
   const mb = n / (1024 * 1024)
   return mb >= 1 ? `${mb.toFixed(mb % 1 === 0 ? 0 : 1)} MB` : `${(n / 1024).toFixed(0)} KB`
 }
-
 function formatHz(n) {
   if (!n && n !== 0) return '—'
   return `${n / 1000000} MHz`
 }
-
-function formatHex(n) {
-  if (n === undefined || n === null) return '—'
-  return `0x${n.toString(16).toUpperCase().padStart(8, '0')}`
-}
-
 function formatDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString()
@@ -255,7 +306,7 @@ async function copyKey() {
               @click="openDetail(device)"
             >
               <td class="px-4 py-3 font-mono text-xs text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ device.uuid }}</td>
-              <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ device.device_class }}</td>
+              <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatDeviceClass(device.device_class) }}</td>
               <td class="px-4 py-3 text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ device.product_id }}</td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <RelativeTime :value="device.registration_date" />
@@ -361,7 +412,7 @@ async function copyKey() {
                   <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Device Class</dt>
-                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.device_class }}</dd>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ formatDeviceClass(selectedDevice.device_class) }}</dd>
                     </div>
                     <div>
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Product ID</dt>
@@ -435,7 +486,7 @@ async function copyKey() {
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                       <tr v-for="iface in selectedDevice.network" :key="iface.interface">
-                        <td class="py-1.5 pr-6 text-gray-700 dark:text-gray-300">{{ iface.interface }}</td>
+                        <td class="py-1.5 pr-6 text-gray-700 dark:text-gray-300">{{ formatInterface(iface.interface) }}</td>
                         <td class="py-1.5 font-mono text-gray-900 dark:text-gray-100">{{ iface.mac_address }}</td>
                       </tr>
                     </tbody>
@@ -457,12 +508,18 @@ async function copyKey() {
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        <tr v-for="part in selectedDevice.partitions" :key="part.label">
+                        <tr v-for="(part, i) in selectedDevice.partitions" :key="i">
                           <td class="py-1.5 pr-4 font-mono text-gray-900 dark:text-gray-100">{{ part.label }}</td>
-                          <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300">{{ part.type }}</td>
-                          <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300">{{ part.subtype }}</td>
-                          <td class="py-1.5 pr-4 font-mono text-gray-700 dark:text-gray-300">{{ formatHex(part.address) }}</td>
-                          <td class="py-1.5 font-mono text-gray-700 dark:text-gray-300">{{ formatHex(part.size) }}</td>
+                          <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionType(part.type) }}</td>
+                          <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionSubtype(part.type, part.subtype) }}</td>
+                          <td class="py-1.5 pr-4 font-mono text-gray-700 dark:text-gray-300">{{ `0x${part.address.toString(16).padStart(6, '0').toUpperCase()}` }}</td>
+                          <td
+                            class="py-1.5 font-mono text-gray-700 dark:text-gray-300 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 select-none"
+                            :title="partitionHexSize.has(i) ? 'Click for human-readable' : 'Click for hex'"
+                            @click="togglePartitionSize(i)"
+                          >
+                            {{ partitionHexSize.has(i) ? formatPartitionSizeHex(part.size) : formatPartitionSizeHuman(part.size) }}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
