@@ -26,6 +26,22 @@ const { success: successToast, error: errorToast } = useToast()
 const devices  = ref([])
 const loading  = ref(true)
 
+// ── Filters ───────────────────────────────────────────────────────────────────
+const filterUuid        = ref('')
+const filterDeviceClass = ref('')
+const filterProductId   = ref('')
+
+const filteredDevices = computed(() => {
+  let result = devices.value
+  const uuid = filterUuid.value.trim().toLowerCase()
+  const cls  = filterDeviceClass.value.trim().toLowerCase()
+  const pid  = filterProductId.value.trim().toLowerCase()
+  if (uuid) result = result.filter(d => d.uuid?.toLowerCase().includes(uuid))
+  if (cls)  result = result.filter(d => d.device_class?.toLowerCase().includes(cls))
+  if (pid)  result = result.filter(d => d.product_id?.toLowerCase().includes(pid))
+  return result
+})
+
 // ── Key modal ─────────────────────────────────────────────────────────────────
 const showKeyModal  = ref(false)
 const generatingKey = ref(false)
@@ -63,7 +79,7 @@ onMounted(load)
 // ── Sorting & pagination ──────────────────────────────────────────────────────
 const sortedDevices = computed(() => {
   const dir = sortDir.value === 'asc' ? 1 : -1
-  return [...devices.value].sort((a, b) => {
+  return [...filteredDevices.value].sort((a, b) => {
     const av = (a[sortKey.value] ?? '').toString().toLowerCase()
     const bv = (b[sortKey.value] ?? '').toString().toLowerCase()
     if (av < bv) return -1 * dir
@@ -98,6 +114,7 @@ const pageNumbers = computed(() => {
 })
 
 watch(pageSize, () => { currentPage.value = 1 })
+watch([filterUuid, filterDeviceClass, filterProductId], () => { currentPage.value = 1 })
 
 function toggleSort(key) {
   if (sortKey.value === key) {
@@ -152,13 +169,16 @@ const DATA_SUBTYPES = {
 const TYPE_NAMES = { 0: 'App', 1: 'Data', 2: 'Bootloader', 3: 'Partition Table' }
 
 function formatPartitionType(type) {
-  const name = TYPE_NAMES[type] ?? 'Unknown'
-  return `${name} (0x${type.toString(16).padStart(2, '0').toUpperCase()})`
+  const t    = Number(type)
+  const name = TYPE_NAMES[t] ?? 'Unknown'
+  return `${name} (0x${t.toString(16).padStart(2, '0').toUpperCase()})`
 }
 function formatPartitionSubtype(type, subtype) {
-  const map = type === 0 ? APP_SUBTYPES : type === 1 ? DATA_SUBTYPES : {}
-  const name = map[subtype]
-  const hex  = `0x${subtype.toString(16).padStart(2, '0').toUpperCase()}`
+  const t   = Number(type)
+  const s   = Number(subtype)
+  const map = t === 0 ? APP_SUBTYPES : t === 1 ? DATA_SUBTYPES : {}
+  const name = map[s]
+  const hex  = `0x${s.toString(16).padStart(2, '0').toUpperCase()}`
   return name ? `${name} (${hex})` : hex
 }
 function formatPartitionSizeHuman(bytes) {
@@ -238,6 +258,35 @@ async function copyKey() {
           <ArrowPathIcon class="w-5 h-5" :class="{ 'animate-spin': loading }" />
         </button>
       </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex-shrink-0 flex items-center gap-2 pb-3 flex-wrap">
+      <input
+        v-model="filterUuid"
+        type="text"
+        placeholder="Filter by UUID…"
+        class="flex-1 min-w-48 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      />
+      <input
+        v-model="filterDeviceClass"
+        type="text"
+        placeholder="Filter by Device Class…"
+        class="flex-1 min-w-36 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      />
+      <input
+        v-model="filterProductId"
+        type="text"
+        placeholder="Filter by Product ID…"
+        class="flex-1 min-w-36 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      />
+      <button
+        v-if="filterUuid || filterDeviceClass || filterProductId"
+        @click="filterUuid = ''; filterDeviceClass = ''; filterProductId = ''"
+        class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 whitespace-nowrap"
+      >
+        Clear filters
+      </button>
     </div>
 
     <!-- Table card -->
@@ -487,8 +536,12 @@ async function copyKey() {
                         <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">MAC Address</th>
                       </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                      <tr v-for="iface in [...selectedDevice?.network].sort((a, b) => formatInterface(a.interface).localeCompare(formatInterface(b.interface)))" :key="iface.interface">
+                    <tbody>
+                      <tr
+                        v-for="(iface, i) in [...selectedDevice?.network].sort((a, b) => formatInterface(a.interface).localeCompare(formatInterface(b.interface)))"
+                        :key="iface.interface"
+                        :class="i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/30'"
+                      >
                         <td class="py-1.5 pr-6 text-gray-700 dark:text-gray-300">{{ formatInterface(iface.interface) }}</td>
                         <td class="py-1.5 font-mono text-gray-900 dark:text-gray-100">{{ iface.mac_address }}</td>
                       </tr>
@@ -510,8 +563,12 @@ async function copyKey() {
                           <th class="pb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Size</th>
                         </tr>
                       </thead>
-                      <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        <tr v-for="part in [...selectedDevice?.partitions].sort((a, b) => a.address - b.address)" :key="part.address">
+                      <tbody>
+                        <tr
+                          v-for="(part, i) in [...selectedDevice?.partitions].sort((a, b) => a.address - b.address)"
+                          :key="part.address"
+                          :class="i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/30'"
+                        >
                           <td class="py-1.5 pr-4 font-mono text-gray-900 dark:text-gray-100">{{ part.label }}</td>
                           <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionType(part.type) }}</td>
                           <td class="py-1.5 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatPartitionSubtype(part.type, part.subtype) }}</td>
