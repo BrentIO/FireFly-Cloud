@@ -67,6 +67,7 @@ jobs:
         env:
           VITE_API_URL: https://${{ vars.API_DOMAIN_NAME }}
           VITE_COMMIT_SHA: ${{ github.sha }}
+          VITE_REF_NAME: ${{ github.ref_name }}
           VITE_COGNITO_DOMAIN: https://${{ vars.AUTH_DOMAIN_NAME }}
           VITE_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
           VITE_COGNITO_REDIRECT_URI: https://${{ vars.UI_DOMAIN_NAME }}/callback
