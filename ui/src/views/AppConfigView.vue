@@ -146,7 +146,7 @@ async function submitDelete() {
   <AppLayout>
     <!-- Toolbar -->
     <div class="flex-shrink-0 flex items-center justify-between pb-4 flex-wrap gap-3">
-      <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Configuration</h1>
+      <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">App Configuration</h1>
       <button
         @click="load"
         :disabled="loading"
