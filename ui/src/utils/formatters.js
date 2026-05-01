@@ -4,6 +4,7 @@ export const STATUS_LABELS = {
   TESTING: 'Testing',
   RELEASED: 'Released',
   REVOKED: 'Revoked',
+  DELETING: 'Deleting',
   DELETED: 'Deleted',
   ERROR: 'Error',
 }
@@ -15,6 +16,7 @@ export const STATUS_STYLES = {
   TESTING: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
   RELEASED: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
   REVOKED: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+  DELETING: 'bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
   DELETED: 'bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
   ERROR: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
 }
@@ -26,6 +28,7 @@ export const STATUS_DOT = {
   TESTING: 'bg-blue-400',
   RELEASED: 'bg-green-400',
   REVOKED: 'bg-orange-400',
+  DELETING: 'bg-gray-300 dark:bg-gray-600',
   DELETED: 'bg-gray-300 dark:bg-gray-600',
   ERROR: 'bg-red-400',
 }
@@ -53,7 +56,7 @@ export const ROLLBACK_TRANSITIONS = {
 export const TRANSITIONS_REQUIRING_CONFIRM = new Set(['RELEASED', 'REVOKED'])
 
 // States that cannot be deleted via the API (409)
-export const NON_DELETABLE_STATES = new Set(['DELETED', 'REVOKED', 'RELEASED'])
+export const NON_DELETABLE_STATES = new Set(['DELETED', 'DELETING', 'REVOKED', 'RELEASED'])
 
 export function formatClass(value) {
   if (!value) return '—'
