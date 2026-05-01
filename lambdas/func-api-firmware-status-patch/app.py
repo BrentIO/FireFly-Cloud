@@ -1,5 +1,6 @@
 from shared.app_config import get_appconfig
 from shared.logging_config import configure_logger
+from decimal import Decimal
 import io
 import json
 import time
@@ -33,11 +34,18 @@ TTL_DAYS = 10
 TTL_SECONDS = TTL_DAYS * 24 * 3600
 
 
+def _json_default(obj):
+    if isinstance(obj, Decimal):
+        n = int(obj)
+        return n if n == obj else float(obj)
+    return str(obj)
+
+
 def _response(status_code, body):
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body, indent=4, default=str),
+        "body": json.dumps(body, indent=4, default=_json_default),
     }
 
 
@@ -129,12 +137,22 @@ def lambda_handler(event, context):
         if new_status == "REVOKED":
             _revoke_from_public(item)
 
-        update_expression = "SET release_status = :rs"
-        expression_values = {":rs": new_status}
+        now = int(time.time())
+        history_entry = [{"status": new_status, "timestamp": now}]
+
+        update_expression = (
+            "SET release_status = :rs, "
+            "status_history = list_append(if_not_exists(status_history, :empty), :entry)"
+        )
+        expression_values = {
+            ":rs": new_status,
+            ":empty": [],
+            ":entry": history_entry,
+        }
 
         # Set a DynamoDB TTL when revoking so the record is auto-purged.
         if new_status == "REVOKED":
-            expires_at = int(time.time()) + TTL_SECONDS
+            expires_at = now + TTL_SECONDS
             update_expression += ", #ttl = :ttl"
             expression_values[":ttl"] = expires_at
 
@@ -151,6 +169,8 @@ def lambda_handler(event, context):
         logger.debug(f"Transitioned zip_name='{zip_name}' from '{current_status}' to '{new_status}'")
 
         item["release_status"] = new_status
+        item.setdefault("status_history", [])
+        item["status_history"].append({"status": new_status, "timestamp": now})
         item.pop("pk", None)
         return _response(200, item)
 
