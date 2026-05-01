@@ -196,9 +196,9 @@ class TestDevicesRegister:
         test_uuid, _, _ = registered_device
         assert test_uuid  # fixture handles assertion on status
 
-    def test_register_duplicate_uuid_returns_204_record_unchanged(self, api_url, registered_device, registration_key):
+    def test_register_duplicate_uuid_returns_204_record_unchanged(self, api_url, auth_headers, registered_device, registration_key):
         test_uuid, _, public_key_b64 = registered_device
-        new_key_resp = requests.post(f"{api_url}/registration-keys", timeout=10)
+        new_key_resp = requests.post(f"{api_url}/registration-keys", headers=auth_headers, timeout=10)
         if new_key_resp.status_code != 201:
             pytest.skip("Could not generate second registration key for duplicate test")
         second_key = new_key_resp.json()["key"]
@@ -212,13 +212,15 @@ class TestDevicesRegister:
         assert r.status_code == 204
 
     def test_register_key_consumed_after_use_returns_401(self, api_url, auth_headers):
+        import boto3
         new_key_resp = requests.post(f"{api_url}/registration-keys", headers=auth_headers, timeout=10)
         if new_key_resp.status_code != 201:
             pytest.skip("Could not generate registration key for consumed-key test")
         key = new_key_resp.json()["key"]
 
         private_key, public_key_b64 = _generate_keypair()
-        payload = _make_device_payload(str(uuid.uuid4()), public_key_b64)
+        first_uuid = str(uuid.uuid4())
+        payload = _make_device_payload(first_uuid, public_key_b64)
         first = requests.post(
             f"{api_url}/devices/register",
             json=payload,
@@ -227,15 +229,22 @@ class TestDevicesRegister:
         )
         assert first.status_code == 204
 
-        private_key2, public_key_b64_2 = _generate_keypair()
-        payload2 = _make_device_payload(str(uuid.uuid4()), public_key_b64_2)
-        second = requests.post(
-            f"{api_url}/devices/register",
-            json=payload2,
-            headers={"X-Registration-Key": key},
-            timeout=10,
-        )
-        assert second.status_code == 401
+        try:
+            private_key2, public_key_b64_2 = _generate_keypair()
+            payload2 = _make_device_payload(str(uuid.uuid4()), public_key_b64_2)
+            second = requests.post(
+                f"{api_url}/devices/register",
+                json=payload2,
+                headers={"X-Registration-Key": key},
+                timeout=10,
+            )
+            assert second.status_code == 401
+        finally:
+            table_name = os.environ.get("FIREFLY_DEVICES_TABLE_NAME", "firefly-devices")
+            try:
+                boto3.resource("dynamodb").Table(table_name).delete_item(Key={"uuid": first_uuid})
+            except Exception as e:
+                print(f"Warning: could not delete test device {first_uuid}: {e}")
 
 
 class TestDevicesRegistrationGet:
