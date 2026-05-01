@@ -94,6 +94,8 @@ def lambda_handler(event, context):
             logger.warning("Registration key not found: %s", registration_key)
             return _response(401, {"message": "Invalid or expired registration key"})
 
+        registered_by_email = key_item.get("generated_by_email", "")
+
         # If device already registered, return 204 immediately (idempotent)
         existing = devices_table.get_item(Key={"uuid": uuid}).get("Item")
         if existing:
@@ -112,6 +114,7 @@ def lambda_handler(event, context):
             "registering_application": body["registering_application"],
             "registering_version": body["registering_version"],
             "mcu": body["mcu"],
+            "registered_by_email": registered_by_email,
         }
 
         if body.get("network") is not None:

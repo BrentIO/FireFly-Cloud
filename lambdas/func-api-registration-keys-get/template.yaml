@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API GET /registration-keys
+
+Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
+
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+  AuthorizerId:
+    Type: String
+    Description: ID of the Cognito JWT authorizer on the HTTP API
+
+Resources:
+
+  FuncApiRegistrationKeysGetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-registration-keys-get-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: RegistrationKeysGetPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-registration-keys
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
+
+  FuncApiRegistrationKeysGet:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-registration-keys-get
+      Role: !GetAtt FuncApiRegistrationKeysGetRole.Arn
+      CodeUri: .
+      Layers:
+        - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          DYNAMODB_REGISTRATION_KEYS_TABLE_NAME: firefly-registration-keys
+          APP_CONFIG_ENV: default
+
+  FuncApiRegistrationKeysGetIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiRegistrationKeysGet.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiRegistrationKeysGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: GET /registration-keys
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AuthorizerId
+      Target: !Sub integrations/${FuncApiRegistrationKeysGetIntegration.IntegrationId}
+
+  FuncApiRegistrationKeysGetPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiRegistrationKeysGet
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/registration-keys
+
+  FuncApiRegistrationKeysGetLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncApiRegistrationKeysGet}
+      RetentionInDays: 30
+
+Outputs:
+  FuncApiRegistrationKeysGetArn:
+    Value: !GetAtt FuncApiRegistrationKeysGet.Arn
+    Description: ARN of the registration-keys GET Lambda

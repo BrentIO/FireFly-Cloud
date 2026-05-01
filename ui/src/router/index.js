@@ -1,11 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginView      from '../views/LoginView.vue'
-import CallbackView   from '../views/CallbackView.vue'
-import FirmwareView   from '../views/FirmwareView.vue'
-import UsersView      from '../views/UsersView.vue'
-import AppConfigView  from '../views/AppConfigView.vue'
-import DevicesView    from '../views/DevicesView.vue'
-import { useAuth }    from '../composables/useAuth.js'
+import LoginView              from '../views/LoginView.vue'
+import CallbackView           from '../views/CallbackView.vue'
+import FirmwareView           from '../views/FirmwareView.vue'
+import UsersView              from '../views/UsersView.vue'
+import AppConfigView          from '../views/AppConfigView.vue'
+import DevicesView            from '../views/DevicesView.vue'
+import RegistrationKeysView   from '../views/RegistrationKeysView.vue'
+import { useAuth }            from '../composables/useAuth.js'
 
 const routes = [
   {
@@ -48,6 +49,11 @@ const routes = [
     path: '/devices',
     name: 'devices',
     component: DevicesView,
+  },
+  {
+    path: '/registration-keys',
+    name: 'registration-keys',
+    component: RegistrationKeysView,
   },
 ]
 

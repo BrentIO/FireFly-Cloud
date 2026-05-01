@@ -72,6 +72,16 @@ const uiVersion = computed(() => {
       </li>
       <li v-if="isSuperUser">
         <RouterLink
+          to="/registration-keys"
+          class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-gray-100 transition-colors rounded-sm mx-1"
+          :class="{ 'bg-gray-800 text-gray-100': route.path.startsWith('/registration-keys') }"
+          @click="$emit('close')"
+        >
+          Registration Keys
+        </RouterLink>
+      </li>
+      <li v-if="isSuperUser">
+        <RouterLink
           to="/users"
           class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-gray-100 transition-colors rounded-sm mx-1"
           :class="{ 'bg-gray-800 text-gray-100': route.path.startsWith('/users') }"
