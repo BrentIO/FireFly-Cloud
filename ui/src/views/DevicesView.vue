@@ -4,8 +4,6 @@ import {
   ArrowPathIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  ClipboardDocumentIcon,
-  ClipboardDocumentCheckIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import {
@@ -14,14 +12,12 @@ import {
   TransitionRoot,
   TransitionChild,
 } from '@headlessui/vue'
-import { useAuth } from '../composables/useAuth.js'
 import { useToast } from '../composables/useToast.js'
 import AppLayout from '../components/AppLayout.vue'
 import RelativeTime from '../components/RelativeTime.vue'
-import { listDevices, createRegistrationKey } from '../api/devices.js'
+import { listDevices } from '../api/devices.js'
 
-const { isSuperUser } = useAuth()
-const { success: successToast, error: errorToast } = useToast()
+const { error: errorToast } = useToast()
 
 const devices  = ref([])
 const loading  = ref(true)
@@ -41,12 +37,6 @@ const filteredDevices = computed(() => {
   if (pid)  result = result.filter(d => d.product_id?.toLowerCase().includes(pid))
   return result
 })
-
-// ── Key modal ─────────────────────────────────────────────────────────────────
-const showKeyModal  = ref(false)
-const generatingKey = ref(false)
-const generatedKey  = ref(null)
-const keyCopied     = ref(false)
 
 // ── Detail modal ──────────────────────────────────────────────────────────────
 const selectedDevice   = ref(null)
@@ -206,33 +196,7 @@ function formatDate(iso) {
   return new Date(iso).toLocaleString()
 }
 
-// ── Registration key generation ───────────────────────────────────────────────
-async function openKeyModal() {
-  generatedKey.value  = null
-  keyCopied.value     = false
-  generatingKey.value = true
-  showKeyModal.value  = true
-  try {
-    const data = await createRegistrationKey()
-    generatedKey.value = data.key
-  } catch (e) {
-    showKeyModal.value = false
-    errorToast(e.message)
-  } finally {
-    generatingKey.value = false
-  }
-}
 
-async function copyKey() {
-  if (!generatedKey.value) return
-  try {
-    await navigator.clipboard.writeText(generatedKey.value)
-    keyCopied.value = true
-    setTimeout(() => { keyCopied.value = false }, 2000)
-  } catch {
-    errorToast('Could not copy to clipboard.')
-  }
-}
 </script>
 
 <template>
@@ -241,23 +205,14 @@ async function copyKey() {
     <div class="flex-shrink-0 flex items-center justify-between pb-4 flex-wrap gap-3">
       <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Registered Devices</h1>
 
-      <div class="flex items-center gap-3">
-        <button
-          v-if="isSuperUser"
-          @click="openKeyModal"
-          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-        >
-          Generate Registration Key
-        </button>
-        <button
-          @click="load"
-          :disabled="loading"
-          class="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-          aria-label="Refresh"
-        >
-          <ArrowPathIcon class="w-5 h-5" :class="{ 'animate-spin': loading }" />
-        </button>
-      </div>
+      <button
+        @click="load"
+        :disabled="loading"
+        class="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+        aria-label="Refresh"
+      >
+        <ArrowPathIcon class="w-5 h-5" :class="{ 'animate-spin': loading }" />
+      </button>
     </div>
 
     <!-- Filters -->
@@ -482,6 +437,10 @@ async function copyKey() {
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Registering Application</dt>
                       <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice?.registering_application }} <span class="text-gray-400 dark:text-gray-500">{{ selectedDevice?.registering_version }}</span></dd>
                     </div>
+                    <div v-if="selectedDevice?.registered_by_email" class="col-span-2">
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Registered By</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice.registered_by_email }}</dd>
+                    </div>
                   </dl>
                 </div>
 
@@ -602,67 +561,5 @@ async function copyKey() {
       </Dialog>
     </TransitionRoot>
 
-    <!-- Registration key modal -->
-    <TransitionRoot :show="showKeyModal" as="template">
-      <Dialog as="div" class="relative z-50" @close="showKeyModal = false">
-        <TransitionChild
-          as="template"
-          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
-          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
-        >
-          <div class="fixed inset-0 bg-black/50 transition-opacity" />
-        </TransitionChild>
-
-        <div class="fixed inset-0 z-10 overflow-y-auto" @click="showKeyModal = false">
-          <div class="flex min-h-full items-center justify-center p-4">
-            <TransitionChild
-              as="template"
-              enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
-              leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
-            >
-              <DialogPanel
-                class="relative w-full max-w-sm rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/10 dark:ring-white/10 p-6 space-y-5"
-                @click.stop
-              >
-                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Registration Key</h3>
-
-                <div v-if="generatingKey" class="flex items-center justify-center py-6">
-                  <ArrowPathIcon class="w-8 h-8 text-blue-500 animate-spin" />
-                </div>
-
-                <template v-else-if="generatedKey">
-                  <div class="flex items-center gap-3">
-                    <span class="flex-1 text-center text-4xl font-mono font-bold tracking-widest text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 rounded-lg py-4 select-all">
-                      {{ generatedKey }}
-                    </span>
-                    <button
-                      @click="copyKey"
-                      class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      :aria-label="keyCopied ? 'Copied' : 'Copy to clipboard'"
-                    >
-                      <ClipboardDocumentCheckIcon v-if="keyCopied" class="w-6 h-6 text-green-500" />
-                      <ClipboardDocumentIcon v-else class="w-6 h-6" />
-                    </button>
-                  </div>
-
-                  <p class="text-xs text-gray-500 dark:text-gray-400">
-                    This key expires in 30 minutes. Enter it in the HW-Reg Registration screen on the device being registered. Each key can only be used once.
-                  </p>
-                </template>
-
-                <div class="flex justify-end">
-                  <button
-                    @click="showKeyModal = false"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
-              </DialogPanel>
-            </TransitionChild>
-          </div>
-        </div>
-      </Dialog>
-    </TransitionRoot>
   </AppLayout>
 </template>
