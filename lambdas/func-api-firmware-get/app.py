@@ -1,5 +1,6 @@
 from shared.app_config import get_appconfig
 from shared.logging_config import configure_logger
+from decimal import Decimal
 import json
 import boto3
 import os
@@ -18,11 +19,18 @@ firmware_table = dynamodb.Table(TABLE_NAME)
 LIST_EXCLUDE_FIELDS = {"files", "manifest", "pk"}
 
 
+def _json_default(obj):
+    if isinstance(obj, Decimal):
+        n = int(obj)
+        return n if n == obj else float(obj)
+    return str(obj)
+
+
 def _response(status_code, body):
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body, indent=4, default=str),
+        "body": json.dumps(body, indent=4, default=_json_default),
     }
 
 
