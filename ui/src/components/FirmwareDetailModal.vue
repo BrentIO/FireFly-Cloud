@@ -59,6 +59,9 @@ const hasPartitionOffsets = computed(() => {
   return offsets != null && Object.keys(offsets).length > 0
 })
 
+// History disclosure
+const historyOpen = ref(false)
+
 // Manifest files disclosure
 const manifestOpen = ref(false)
 
@@ -353,6 +356,46 @@ function transitionButtonClass(nextStatus) {
                     class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
                   >
                     This record will be automatically purged on {{ formatAbsoluteDate(item.ttl) }}.
+                  </div>
+
+                  <!-- History disclosure -->
+                  <div
+                    v-if="item.status_history && item.status_history.length"
+                    class="border-t border-gray-200 dark:border-gray-700 pt-4"
+                  >
+                    <button
+                      @click="historyOpen = !historyOpen"
+                      class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                    >
+                      <ChevronUpIcon v-if="historyOpen" class="w-4 h-4" />
+                      <ChevronDownIcon v-else class="w-4 h-4" />
+                      History ({{ item.status_history.length }})
+                    </button>
+
+                    <div v-if="historyOpen" class="mt-3 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-800">
+                          <tr>
+                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Timestamp</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                          <tr
+                            v-for="(entry, i) in item.status_history"
+                            :key="i"
+                            :class="i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/30'"
+                          >
+                            <td class="px-4 py-2">
+                              <StatusBadge :status="entry.status" />
+                            </td>
+                            <td class="px-4 py-2 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                              {{ formatAbsoluteDate(entry.timestamp) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   <!-- Manifest files disclosure -->

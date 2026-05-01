@@ -86,6 +86,7 @@ def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
         if "version" in manifest:
             version = f"ERROR#{manifest['version']}#{uuid_name}"
 
+    now = int(time.time())
     item = {
         "pk": f"{product_id}#{application}",
         "product_id": product_id,
@@ -93,7 +94,8 @@ def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
         "release_status": "ERROR",
         "error": error_message,
         "zip_name": uuid_name,
-        "timestamp": int(time.time()),
+        "timestamp": now,
+        "status_history": [{"status": "ERROR", "timestamp": now}],
     }
 
     if original_name:
@@ -203,6 +205,7 @@ def lambda_handler(event, context):
                     partition_offsets = parse_partition_table(pf.read())
                 logger.debug(f"Parsed partition table: {partition_offsets}")
 
+            now = int(time.time())
             item = {
                 "pk": f"{product_id}#{manifest.get('application')}",
                 "product_id": product_id,
@@ -217,9 +220,10 @@ def lambda_handler(event, context):
                 "original_name": original_filename,
                 "zip_sha256": zip_sha256,
                 "zip_size": zip_size,
-                "uploaded_at": int(time.time()),
+                "uploaded_at": now,
                 "release_status": "READY_TO_TEST",
                 "partition_offsets": partition_offsets,
+                "status_history": [{"status": "READY_TO_TEST", "timestamp": now}],
             }
 
             if manifest.get("bootloader_addr"):

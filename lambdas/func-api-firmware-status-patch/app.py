@@ -129,12 +129,22 @@ def lambda_handler(event, context):
         if new_status == "REVOKED":
             _revoke_from_public(item)
 
-        update_expression = "SET release_status = :rs"
-        expression_values = {":rs": new_status}
+        now = int(time.time())
+        history_entry = [{"status": new_status, "timestamp": now}]
+
+        update_expression = (
+            "SET release_status = :rs, "
+            "status_history = list_append(if_not_exists(status_history, :empty), :entry)"
+        )
+        expression_values = {
+            ":rs": new_status,
+            ":empty": [],
+            ":entry": history_entry,
+        }
 
         # Set a DynamoDB TTL when revoking so the record is auto-purged.
         if new_status == "REVOKED":
-            expires_at = int(time.time()) + TTL_SECONDS
+            expires_at = now + TTL_SECONDS
             update_expression += ", #ttl = :ttl"
             expression_values[":ttl"] = expires_at
 
@@ -151,6 +161,8 @@ def lambda_handler(event, context):
         logger.debug(f"Transitioned zip_name='{zip_name}' from '{current_status}' to '{new_status}'")
 
         item["release_status"] = new_status
+        item.setdefault("status_history", [])
+        item["status_history"].append({"status": new_status, "timestamp": now})
         item.pop("pk", None)
         return _response(200, item)
 
