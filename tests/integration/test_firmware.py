@@ -189,3 +189,49 @@ def test_get_firmware_item_matches_list_entry(api_url, auth_headers, firmware_it
 
     for key, value in list_items[firmware_item["zip_name"]].items():
         assert item.get(key) == value, f"Mismatch on field '{key}'"
+
+
+# ---------------------------------------------------------------------------
+# status_history — initial state after upload
+# ---------------------------------------------------------------------------
+
+def test_get_firmware_item_includes_status_history(api_url, auth_headers, firmware_item):
+    resp = requests.get(
+        f"{api_url}/firmware/{firmware_item['zip_name']}",
+        headers=auth_headers,
+        timeout=10,
+    )
+    body = resp.json()
+    assert "status_history" in body
+    assert isinstance(body["status_history"], list)
+
+
+def test_get_firmware_item_initial_history_has_one_entry(api_url, auth_headers, firmware_item):
+    resp = requests.get(
+        f"{api_url}/firmware/{firmware_item['zip_name']}",
+        headers=auth_headers,
+        timeout=10,
+    )
+    history = resp.json()["status_history"]
+    assert len(history) == 1
+
+
+def test_get_firmware_item_initial_history_entry_is_ready_to_test(api_url, auth_headers, firmware_item):
+    resp = requests.get(
+        f"{api_url}/firmware/{firmware_item['zip_name']}",
+        headers=auth_headers,
+        timeout=10,
+    )
+    entry = resp.json()["status_history"][0]
+    assert entry["status"] == "READY_TO_TEST"
+
+
+def test_get_firmware_item_initial_history_entry_has_timestamp(api_url, auth_headers, firmware_item):
+    resp = requests.get(
+        f"{api_url}/firmware/{firmware_item['zip_name']}",
+        headers=auth_headers,
+        timeout=10,
+    )
+    entry = resp.json()["status_history"][0]
+    assert isinstance(entry["timestamp"], (int, float))
+    assert entry["timestamp"] > 0

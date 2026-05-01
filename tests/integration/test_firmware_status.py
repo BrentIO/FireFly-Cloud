@@ -150,3 +150,88 @@ def test_patch_status_full_workflow(api_url, auth_headers, fresh_firmware_item):
     )
     assert resp.status_code == 200
     assert resp.json()["release_status"] == "REVOKED"
+
+
+# ---------------------------------------------------------------------------
+# status_history — PATCH response and accumulation
+# ---------------------------------------------------------------------------
+
+def test_patch_status_response_includes_status_history(api_url, auth_headers, fresh_firmware_item):
+    resp = requests.patch(
+        f"{api_url}/firmware/{fresh_firmware_item['zip_name']}/status",
+        json={"release_status": "TESTING"},
+        headers=auth_headers,
+        timeout=10,
+    )
+    body = resp.json()
+    assert "status_history" in body
+    assert isinstance(body["status_history"], list)
+
+
+def test_patch_status_history_grows_after_transition(api_url, auth_headers, fresh_firmware_item):
+    """Each PATCH appends one entry; after one transition the list has 2 entries."""
+    resp = requests.patch(
+        f"{api_url}/firmware/{fresh_firmware_item['zip_name']}/status",
+        json={"release_status": "TESTING"},
+        headers=auth_headers,
+        timeout=10,
+    )
+    history = resp.json()["status_history"]
+    assert len(history) == 2
+
+
+def test_patch_status_history_new_entry_has_correct_status(api_url, auth_headers, fresh_firmware_item):
+    resp = requests.patch(
+        f"{api_url}/firmware/{fresh_firmware_item['zip_name']}/status",
+        json={"release_status": "TESTING"},
+        headers=auth_headers,
+        timeout=10,
+    )
+    history = resp.json()["status_history"]
+    assert history[-1]["status"] == "TESTING"
+
+
+def test_patch_status_history_entry_has_timestamp(api_url, auth_headers, fresh_firmware_item):
+    resp = requests.patch(
+        f"{api_url}/firmware/{fresh_firmware_item['zip_name']}/status",
+        json={"release_status": "TESTING"},
+        headers=auth_headers,
+        timeout=10,
+    )
+    for entry in resp.json()["status_history"]:
+        assert isinstance(entry["timestamp"], (int, float))
+        assert entry["timestamp"] > 0
+
+
+def test_patch_status_full_workflow_history_has_four_entries(api_url, auth_headers, fresh_firmware_item):
+    """Full READY_TO_TEST → TESTING → RELEASED → REVOKED workflow accumulates 4 history entries."""
+    zip_name = fresh_firmware_item["zip_name"]
+
+    for new_status in ("TESTING", "RELEASED", "REVOKED"):
+        resp = requests.patch(
+            f"{api_url}/firmware/{zip_name}/status",
+            json={"release_status": new_status},
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 200
+
+    history = resp.json()["status_history"]
+    assert len(history) == 4
+
+
+def test_patch_status_full_workflow_history_statuses_in_order(api_url, auth_headers, fresh_firmware_item):
+    """History entries appear in chronological order matching the transition sequence."""
+    zip_name = fresh_firmware_item["zip_name"]
+
+    for new_status in ("TESTING", "RELEASED", "REVOKED"):
+        resp = requests.patch(
+            f"{api_url}/firmware/{zip_name}/status",
+            json={"release_status": new_status},
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 200
+
+    statuses = [e["status"] for e in resp.json()["status_history"]]
+    assert statuses == ["READY_TO_TEST", "TESTING", "RELEASED", "REVOKED"]
