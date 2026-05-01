@@ -49,6 +49,11 @@ Resources:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware/index/*
               - Effect: Allow
                 Action:
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-firmware
+              - Effect: Allow
+                Action:
                   - s3:DeleteObject
                 Resource:
                   - !Sub arn:aws:s3:::${FirmwareBucketName}/processed/*

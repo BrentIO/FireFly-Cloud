@@ -286,7 +286,17 @@ def _upload_and_wait(
         if resp.status_code == 200:
             for item in resp.json().get("items", []):
                 if item.get("version") == version:
-                    return item
+                    # Confirm the item is also reachable by zip_name via the GSI
+                    # before returning — the list uses a scan which can return an
+                    # item before the GSI has replicated it, causing a 404 on any
+                    # subsequent call that queries by zip_name.
+                    gsi_resp = requests.get(
+                        f"{API_URL}/firmware/{item['zip_name']}",
+                        headers=headers,
+                        timeout=10,
+                    )
+                    if gsi_resp.status_code == 200:
+                        return item
         time.sleep(1)
 
     pytest.fail(f"Firmware version '{version}' did not appear in API within {timeout}s")

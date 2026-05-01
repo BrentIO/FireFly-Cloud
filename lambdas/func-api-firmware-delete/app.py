@@ -1,5 +1,6 @@
 from shared.app_config import get_appconfig
 from shared.logging_config import configure_logger
+from decimal import Decimal
 import json
 import boto3
 import os
@@ -20,8 +21,8 @@ firmware_table = dynamodb.Table(TABLE_NAME)
 PROCESSED_PREFIX = "processed/"
 ERROR_PREFIX = "errors/"
 
-# These states indicate the S3 file has already been removed
-ALREADY_REMOVED_STATES = {"DELETED", "REVOKED", "RELEASED"}
+# These states indicate the file has already been removed or removal is in progress
+ALREADY_REMOVED_STATES = {"DELETED", "DELETING", "REVOKED", "RELEASED"}
 
 TTL_DAYS = 10
 TTL_SECONDS = TTL_DAYS * 24 * 3600
@@ -66,15 +67,39 @@ def lambda_handler(event, context):
 
         s3.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
 
+        now = int(time.time())
+
         if release_status == "ERROR":
             # ERROR records have no lifecycle events that would trigger func-s3-firmware-deleted,
             # so update DynamoDB directly here rather than relying on the async S3 event.
-            expires_at = int(time.time()) + TTL_SECONDS
             firmware_table.update_item(
                 Key={"pk": item["pk"], "version": item["version"]},
-                UpdateExpression="SET #ttl = :ttl, release_status = :rs",
+                UpdateExpression=(
+                    "SET #ttl = :ttl, release_status = :rs, "
+                    "status_history = list_append(if_not_exists(status_history, :empty), :entry)"
+                ),
                 ExpressionAttributeNames={"#ttl": "ttl"},
-                ExpressionAttributeValues={":ttl": expires_at, ":rs": "DELETED"},
+                ExpressionAttributeValues={
+                    ":ttl": now + TTL_SECONDS,
+                    ":rs": "DELETED",
+                    ":empty": [],
+                    ":entry": [{"status": "DELETED", "timestamp": now}],
+                },
+            )
+        else:
+            # Mark as DELETING immediately so the UI can hide the item without waiting
+            # for the async S3 event (func-s3-firmware-deleted) to set it to DELETED.
+            firmware_table.update_item(
+                Key={"pk": item["pk"], "version": item["version"]},
+                UpdateExpression=(
+                    "SET release_status = :rs, "
+                    "status_history = list_append(if_not_exists(status_history, :empty), :entry)"
+                ),
+                ExpressionAttributeValues={
+                    ":rs": "DELETING",
+                    ":empty": [],
+                    ":entry": [{"status": "DELETING", "timestamp": now}],
+                },
             )
 
         return _response(202, {"message": "Deletion initiated"})

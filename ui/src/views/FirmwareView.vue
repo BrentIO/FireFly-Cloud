@@ -85,7 +85,7 @@ const filteredItems = computed(() => {
   let items = allItems.value
 
   if (!showDeleted.value) {
-    items = items.filter((i) => i.release_status !== 'DELETED' && i.release_status !== 'REVOKED')
+    items = items.filter((i) => i.release_status !== 'DELETED' && i.release_status !== 'DELETING' && i.release_status !== 'REVOKED')
   }
   if (!showReleased.value) {
     items = items.filter((i) => i.release_status !== 'RELEASED')
