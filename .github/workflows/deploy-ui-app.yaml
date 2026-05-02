@@ -38,6 +38,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Set VERSION based on tag or branch
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=9999.99.99" >> $GITHUB_ENV
+          fi
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -72,6 +80,11 @@ jobs:
           VITE_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
           VITE_COGNITO_REDIRECT_URI: https://${{ vars.UI_DOMAIN_NAME }}/callback
         run: npm run build
+
+      - name: Stage OpenAPI spec
+        run: |
+          sed "s/^  version: .*/  version: \"${{ env.VERSION }}\"/" docs/openapi.yaml \
+            > ui/dist/openapi.yaml
 
       - name: Sync to S3
         run: aws s3 sync ui/dist/ s3://${{ secrets.S3_UI_BUCKET_NAME }} --delete

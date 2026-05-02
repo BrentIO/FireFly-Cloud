@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: FireFly Cloud API
-  version: 2026.04.01
+  version: "9999.99.99"
 
 servers:
   - url: https://api.fireflylx.com
