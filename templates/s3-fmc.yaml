@@ -1,14 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Private S3 bucket for the FireFly UI static site
+Description: Private S3 bucket for the FireFly Management Console (FMC) static site
 
 Parameters:
   BucketName:
     Type: String
-    Description: Name of the S3 bucket to create for the UI static files
+    Description: Name of the S3 bucket to create for the FMC static files
 
 Resources:
 
-  UiBucket:
+  FmcBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref BucketName
@@ -20,5 +20,5 @@ Resources:
 
 Outputs:
   BucketName:
-    Value: !Ref UiBucket
-    Description: Name of the S3 bucket hosting the UI static files
+    Value: !Ref FmcBucket
+    Description: Name of the S3 bucket hosting the FMC static files

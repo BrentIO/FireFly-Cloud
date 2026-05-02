@@ -1,4 +1,4 @@
-name: 🔧 Generate UI Lock File
+name: 🔧 Generate FMC Lock File
 
 on:
   workflow_dispatch:

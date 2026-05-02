@@ -244,8 +244,8 @@ jobs:
               CertificateArn=${{ steps.lookup-cert.outputs.cert_arn }} \
               GoogleClientId=${{ secrets.GOOGLE_CLIENT_ID }} \
               GoogleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }} \
-              UiCallbackUrl=https://${{ vars.UI_DOMAIN_NAME }}/callback \
-              UiLogoutUrl=https://${{ vars.UI_DOMAIN_NAME }}/login \
+              UiCallbackUrl=https://${{ vars.FMC_DOMAIN_NAME }}/callback \
+              UiLogoutUrl=https://${{ vars.FMC_DOMAIN_NAME }}/login \
               PreSignUpLambdaArn=${{ steps.lookup-presignup.outputs.presignup_arn }}
 
       - name: Print stack events on failure

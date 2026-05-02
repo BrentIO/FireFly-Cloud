@@ -1,4 +1,4 @@
-name: 🚀 Deploy UI App
+name: 🚀 Deploy FMC App
 on:
   workflow_dispatch:
     inputs:
@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 jobs:
-  deploy-ui-app:
+  deploy-fmc-app:
     if: ${{ inputs.target_env != 'production' || github.ref_type == 'tag' }}
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
@@ -84,7 +84,7 @@ jobs:
           VITE_REF_NAME: ${{ github.ref_name }}
           VITE_COGNITO_DOMAIN: https://${{ vars.AUTH_DOMAIN_NAME }}
           VITE_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
-          VITE_COGNITO_REDIRECT_URI: https://${{ vars.UI_DOMAIN_NAME }}/callback
+          VITE_COGNITO_REDIRECT_URI: https://${{ vars.FMC_DOMAIN_NAME }}/callback
         run: npm run build
 
       - name: Stage OpenAPI spec
@@ -93,13 +93,13 @@ jobs:
             > ui/dist/openapi.yaml
 
       - name: Sync to S3
-        run: aws s3 sync ui/dist/ s3://${{ secrets.S3_UI_BUCKET_NAME }} --delete
+        run: aws s3 sync ui/dist/ s3://${{ secrets.S3_FMC_BUCKET_NAME }} --delete
 
       - name: Look up CloudFront distribution ID
         id: lookup-dist
         run: |
           DIST_ID=$(aws cloudformation describe-stacks \
-            --stack-name firefly-cloudfront-ui \
+            --stack-name firefly-cloudfront-fmc \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
             --output text)
 
@@ -113,7 +113,7 @@ jobs:
 
   run-integration-tests:
     if: inputs.run_tests
-    needs: deploy-ui-app
+    needs: deploy-fmc-app
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:

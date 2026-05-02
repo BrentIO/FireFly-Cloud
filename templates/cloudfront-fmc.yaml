@@ -1,52 +1,52 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFront distribution for the FireFly UI static site
+Description: CloudFront distribution for the FireFly Management Console (FMC) static site
 
 Parameters:
-  UiBucketName:
+  FmcBucketName:
     Type: String
-    Description: Name of the private S3 bucket containing the UI static files
+    Description: Name of the private S3 bucket containing the FMC static files
 
   CertificateArn:
     Type: String
-    Description: ARN of the ACM certificate for the UI domain (must be in us-east-1)
+    Description: ARN of the ACM certificate for the FMC domain (must be in us-east-1)
 
-  UiDomain:
+  FmcDomain:
     Type: String
-    Description: Custom domain name for the UI (e.g., ui.p5software.com)
+    Description: Custom domain name for the FMC (e.g., fmc.fireflylx.com)
 
   HostedZoneId:
     Type: String
-    Description: Route53 Hosted Zone ID for the UI domain
+    Description: Route53 Hosted Zone ID for the FMC domain
 
 Resources:
 
-  UiOriginAccessControl:
+  FmcOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name: firefly-ui-oac
+        Name: firefly-fmc-oac
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
 
-  UiDistribution:
+  FmcDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Enabled: true
         Aliases:
-          - !Ref UiDomain
+          - !Ref FmcDomain
         Origins:
-          - Id: UiS3Origin
-            DomainName: !Sub "${UiBucketName}.s3.${AWS::Region}.amazonaws.com"
-            OriginAccessControlId: !GetAtt UiOriginAccessControl.Id
+          - Id: FmcS3Origin
+            DomainName: !Sub "${FmcBucketName}.s3.${AWS::Region}.amazonaws.com"
+            OriginAccessControlId: !GetAtt FmcOriginAccessControl.Id
             S3OriginConfig:
               OriginAccessIdentity: ""
         DefaultCacheBehavior:
           ViewerProtocolPolicy: redirect-to-https
           AllowedMethods: [GET, HEAD, OPTIONS]
           CachedMethods: [GET, HEAD]
-          TargetOriginId: UiS3Origin
+          TargetOriginId: FmcS3Origin
           ForwardedValues:
             QueryString: false
             Cookies:
@@ -70,10 +70,10 @@ Resources:
         HttpVersion: http2
         PriceClass: PriceClass_100
 
-  UiBucketPolicy:
+  FmcBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref UiBucketName
+      Bucket: !Ref FmcBucketName
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -81,31 +81,31 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub "arn:aws:s3:::${UiBucketName}/*"
+            Resource: !Sub "arn:aws:s3:::${FmcBucketName}/*"
             Condition:
               StringEquals:
-                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${UiDistribution}"
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FmcDistribution}"
 
-  UiDnsRecord:
+  FmcDnsRecord:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref HostedZoneId
-      Name: !Ref UiDomain
+      Name: !Ref FmcDomain
       Type: A
       AliasTarget:
-        DNSName: !GetAtt UiDistribution.DomainName
+        DNSName: !GetAtt FmcDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
         EvaluateTargetHealth: false
 
 Outputs:
   DistributionId:
-    Value: !Ref UiDistribution
+    Value: !Ref FmcDistribution
     Description: CloudFront distribution ID
 
   DistributionDomain:
-    Value: !GetAtt UiDistribution.DomainName
+    Value: !GetAtt FmcDistribution.DomainName
     Description: CloudFront distribution domain name
 
-  UiDomain:
-    Value: !Ref UiDomain
-    Description: Custom UI domain name
+  FmcDomain:
+    Value: !Ref FmcDomain
+    Description: Custom FMC domain name

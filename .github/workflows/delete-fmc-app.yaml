@@ -1,4 +1,4 @@
-name: ⚠️ Delete UI App
+name: ⚠️ Delete FMC App
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
         type: string
 
 jobs:
-  delete-ui-app:
+  delete-fmc-app:
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
     permissions:
@@ -30,9 +30,9 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Empty S3 UI bucket
+      - name: Empty S3 FMC bucket
         run: |
-          BUCKET="${{ secrets.S3_UI_BUCKET_NAME }}"
+          BUCKET="${{ secrets.S3_FMC_BUCKET_NAME }}"
           STDERR=$(mktemp)
           if ! aws s3 rm "s3://$BUCKET" --recursive 2>"$STDERR"; then
             if grep -qiE "NoSuchBucket|does not exist" "$STDERR"; then
