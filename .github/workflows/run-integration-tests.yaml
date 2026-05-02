@@ -154,8 +154,8 @@ jobs:
         env:
           FIREFLY_API_URL: ${{ steps.lookup-api.outputs.api_url }}
           FIREFLY_FIRMWARE_BUCKET: ${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}
-          FIREFLY_UI_URL: ${{ steps.lookup-ui.outputs.ui_url }}
-          FIREFLY_UI_BUCKET: ${{ secrets.S3_FMC_BUCKET_NAME }}
+          FIREFLY_FMC_URL: ${{ steps.lookup-ui.outputs.ui_url }}
+          FIREFLY_FMC_BUCKET: ${{ secrets.S3_FMC_BUCKET_NAME }}
           FIREFLY_COGNITO_USER_POOL_ID: ${{ steps.lookup-cognito.outputs.user_pool_id }}
           FIREFLY_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
           FIREFLY_TEST_USER_EMAIL: ${{ steps.ci-creds.outputs.email }}

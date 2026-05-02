@@ -4,7 +4,7 @@ Tests for CORS configuration on the API Gateway.
 Verifies that preflight OPTIONS requests from the UI origin are handled
 correctly and that CORS headers are returned on actual API responses.
 
-Requires FIREFLY_UI_URL to be set (e.g., https://firefly-dev.p5software.com).
+Requires FIREFLY_FMC_URL to be set (e.g., https://fmc.dev.fireflylx.com).
 """
 
 import requests

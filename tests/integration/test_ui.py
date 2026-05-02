@@ -2,7 +2,7 @@
 Integration tests for the firmware management UI hosted on CloudFront.
 
 Required environment variables:
-  FIREFLY_UI_URL  Base URL of the UI (e.g. https://ui.example.com)
+  FIREFLY_FMC_URL  Base URL of the UI (e.g. https://ui.example.com)
                   If not set, all tests are skipped.
 """
 
@@ -13,12 +13,12 @@ import requests
 
 pytestmark = pytest.mark.ui
 
-UI_URL = os.environ.get("FIREFLY_UI_URL", "").rstrip("/")
+UI_URL = os.environ.get("FIREFLY_FMC_URL", "").rstrip("/")
 
 
 def _skip_if_no_url():
     if not UI_URL:
-        pytest.skip("FIREFLY_UI_URL not set — skipping UI tests")
+        pytest.skip("FIREFLY_FMC_URL not set — skipping UI tests")
 
 
 class TestUiAccessibility:
@@ -86,10 +86,10 @@ class TestS3DirectAccess:
         the bucket is not directly accessible by standard clients.
         """
         _skip_if_no_url()
-        bucket_name = os.environ.get("FIREFLY_UI_BUCKET")
+        bucket_name = os.environ.get("FIREFLY_FMC_BUCKET")
         region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
         if not bucket_name:
-            pytest.skip("FIREFLY_UI_BUCKET not set — skipping direct S3 access test")
+            pytest.skip("FIREFLY_FMC_BUCKET not set — skipping direct S3 access test")
         s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/index.html"
         try:
             resp = requests.get(s3_url, timeout=15)
