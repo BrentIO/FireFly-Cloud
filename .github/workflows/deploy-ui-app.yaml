@@ -28,6 +28,7 @@ permissions:
 
 jobs:
   deploy-ui-app:
+    if: ${{ inputs.target_env != 'production' || github.ref_type == 'tag' }}
     environment: ${{ inputs.target_env }}
     runs-on: ubuntu-latest
     permissions:
@@ -41,7 +42,12 @@ jobs:
       - name: Set VERSION based on tag or branch
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+            TAG="${GITHUB_REF#refs/tags/}"
+            if [[ ! "$TAG" =~ ^[0-9]{4}\.(0[1-9]|1[0-2])\.[0-9]{2}$ ]]; then
+              echo "❌ Invalid tag format. Expected YYYY.MM.bb"
+              exit 1
+            fi
+            echo "VERSION=$TAG" >> $GITHUB_ENV
           else
             echo "VERSION=9999.99.99" >> $GITHUB_ENV
           fi
