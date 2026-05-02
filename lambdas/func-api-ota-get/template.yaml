@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: API GET /ota/{product_id}/{application}
+Description: API GET /ota/{class}/{product_hex}
 
 Parameters:
   SharedLayerArn:
@@ -16,10 +16,6 @@ Parameters:
   CloudFrontDomain:
     Type: String
     Description: Domain name of the CloudFront distribution for firmware delivery (e.g., firmware.somewhere.com)
-
-  FirmwareTypeMapSsmPath:
-    Type: String
-    Description: SSM parameter path containing a JSON object mapping application name to esp32FOTA firmware type (e.g., /firefly/dev/firmware_type_map)
 
 Resources:
 
@@ -72,7 +68,6 @@ Resources:
         Variables:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           CLOUDFRONT_DOMAIN: !Ref CloudFrontDomain
-          FIRMWARE_TYPE_MAP: !Sub "{{resolve:ssm:${FirmwareTypeMapSsmPath}}}"
           APP_CONFIG_ENV: default
 
   FuncApiOtaGetIntegration:
@@ -87,7 +82,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref ApiId
-      RouteKey: GET /ota/{product_id}/{application}
+      RouteKey: GET /ota/{class}/{product_hex}
       Target: !Sub integrations/${FuncApiOtaGetIntegration.IntegrationId}
 
   FuncApiOtaGetPermission:

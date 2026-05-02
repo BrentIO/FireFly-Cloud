@@ -15,7 +15,7 @@ Resources:
           AttributeType: S
         - AttributeName: version
           AttributeType: S
-        - AttributeName: product_id
+        - AttributeName: product_hex
           AttributeType: S
         - AttributeName: zip_name
           AttributeType: S
@@ -25,9 +25,9 @@ Resources:
         - AttributeName: version
           KeyType: RANGE
       GlobalSecondaryIndexes:
-        - IndexName: product_id-index
+        - IndexName: product_hex-index
           KeySchema:
-            - AttributeName: product_id
+            - AttributeName: product_hex
               KeyType: HASH
           Projection:
             ProjectionType: ALL

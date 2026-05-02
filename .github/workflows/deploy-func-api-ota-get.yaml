@@ -58,16 +58,6 @@ jobs:
 
           echo "api_id=$API_ID" >> $GITHUB_OUTPUT
 
-      - name: Store FIRMWARE_TYPE_MAP in SSM
-        env:
-          FIRMWARE_TYPE_MAP: ${{ vars.FIRMWARE_TYPE_MAP }}
-        run: |
-          aws ssm put-parameter \
-            --name "/firefly/${{ inputs.target_env }}/firmware_type_map" \
-            --value "$FIRMWARE_TYPE_MAP" \
-            --type String \
-            --overwrite
-
       - name: Look up shared layer ARN
         id: lookup-layer
         run: |
@@ -97,7 +87,6 @@ jobs:
             --parameter-overrides \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               CloudFrontDomain=${{ vars.FIRMWARE_DOMAIN_NAME }} \
-              FirmwareTypeMapSsmPath=/firefly/${{ inputs.target_env }}/firmware_type_map \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
             --no-confirm-changeset \
