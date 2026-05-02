@@ -4,7 +4,7 @@ Shared fixtures for FireFly integration tests.
 Required environment variables:
   FIREFLY_API_URL          Base URL of the API (default: https://api.p5software.com)
   FIREFLY_FIRMWARE_BUCKET  S3 bucket name (required for any test that uploads firmware)
-  FIREFLY_UI_URL           Base URL of the UI (required for CORS tests)
+  FIREFLY_FMC_URL           Base URL of the UI (required for CORS tests)
 
 Optional environment variables:
   CLEANUP_TEST_RECORDS     Set to any non-empty value to delete test firmware records
@@ -75,7 +75,7 @@ import requests
 
 API_URL = os.environ.get("FIREFLY_API_URL", "https://api.p5software.com")
 FIRMWARE_BUCKET = os.environ.get("FIREFLY_FIRMWARE_BUCKET")
-UI_URL = os.environ.get("FIREFLY_UI_URL", "")
+UI_URL = os.environ.get("FIREFLY_FMC_URL", "")
 
 COGNITO_USER_POOL_ID        = os.environ.get("FIREFLY_COGNITO_USER_POOL_ID")
 COGNITO_CLIENT_ID           = os.environ.get("FIREFLY_COGNITO_CLIENT_ID")
@@ -444,7 +444,7 @@ def api_url() -> str:
 @pytest.fixture(scope="session")
 def ui_url() -> str:
     if not UI_URL:
-        pytest.skip("FIREFLY_UI_URL not set — skipping CORS tests")
+        pytest.skip("FIREFLY_FMC_URL not set — skipping CORS tests")
     return UI_URL
 
 

@@ -17,8 +17,8 @@ permissions:
 
 jobs:
 
-  delete-ui-app:
-    uses: ./.github/workflows/delete-ui-app.yaml
+  delete-fmc-app:
+    uses: ./.github/workflows/delete-fmc-app.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
@@ -36,16 +36,16 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
-  delete-cloudfront-ui:
-    needs: delete-ui-app
-    uses: ./.github/workflows/delete-cloudfront-ui.yaml
+  delete-cloudfront-fmc:
+    needs: delete-fmc-app
+    uses: ./.github/workflows/delete-cloudfront-fmc.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
 
-  delete-s3-ui:
-    needs: delete-cloudfront-ui
-    uses: ./.github/workflows/delete-s3-ui.yaml
+  delete-s3-fmc:
+    needs: delete-cloudfront-fmc
+    uses: ./.github/workflows/delete-s3-fmc.yaml
     secrets: inherit
     with:
       target_env: ${{ inputs.target_env }}
@@ -222,7 +222,7 @@ jobs:
     needs:
       - delete-api-gateway
       - delete-cloudfront-firmware
-      - delete-cloudfront-ui
+      - delete-cloudfront-fmc
       - delete-cloudfront-configurator
       - delete-cognito
     uses: ./.github/workflows/delete-acm.yaml

@@ -61,16 +61,16 @@ jobs:
 
           echo "api_url=$API_URL" >> $GITHUB_OUTPUT
 
-      - name: Look up UI URL
+      - name: Look up FMC URL
         id: lookup-ui
         run: |
-          UI_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name firefly-cloudfront-ui \
-            --query "Stacks[0].Outputs[?OutputKey=='UiDomain'].OutputValue" \
+          FMC_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cloudfront-fmc \
+            --query "Stacks[0].Outputs[?OutputKey=='FmcDomain'].OutputValue" \
             --output text 2>/dev/null || echo "")
 
-          if [ -n "$UI_DOMAIN" ]; then
-            echo "ui_url=https://$UI_DOMAIN" >> $GITHUB_OUTPUT
+          if [ -n "$FMC_DOMAIN" ]; then
+            echo "ui_url=https://$FMC_DOMAIN" >> $GITHUB_OUTPUT
           fi
 
       - name: Look up Cognito User Pool ID and Client ID
@@ -154,8 +154,8 @@ jobs:
         env:
           FIREFLY_API_URL: ${{ steps.lookup-api.outputs.api_url }}
           FIREFLY_FIRMWARE_BUCKET: ${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }}
-          FIREFLY_UI_URL: ${{ steps.lookup-ui.outputs.ui_url }}
-          FIREFLY_UI_BUCKET: ${{ secrets.S3_UI_BUCKET_NAME }}
+          FIREFLY_FMC_URL: ${{ steps.lookup-ui.outputs.ui_url }}
+          FIREFLY_FMC_BUCKET: ${{ secrets.S3_FMC_BUCKET_NAME }}
           FIREFLY_COGNITO_USER_POOL_ID: ${{ steps.lookup-cognito.outputs.user_pool_id }}
           FIREFLY_COGNITO_CLIENT_ID: ${{ steps.lookup-cognito.outputs.client_id }}
           FIREFLY_TEST_USER_EMAIL: ${{ steps.ci-creds.outputs.email }}
