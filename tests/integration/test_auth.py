@@ -48,12 +48,13 @@ def test_protected_endpoint_rejects_invalid_token(api_url, method, path):
 # ---------------------------------------------------------------------------
 
 def test_ota_endpoint_is_public(api_url):
-    """GET /ota/{product_id}/{application} must not require authentication."""
+    """GET /ota/{class}/{product_hex} must not require authentication."""
     resp = requests.get(
-        f"{api_url}/ota/__unknown_product__/__unknown_app__",
+        f"{api_url}/ota/nonexistent/0x00000000",
+        params={"current_version": "0.0.01"},
         timeout=10,
     )
-    # 404 (product not found) or 200 are both valid — what matters is NOT 401
+    # 404 (product not found) is the expected response — what matters is NOT 401
     assert resp.status_code != 401, (
         f"OTA endpoint returned 401 — it must be publicly accessible"
     )
