@@ -49,34 +49,91 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
-      - name: Ensure product_hex-index GSI exists
+      - name: Migrate GSI product_id-index → product_hex-index
         run: |
-          TABLE_NAME="firefly-firmware"
-          EXISTING=$(aws dynamodb describe-table --table-name "$TABLE_NAME" \
-            --query "Table.GlobalSecondaryIndexes[?IndexName=='product_hex-index'].IndexName" \
-            --output text)
+          # DynamoDB only allows one GSI operation per CloudFormation update.
+          # If the old product_id-index still exists, deploy an intermediate template
+          # that adds product_hex-index first (one addition). The final deploy then
+          # only removes product_id-index (one deletion). Idempotent on repeat runs.
+          OLD_GSI=$(aws dynamodb describe-table --table-name "firefly-firmware" \
+            --query "Table.GlobalSecondaryIndexes[?IndexName=='product_id-index'].IndexName" \
+            --output text 2>/dev/null || echo "")
 
-          if [ -z "$EXISTING" ]; then
-            echo "Creating product_hex-index GSI..."
-            aws dynamodb update-table \
-              --table-name "$TABLE_NAME" \
-              --attribute-definitions AttributeName=product_hex,AttributeType=S \
-              --global-secondary-index-updates \
-                '[{"Create":{"IndexName":"product_hex-index","KeySchema":[{"AttributeName":"product_hex","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}}]'
-
-            echo "Waiting for product_hex-index to become ACTIVE..."
-            while true; do
-              STATUS=$(aws dynamodb describe-table --table-name "$TABLE_NAME" \
-                --query "Table.GlobalSecondaryIndexes[?IndexName=='product_hex-index'].IndexStatus" \
-                --output text)
-              echo "  GSI status: $STATUS"
-              [ "$STATUS" = "ACTIVE" ] && break
-              sleep 5
-            done
-            echo "product_hex-index is ACTIVE"
-          else
-            echo "product_hex-index already exists, skipping"
+          if [ -z "$OLD_GSI" ]; then
+            echo "product_id-index not present — migration already complete, skipping"
+            exit 0
           fi
+
+          echo "product_id-index found — deploying intermediate template with both GSIs..."
+          cat > /tmp/dynamodb-firmware-migration.yaml << 'TEMPLATE'
+          AWSTemplateFormatVersion: '2010-09-09'
+          Transform: AWS::Serverless-2016-10-31
+          Description: DynamoDB table for FireFly firmware manifests (GSI migration step)
+          Resources:
+            FireflyFirmwareTable:
+              Type: AWS::DynamoDB::Table
+              DeletionPolicy: Retain
+              Properties:
+                TableName: firefly-firmware
+                BillingMode: PAY_PER_REQUEST
+                AttributeDefinitions:
+                  - AttributeName: pk
+                    AttributeType: S
+                  - AttributeName: version
+                    AttributeType: S
+                  - AttributeName: product_id
+                    AttributeType: S
+                  - AttributeName: product_hex
+                    AttributeType: S
+                  - AttributeName: zip_name
+                    AttributeType: S
+                KeySchema:
+                  - AttributeName: pk
+                    KeyType: HASH
+                  - AttributeName: version
+                    KeyType: RANGE
+                GlobalSecondaryIndexes:
+                  - IndexName: product_id-index
+                    KeySchema:
+                      - AttributeName: product_id
+                        KeyType: HASH
+                    Projection:
+                      ProjectionType: ALL
+                  - IndexName: product_hex-index
+                    KeySchema:
+                      - AttributeName: product_hex
+                        KeyType: HASH
+                    Projection:
+                      ProjectionType: ALL
+                  - IndexName: zip_name-index
+                    KeySchema:
+                      - AttributeName: zip_name
+                        KeyType: HASH
+                    Projection:
+                      ProjectionType: ALL
+                TimeToLiveSpecification:
+                  AttributeName: ttl
+                  Enabled: true
+                DeletionProtectionEnabled: true
+          Outputs:
+            FireflyFirmwareTableName:
+              Description: Name of the firmware table
+              Value: !Ref FireflyFirmwareTable
+            FireflyFirmwareTableArn:
+              Description: ARN of the firmware table
+              Value: !GetAtt FireflyFirmwareTable.Arn
+          TEMPLATE
+
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file /tmp/dynamodb-firmware-migration.yaml \
+            --stack-name firefly-dynamodb-firmware \
+            --region ${{ secrets.AWS_REGION }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}
+
+          echo "Intermediate deploy complete — product_hex-index added"
 
       - name: Build dynamodb-firmware
         run: sam build --template-file templates/dynamodb-firmware.yaml
