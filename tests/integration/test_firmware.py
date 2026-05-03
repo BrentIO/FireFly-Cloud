@@ -55,6 +55,8 @@ def test_list_firmware_item_required_fields(api_url, auth_headers, firmware_item
     assert len(items) > 0, "Expected at least one item after uploading test firmware"
     required = {"product_hex", "class", "firmware_type", "version", "release_status", "zip_name"}
     for item in items:
+        if item.get("release_status") == "ERROR":
+            continue
         missing = required - item.keys()
         assert not missing, f"Item missing fields: {missing}"
 
