@@ -316,6 +316,7 @@ jobs:
 
   run-integration-tests:
     needs:
+      - deploy-dynamodb-firmware
       - deploy-s3-firmware
       - deploy-func-api-firmware-get
       - deploy-func-api-firmware-status-patch
