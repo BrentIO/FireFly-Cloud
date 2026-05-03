@@ -116,9 +116,17 @@ def lambda_handler(event, context):
         if not items:
             return _response(404, {"message": f"Firmware not found: {zip_name}"})
 
-        item = items[0]
-        pk = item["pk"]
-        version = item["version"]
+        pk = items[0]["pk"]
+        version = items[0]["version"]
+
+        # Re-read from the main table with strong consistency — GSI reads are
+        # eventually consistent and can return a stale status immediately after
+        # a transition, causing a spurious 422 on the next PATCH.
+        consistent = firmware_table.get_item(
+            Key={"pk": pk, "version": version},
+            ConsistentRead=True
+        ).get("Item")
+        item = consistent if consistent else items[0]
         current_status = item.get("release_status")
         allowed = VALID_TRANSITIONS.get(current_status, [])
 

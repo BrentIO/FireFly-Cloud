@@ -45,7 +45,12 @@ def test_list_firmware_item_excludes_pk_field(api_url, auth_headers, firmware_it
 
 
 def test_list_firmware_item_required_fields(api_url, auth_headers, firmware_item):
-    resp = requests.get(f"{api_url}/firmware", headers=auth_headers, timeout=10)
+    resp = requests.get(
+        f"{api_url}/firmware",
+        params={"product_hex": firmware_item["product_hex"]},
+        headers=auth_headers,
+        timeout=10,
+    )
     items = resp.json()["items"]
     assert len(items) > 0, "Expected at least one item after uploading test firmware"
     required = {"product_hex", "class", "firmware_type", "version", "release_status", "zip_name"}
