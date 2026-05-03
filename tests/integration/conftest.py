@@ -325,13 +325,14 @@ def _upload_and_wait_for_error(
     zip_bytes: bytes,
     filename: str,
     timeout: int = 60,
+    product_hex: str = "__unknown_product_hex__",
 ) -> dict:
     """
     Upload ZIP bytes to S3 and poll until an ERROR record with matching filename appears.
 
-    Uses a full table scan filtered by original_name — valid for both parse errors
-    (which land under __unknown_product_hex__) and content errors (which land under
-    TEST_PRODUCT_HEX).
+    Pass product_hex to match where the Lambda stores the error record:
+    - ZIPs that cannot be parsed at all land under "__unknown_product_hex__" (default).
+    - ZIPs with a valid product_hex in the manifest land under that product_hex.
     """
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping upload-dependent test")
@@ -344,6 +345,7 @@ def _upload_and_wait_for_error(
     while time.monotonic() < deadline:
         resp = requests.get(
             f"{API_URL}/firmware",
+            params={"product_hex": product_hex},
             headers=headers,
             timeout=10,
         )

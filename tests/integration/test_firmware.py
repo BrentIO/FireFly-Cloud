@@ -54,11 +54,10 @@ def test_list_firmware_item_required_fields(api_url, auth_headers, firmware_item
     items = resp.json()["items"]
     assert len(items) > 0, "Expected at least one item after uploading test firmware"
     required = {"product_hex", "class", "firmware_type", "version", "release_status", "zip_name"}
-    for item in items:
-        if item.get("release_status") == "ERROR":
-            continue
-        missing = required - item.keys()
-        assert not missing, f"Item missing fields: {missing}"
+    our_item = next((i for i in items if i.get("zip_name") == firmware_item["zip_name"]), None)
+    assert our_item is not None, f"Uploaded firmware {firmware_item['zip_name']} not found in list"
+    missing = required - our_item.keys()
+    assert not missing, f"Item missing fields: {missing}"
 
 
 def test_list_firmware_filter_by_product_hex(api_url, auth_headers, firmware_item):

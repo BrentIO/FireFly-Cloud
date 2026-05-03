@@ -18,6 +18,7 @@ pytestmark = pytest.mark.firmware_upload
 
 from conftest import (
     API_URL,
+    TEST_PRODUCT_HEX,
     _create_corrupt_zip,
     _create_zip_invalid_manifest,
     _create_zip_missing_file,
@@ -94,6 +95,7 @@ def test_invalid_manifest_missing_field_creates_error_record(api_url, auth_heade
     item = _upload_and_wait_for_error(
         _create_zip_invalid_manifest(missing_field="class"),
         filename,
+        product_hex=TEST_PRODUCT_HEX,
     )
     try:
         assert item["release_status"] == "ERROR"
@@ -108,6 +110,7 @@ def test_invalid_manifest_error_identifies_missing_field(api_url, auth_headers):
     item = _upload_and_wait_for_error(
         _create_zip_invalid_manifest(missing_field="class"),
         filename,
+        product_hex=TEST_PRODUCT_HEX,
     )
     try:
         assert "class" in item["error"]
@@ -121,7 +124,7 @@ def test_invalid_manifest_error_identifies_missing_field(api_url, auth_headers):
 
 def test_missing_file_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("missing-file")
-    item = _upload_and_wait_for_error(_create_zip_missing_file(), filename)
+    item = _upload_and_wait_for_error(_create_zip_missing_file(), filename, product_hex=TEST_PRODUCT_HEX)
     try:
         assert item["release_status"] == "ERROR"
         assert "error" in item
@@ -132,7 +135,7 @@ def test_missing_file_creates_error_record(api_url, auth_headers):
 
 def test_missing_file_error_identifies_filename(api_url, auth_headers):
     filename = _unique_filename("missing-file-msg")
-    item = _upload_and_wait_for_error(_create_zip_missing_file(), filename)
+    item = _upload_and_wait_for_error(_create_zip_missing_file(), filename, product_hex=TEST_PRODUCT_HEX)
     try:
         assert "firmware.bin" in item["error"]
     finally:
@@ -145,7 +148,7 @@ def test_missing_file_error_identifies_filename(api_url, auth_headers):
 
 def test_sha256_mismatch_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("sha256-mismatch")
-    item = _upload_and_wait_for_error(_create_zip_sha256_mismatch(), filename)
+    item = _upload_and_wait_for_error(_create_zip_sha256_mismatch(), filename, product_hex=TEST_PRODUCT_HEX)
     try:
         assert item["release_status"] == "ERROR"
         assert "error" in item
@@ -156,7 +159,7 @@ def test_sha256_mismatch_creates_error_record(api_url, auth_headers):
 
 def test_sha256_mismatch_error_identifies_filename(api_url, auth_headers):
     filename = _unique_filename("sha256-mismatch-msg")
-    item = _upload_and_wait_for_error(_create_zip_sha256_mismatch(), filename)
+    item = _upload_and_wait_for_error(_create_zip_sha256_mismatch(), filename, product_hex=TEST_PRODUCT_HEX)
     try:
         assert "firmware.bin" in item["error"]
     finally:
@@ -169,7 +172,7 @@ def test_sha256_mismatch_error_identifies_filename(api_url, auth_headers):
 
 def test_missing_partitions_creates_error_record(api_url, auth_headers):
     filename = _unique_filename("no-partitions")
-    item = _upload_and_wait_for_error(_create_zip_missing_partitions(), filename)
+    item = _upload_and_wait_for_error(_create_zip_missing_partitions(), filename, product_hex=TEST_PRODUCT_HEX)
     try:
         assert item["release_status"] == "ERROR"
         assert "error" in item
@@ -180,7 +183,7 @@ def test_missing_partitions_creates_error_record(api_url, auth_headers):
 
 def test_missing_partitions_error_mentions_partitions(api_url, auth_headers):
     filename = _unique_filename("no-partitions-msg")
-    item = _upload_and_wait_for_error(_create_zip_missing_partitions(), filename)
+    item = _upload_and_wait_for_error(_create_zip_missing_partitions(), filename, product_hex=TEST_PRODUCT_HEX)
     try:
         assert "partitions" in item["error"].lower()
     finally:
