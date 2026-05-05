@@ -45,19 +45,25 @@ def test_list_firmware_item_excludes_pk_field(api_url, auth_headers, firmware_it
 
 
 def test_list_firmware_item_required_fields(api_url, auth_headers, firmware_item):
-    resp = requests.get(f"{api_url}/firmware", headers=auth_headers, timeout=10)
-    items = resp.json()["items"]
-    assert len(items) > 0, "Expected at least one item after uploading test firmware"
-    required = {"product_id", "version", "release_status", "zip_name"}
-    for item in items:
-        missing = required - item.keys()
-        assert not missing, f"Item missing fields: {missing}"
-
-
-def test_list_firmware_filter_by_product_id(api_url, auth_headers, firmware_item):
     resp = requests.get(
         f"{api_url}/firmware",
-        params={"product_id": firmware_item["product_id"]},
+        params={"product_hex": firmware_item["product_hex"]},
+        headers=auth_headers,
+        timeout=10,
+    )
+    items = resp.json()["items"]
+    assert len(items) > 0, "Expected at least one item after uploading test firmware"
+    required = {"product_hex", "class", "firmware_type", "version", "release_status", "zip_name"}
+    our_item = next((i for i in items if i.get("zip_name") == firmware_item["zip_name"]), None)
+    assert our_item is not None, f"Uploaded firmware {firmware_item['zip_name']} not found in list"
+    missing = required - our_item.keys()
+    assert not missing, f"Item missing fields: {missing}"
+
+
+def test_list_firmware_filter_by_product_hex(api_url, auth_headers, firmware_item):
+    resp = requests.get(
+        f"{api_url}/firmware",
+        params={"product_hex": firmware_item["product_hex"]},
         headers=auth_headers,
         timeout=10,
     )
@@ -65,19 +71,7 @@ def test_list_firmware_filter_by_product_id(api_url, auth_headers, firmware_item
     items = resp.json()["items"]
     assert any(i["zip_name"] == firmware_item["zip_name"] for i in items)
     for item in items:
-        assert item["product_id"] == firmware_item["product_id"]
-
-
-def test_list_firmware_filter_by_application(api_url, auth_headers, firmware_item):
-    resp = requests.get(
-        f"{api_url}/firmware",
-        params={"application": firmware_item["application"]},
-        headers=auth_headers,
-        timeout=10,
-    )
-    assert resp.status_code == 200
-    for item in resp.json()["items"]:
-        assert item["application"] == firmware_item["application"]
+        assert item["product_hex"] == firmware_item["product_hex"]
 
 
 def test_list_firmware_filter_by_version(api_url, auth_headers, firmware_item):
@@ -94,10 +88,10 @@ def test_list_firmware_filter_by_version(api_url, auth_headers, firmware_item):
         assert item["version"] == firmware_item["version"]
 
 
-def test_list_firmware_unknown_product_id_returns_empty(api_url, auth_headers):
+def test_list_firmware_unknown_product_hex_returns_empty(api_url, auth_headers):
     resp = requests.get(
         f"{api_url}/firmware",
-        params={"product_id": "does-not-exist-xyz"},
+        params={"product_hex": "0xdeadbeef"},
         headers=auth_headers,
         timeout=10,
     )
@@ -173,7 +167,7 @@ def test_get_firmware_item_matches_list_entry(api_url, auth_headers, firmware_it
     """Fields present in the list response should match the single-item response."""
     list_resp = requests.get(
         f"{api_url}/firmware",
-        params={"product_id": firmware_item["product_id"]},
+        params={"product_hex": firmware_item["product_hex"]},
         headers=auth_headers,
         timeout=10,
     )

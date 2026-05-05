@@ -51,7 +51,7 @@ def parse_partition_table(data):
 
 def validate_manifest_schema(manifest):
     required_fields = [
-        "class", "product_id", "application",
+        "class", "product_id", "product_hex", "firmware_type", "application",
         "branch", "version", "commit",
         "created", "files"
     ]
@@ -74,22 +74,26 @@ def validate_manifest_schema(manifest):
 
 
 def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
+    device_class = "__unknown_class__"
+    product_hex = "__unknown_product_hex__"
     product_id = "__UNKNOWN_PRODUCT__"
-    application = "__UNKNOWN_APPLICATION__"
     version = f"ERROR#UNKNOWN#{uuid_name}"
 
     if isinstance(manifest, dict):
+        if "class" in manifest:
+            device_class = manifest["class"].lower()
+        if "product_hex" in manifest:
+            product_hex = manifest["product_hex"].lower()
         if "product_id" in manifest:
             product_id = manifest["product_id"]
-        if "application" in manifest:
-            application = manifest["application"]
         if "version" in manifest:
             version = f"ERROR#{manifest['version']}#{uuid_name}"
 
     now = int(time.time())
     item = {
-        "pk": f"{product_id}#{application}",
+        "pk": f"{device_class}#{product_hex}",
         "product_id": product_id,
+        "product_hex": product_hex,
         "version": version,
         "release_status": "ERROR",
         "error": error_message,
@@ -177,10 +181,17 @@ def lambda_handler(event, context):
                 manifest = json.load(f)
 
             validate_manifest_schema(manifest)
-            logger.debug(f"Manifest validated for product_id='{manifest['product_id']}' version='{manifest['version']}'")
+            device_class = manifest["class"].lower()
+            product_hex = manifest["product_hex"].lower()
+            logger.debug(f"Manifest validated for class='{device_class}' product_hex='{product_hex}' version='{manifest['version']}'")
 
             product_id = manifest["product_id"]
             version = manifest["version"]
+
+            main_binary = next(
+                (f["name"] for f in manifest.get("files", []) if f["name"].endswith(".ino.bin")),
+                None,
+            )
 
             for entry in manifest["files"]:
                 file_path = os.path.join(extract_dir, entry["name"])
@@ -207,10 +218,13 @@ def lambda_handler(event, context):
 
             now = int(time.time())
             item = {
-                "pk": f"{product_id}#{manifest.get('application')}",
+                "pk": f"{device_class}#{product_hex}",
                 "product_id": product_id,
+                "product_hex": product_hex,
+                "firmware_type": manifest.get("firmware_type"),
+                "main_binary": main_binary,
                 "version": version,
-                "class": manifest.get("class"),
+                "class": device_class,
                 "application": manifest.get("application"),
                 "branch": manifest.get("branch"),
                 "commit": manifest.get("commit"),

@@ -34,10 +34,8 @@ def _response(status_code, body):
     }
 
 
-def get_firmware_list(product_id=None, application=None, version=None):
+def get_firmware_list(product_hex=None, version=None):
     filter_parts = []
-    if application:
-        filter_parts.append(Attr("application").eq(application))
     if version:
         filter_parts.append(Attr("version").eq(version))
 
@@ -49,10 +47,10 @@ def get_firmware_list(product_id=None, application=None, version=None):
     if filter_expr is not None:
         kwargs["FilterExpression"] = filter_expr
 
-    if product_id:
+    if product_hex:
         response = firmware_table.query(
-            IndexName="product_id-index",
-            KeyConditionExpression=Key("product_id").eq(product_id),
+            IndexName="product_hex-index",
+            KeyConditionExpression=Key("product_hex").eq(product_hex.lower()),
             **kwargs
         )
     else:
@@ -63,7 +61,7 @@ def get_firmware_list(product_id=None, application=None, version=None):
         {k: v for k, v in item.items() if k not in LIST_EXCLUDE_FIELDS}
         for item in response.get("Items", [])
     ]
-    logger.debug(f"Returning {len(items)} firmware items (product_id='{product_id}' application='{application}' version='{version}')")
+    logger.debug(f"Returning {len(items)} firmware items (product_hex='{product_hex}' version='{version}')")
     return _response(200, {"items": items})
 
 
@@ -93,11 +91,10 @@ def lambda_handler(event, context):
             return get_firmware_item(zip_name)
         else:
             query_params = event.get("queryStringParameters") or {}
-            filter_product_id = query_params.get("product_id")
-            filter_application = query_params.get("application")
+            filter_product_hex = query_params.get("product_hex")
             filter_version = query_params.get("version")
-            logger.debug(f"GET /firmware product_id='{filter_product_id}' application='{filter_application}' version='{filter_version}'")
-            return get_firmware_list(product_id=filter_product_id, application=filter_application, version=filter_version)
+            logger.debug(f"GET /firmware product_hex='{filter_product_hex}' version='{filter_version}'")
+            return get_firmware_list(product_hex=filter_product_hex, version=filter_version)
 
     except Exception:
         logger.exception("Unhandled exception")

@@ -49,6 +49,203 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Adopt existing table if stack was deleted
+        env:
+          ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }}
+        run: |
+          python3 << 'PYEOF'
+          import boto3, os, subprocess, sys, time
+          from botocore.exceptions import ClientError
+
+          STACK    = 'firefly-dynamodb-firmware'
+          TABLE    = 'firefly-firmware'
+          ROLE     = os.environ['ROLE_ARN']
+          TEMPLATE = 'templates/dynamodb-firmware.yaml'
+
+          cf  = boto3.client('cloudformation')
+          ddb = boto3.client('dynamodb')
+
+          stack_status = 'DOES_NOT_EXIST'
+          try:
+            resp = cf.describe_stacks(StackName=STACK)
+            stack_status = resp['Stacks'][0]['StackStatus']
+          except ClientError as e:
+            if 'does not exist' not in str(e):
+              raise
+
+          if stack_status in ('ROLLBACK_COMPLETE', 'REVIEW_IN_PROGRESS'):
+            # ROLLBACK_COMPLETE: SAM auto-deletes and retries CREATE, but the retained
+            # table triggers ResourceExistenceCheck. Delete it ourselves instead.
+            # REVIEW_IN_PROGRESS: a prior IMPORT changeset was created but never
+            # executed; the stack can't be updated until it's cleaned up.
+            print(f'Stack in {stack_status} — deleting before re-adopt')
+            cf.delete_stack(StackName=STACK)
+            while True:
+              try:
+                resp = cf.describe_stacks(StackName=STACK)
+                s = resp['Stacks'][0]['StackStatus']
+                if s == 'DELETE_FAILED':
+                  print(f'Stack deletion failed')
+                  sys.exit(1)
+              except ClientError:
+                break
+              time.sleep(5)
+            stack_status = 'DOES_NOT_EXIST'
+
+          if stack_status not in ('DOES_NOT_EXIST', 'DELETE_COMPLETE'):
+            print(f'Stack {STACK} exists ({stack_status}) — skipping adoption')
+            sys.exit(0)
+
+          try:
+            ddb.describe_table(TableName=TABLE)
+            table_exists = True
+          except ClientError as e:
+            table_exists = False
+            if e.response['Error']['Code'] != 'ResourceNotFoundException':
+              raise
+
+          if not table_exists:
+            print(f'Neither stack nor table exists — normal create will run')
+            sys.exit(0)
+
+          print(f'Stack deleted but table retained — importing table into a new stack')
+
+          with open(TEMPLATE) as f:
+            template_text = f.read()
+
+          # IMPORT changesets reject templates with Outputs; strip that section first.
+          # A normal deploy immediately after re-adds the Outputs via an UPDATE.
+          import_template_body = template_text.split('\nOutputs:')[0]
+
+          CS_NAME = 'import-firmware-table'
+
+          cf.create_change_set(
+            StackName=STACK,
+            ChangeSetName=CS_NAME,
+            ChangeSetType='IMPORT',
+            RoleARN=ROLE,
+            TemplateBody=import_template_body,
+            ResourcesToImport=[{
+              'ResourceType': 'AWS::DynamoDB::Table',
+              'LogicalResourceId': 'FireflyFirmwareTable',
+              'ResourceIdentifier': {'TableName': TABLE},
+            }],
+          )
+
+          print('Waiting for changeset to be ready...')
+          while True:
+            resp   = cf.describe_change_set(StackName=STACK, ChangeSetName=CS_NAME)
+            status = resp['Status']
+            if status == 'CREATE_COMPLETE':
+              break
+            if status in ('FAILED', 'DELETE_COMPLETE'):
+              print(f'Changeset failed: {resp.get("StatusReason")}')
+              cf.delete_change_set(StackName=STACK, ChangeSetName=CS_NAME)
+              sys.exit(1)
+            time.sleep(3)
+
+          print('Executing changeset...')
+          cf.execute_change_set(StackName=STACK, ChangeSetName=CS_NAME)
+
+          print('Waiting for import to complete...')
+          while True:
+            resp   = cf.describe_stacks(StackName=STACK)
+            status = resp['Stacks'][0]['StackStatus']
+            if status == 'IMPORT_COMPLETE':
+              print('Import complete')
+              break
+            if 'FAILED' in status or 'ROLLBACK' in status:
+              print(f'Import failed with status: {status}')
+              sys.exit(1)
+            time.sleep(5)
+          PYEOF
+
+      - name: Migrate GSI product_id-index → product_hex-index
+        run: |
+          # DynamoDB only allows one GSI operation per CloudFormation update.
+          # If the old product_id-index still exists, deploy an intermediate template
+          # that adds product_hex-index first (one addition). The final deploy then
+          # only removes product_id-index (one deletion). Idempotent on repeat runs.
+          OLD_GSI=$(aws dynamodb describe-table --table-name "firefly-firmware" \
+            --query "Table.GlobalSecondaryIndexes[?IndexName=='product_id-index'].IndexName" \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$OLD_GSI" ]; then
+            echo "product_id-index not present — migration already complete, skipping"
+            exit 0
+          fi
+
+          echo "product_id-index found — deploying intermediate template with both GSIs..."
+          cat > /tmp/dynamodb-firmware-migration.yaml << 'TEMPLATE'
+          AWSTemplateFormatVersion: '2010-09-09'
+          Transform: AWS::Serverless-2016-10-31
+          Description: DynamoDB table for FireFly firmware manifests (GSI migration step)
+          Resources:
+            FireflyFirmwareTable:
+              Type: AWS::DynamoDB::Table
+              DeletionPolicy: Retain
+              Properties:
+                TableName: firefly-firmware
+                BillingMode: PAY_PER_REQUEST
+                AttributeDefinitions:
+                  - AttributeName: pk
+                    AttributeType: S
+                  - AttributeName: version
+                    AttributeType: S
+                  - AttributeName: product_id
+                    AttributeType: S
+                  - AttributeName: product_hex
+                    AttributeType: S
+                  - AttributeName: zip_name
+                    AttributeType: S
+                KeySchema:
+                  - AttributeName: pk
+                    KeyType: HASH
+                  - AttributeName: version
+                    KeyType: RANGE
+                GlobalSecondaryIndexes:
+                  - IndexName: product_id-index
+                    KeySchema:
+                      - AttributeName: product_id
+                        KeyType: HASH
+                    Projection:
+                      ProjectionType: ALL
+                  - IndexName: product_hex-index
+                    KeySchema:
+                      - AttributeName: product_hex
+                        KeyType: HASH
+                    Projection:
+                      ProjectionType: ALL
+                  - IndexName: zip_name-index
+                    KeySchema:
+                      - AttributeName: zip_name
+                        KeyType: HASH
+                    Projection:
+                      ProjectionType: ALL
+                TimeToLiveSpecification:
+                  AttributeName: ttl
+                  Enabled: true
+                DeletionProtectionEnabled: true
+          Outputs:
+            FireflyFirmwareTableName:
+              Description: Name of the firmware table
+              Value: !Ref FireflyFirmwareTable
+            FireflyFirmwareTableArn:
+              Description: ARN of the firmware table
+              Value: !GetAtt FireflyFirmwareTable.Arn
+          TEMPLATE
+
+          sam deploy \
+            --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ vars.CLOUD_FORMATION_EXECUTION_ROLE_NAME }} \
+            --template-file /tmp/dynamodb-firmware-migration.yaml \
+            --stack-name firefly-dynamodb-firmware \
+            --region ${{ secrets.AWS_REGION }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}
+
+          echo "Intermediate deploy complete — product_hex-index added"
+
       - name: Build dynamodb-firmware
         run: sam build --template-file templates/dynamodb-firmware.yaml
 

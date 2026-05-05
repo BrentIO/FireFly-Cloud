@@ -4,13 +4,13 @@ Shared fixtures for FireFly integration tests.
 Required environment variables:
   FIREFLY_API_URL          Base URL of the API (default: https://api.p5software.com)
   FIREFLY_FIRMWARE_BUCKET  S3 bucket name (required for any test that uploads firmware)
-  FIREFLY_FMC_URL           Base URL of the UI (required for CORS tests)
+  FIREFLY_FMC_URL           Base URL of the FMC (required for CORS tests)
 
 Optional environment variables:
   CLEANUP_TEST_RECORDS     Set to any non-empty value to delete test firmware records
-                           after the session completes. Covers all product_ids created
-                           during the session (including dynamic per-test IDs) plus the
-                           fixed TEST_PRODUCT_ID and '__UNKNOWN_PRODUCT__'. Records in
+                           after the session completes. Covers all product_hexes created
+                           during the session (including dynamic per-test values) plus the
+                           fixed TEST_PRODUCT_HEX and '__unknown_product_hex__'. Records in
                            RELEASED state are transitioned to REVOKED first (sets DynamoDB
                            TTL); REVOKED/DELETED records are left for TTL auto-expiry.
   FIREFLY_COGNITO_USER_POOL_ID   Cognito User Pool ID (required for auth tests)
@@ -28,23 +28,23 @@ firmware_item (session)
 fresh_firmware_item (function)
     A fresh READY_TO_TEST record per test. Use for tests that mutate state.
 
-released_firmware_item (function)
-    A RELEASED record per test, with its own unique product_id. Revoked at teardown.
+released_firmware_item (module)
+    A RELEASED record per module, with its own unique product_hex. Revoked at teardown.
+
+fresh_released_firmware_item (function)
+    A RELEASED record per test, with its own unique product_hex. Revoked at teardown.
 
 multi_version_ota_items (module)
-    product_a: v1/v2/v3 RELEASED under application="test"
-    product_b: v1 RELEASED under application="test"
+    product_hex_a: v1/v2/v3 RELEASED under class="controller"
+    product_hex_b: v1 RELEASED under class="controller"
     Used for sequential OTA delivery and product isolation tests.
 
-revoked_version_ota_items (function)
-    One product: v1 REVOKED, v2/v3 RELEASED, application="test".
+revoked_version_ota_items (module)
+    One product_hex: v1 REVOKED, v2/v3 RELEASED, class="controller".
     Used for revoked-current-version tests.
 
-multi_application_ota_items (module)
-    One product_id with two applications:
-      application="test":       v1/v2/v3 RELEASED
-      application="test2": v1 RELEASED
-    Used to verify that OTA responses are scoped to the requested application.
+fresh_revoked_version_ota_items (function)
+    Same as revoked_version_ota_items but per-test for tests that mutate state.
 
 auth_headers (session)
     {"Authorization": "Bearer <access_token>"} for the test Cognito user.
@@ -82,8 +82,10 @@ COGNITO_CLIENT_ID           = os.environ.get("FIREFLY_COGNITO_CLIENT_ID")
 TEST_USER_EMAIL             = os.environ.get("FIREFLY_TEST_USER_EMAIL")
 TEST_USER_PASSWORD          = os.environ.get("FIREFLY_TEST_USER_PASSWORD")
 
-# Unique product_id so test records are easily identifiable and filterable.
+# Static identifiers for test records. product_id is kept as a display field only.
 TEST_PRODUCT_ID = "firefly-integration-test"
+TEST_PRODUCT_HEX = "0x00000001"
+TEST_FIRMWARE_TYPE = "FireFly Test"
 TEST_APPLICATION = "test"
 TEST_COMMIT = "0000000000000000000000000000000000000000"
 
@@ -93,9 +95,15 @@ OTA_SEQ_V1 = "1.0.01"
 OTA_SEQ_V2 = "2.0.01"
 OTA_SEQ_V3 = "3.0.01"
 
-# Tracks all product_ids created during the session so CLEANUP_TEST_RECORDS
+# Tracks all product_hexes created during the session so CLEANUP_TEST_RECORDS
 # can delete them even if a fixture's own teardown was skipped due to a failure.
-_created_product_ids: set[str] = set()
+_created_product_hexes: set[str] = set()
+
+
+def _unique_product_hex() -> str:
+    """Return a random unique 32-bit product_hex string for test isolation."""
+    value = uuid.uuid4().int & 0xFFFFFFFF
+    return f"0x{value:08x}"
 
 
 # ---------------------------------------------------------------------------
@@ -104,8 +112,9 @@ _created_product_ids: set[str] = set()
 
 def _create_test_zip(
     version: str,
-    product_id: str = TEST_PRODUCT_ID,
+    product_hex: str = TEST_PRODUCT_HEX,
     application: str = TEST_APPLICATION,
+    firmware_type: str = TEST_FIRMWARE_TYPE,
 ) -> bytes:
     """Build a minimal valid firmware ZIP containing manifest.json and one file."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
@@ -117,9 +126,11 @@ def _create_test_zip(
     partitions_bin = f"{application}.ino.partitions.bin"
 
     manifest = {
-        "product_id": product_id,
+        "product_id": TEST_PRODUCT_ID,
+        "product_hex": product_hex,
         "version": version,
-        "class": "CONTROLLER",
+        "class": "controller",
+        "firmware_type": firmware_type,
         "application": application,
         "branch": "main",
         "commit": TEST_COMMIT,
@@ -155,14 +166,16 @@ def _create_zip_missing_manifest() -> bytes:
     return buf.getvalue()
 
 
-def _create_zip_invalid_manifest(missing_field: str, product_id: str = TEST_PRODUCT_ID) -> bytes:
+def _create_zip_invalid_manifest(missing_field: str, product_hex: str = TEST_PRODUCT_HEX) -> bytes:
     """Return a valid ZIP whose manifest.json is missing a required field."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
     sha256 = hashlib.sha256(payload).hexdigest()
     manifest = {
-        "product_id": product_id,
+        "product_id": TEST_PRODUCT_ID,
+        "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "CONTROLLER",
+        "class": "controller",
+        "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
         "commit": TEST_COMMIT,
@@ -177,16 +190,18 @@ def _create_zip_invalid_manifest(missing_field: str, product_id: str = TEST_PROD
     return buf.getvalue()
 
 
-def _create_zip_missing_file(product_id: str = TEST_PRODUCT_ID) -> bytes:
+def _create_zip_missing_file(product_hex: str = TEST_PRODUCT_HEX) -> bytes:
     """Return a valid ZIP whose manifest.json references a file not present in the archive."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
     sha256 = hashlib.sha256(payload).hexdigest()
     partitions_payload = b"FIREFLY_TEST_PARTITIONS_PAYLOAD"
     partitions_sha256 = hashlib.sha256(partitions_payload).hexdigest()
     manifest = {
-        "product_id": product_id,
+        "product_id": TEST_PRODUCT_ID,
+        "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "CONTROLLER",
+        "class": "controller",
+        "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
         "commit": TEST_COMMIT,
@@ -204,16 +219,18 @@ def _create_zip_missing_file(product_id: str = TEST_PRODUCT_ID) -> bytes:
     return buf.getvalue()
 
 
-def _create_zip_sha256_mismatch(product_id: str = TEST_PRODUCT_ID) -> bytes:
+def _create_zip_sha256_mismatch(product_hex: str = TEST_PRODUCT_HEX) -> bytes:
     """Return a valid ZIP where a file's content does not match the SHA256 in the manifest."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
     wrong_sha256 = hashlib.sha256(b"DIFFERENT CONTENT").hexdigest()
     partitions_payload = b"FIREFLY_TEST_PARTITIONS_PAYLOAD"
     partitions_sha256 = hashlib.sha256(partitions_payload).hexdigest()
     manifest = {
-        "product_id": product_id,
+        "product_id": TEST_PRODUCT_ID,
+        "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "CONTROLLER",
+        "class": "controller",
+        "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
         "commit": TEST_COMMIT,
@@ -231,14 +248,16 @@ def _create_zip_sha256_mismatch(product_id: str = TEST_PRODUCT_ID) -> bytes:
     return buf.getvalue()
 
 
-def _create_zip_missing_partitions(product_id: str = TEST_PRODUCT_ID) -> bytes:
+def _create_zip_missing_partitions(product_hex: str = TEST_PRODUCT_HEX) -> bytes:
     """Return a valid ZIP whose manifest.json has no partitions.bin entry."""
     payload = b"FIREFLY_TEST_FIRMWARE_PAYLOAD"
     sha256 = hashlib.sha256(payload).hexdigest()
     manifest = {
-        "product_id": product_id,
+        "product_id": TEST_PRODUCT_ID,
+        "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "CONTROLLER",
+        "class": "controller",
+        "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
         "commit": TEST_COMMIT,
@@ -258,7 +277,7 @@ def _create_zip_missing_partitions(product_id: str = TEST_PRODUCT_ID) -> bytes:
 
 def _upload_and_wait(
     version: str,
-    product_id: str = TEST_PRODUCT_ID,
+    product_hex: str = TEST_PRODUCT_HEX,
     application: str = TEST_APPLICATION,
     timeout: int = 60,
 ) -> dict:
@@ -266,11 +285,11 @@ def _upload_and_wait(
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping upload-dependent test")
 
-    zip_bytes = _create_test_zip(version, product_id, application)
+    zip_bytes = _create_test_zip(version, product_hex, application)
     s3 = boto3.client("s3")
     s3.put_object(
         Bucket=FIRMWARE_BUCKET,
-        Key=f"incoming/test-{version}.zip",
+        Key=f"incoming/controller-{product_hex}-{version}.zip",
         Body=zip_bytes,
     )
 
@@ -279,7 +298,7 @@ def _upload_and_wait(
     while time.monotonic() < deadline:
         resp = requests.get(
             f"{API_URL}/firmware",
-            params={"product_id": product_id, "application": application},
+            params={"product_hex": product_hex},
             headers=headers,
             timeout=10,
         )
@@ -305,16 +324,15 @@ def _upload_and_wait(
 def _upload_and_wait_for_error(
     zip_bytes: bytes,
     filename: str,
-    scan_product_id: str,
     timeout: int = 60,
+    product_hex: str = "__unknown_product_hex__",
 ) -> dict:
     """
     Upload ZIP bytes to S3 and poll until an ERROR record with matching filename appears.
 
-    scan_product_id: the product_id to filter by when polling.
-      - Pass TEST_PRODUCT_ID when the manifest includes a valid product_id (schema/content errors).
-      - Pass '__UNKNOWN_PRODUCT__' when the manifest cannot be parsed at all (corrupt ZIP,
-        missing manifest).
+    Pass product_hex to match where the Lambda stores the error record:
+    - ZIPs that cannot be parsed at all land under "__unknown_product_hex__" (default).
+    - ZIPs with a valid product_hex in the manifest land under that product_hex.
     """
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping upload-dependent test")
@@ -327,7 +345,7 @@ def _upload_and_wait_for_error(
     while time.monotonic() < deadline:
         resp = requests.get(
             f"{API_URL}/firmware",
-            params={"product_id": scan_product_id},
+            params={"product_hex": product_hex},
             headers=headers,
             timeout=10,
         )
@@ -412,12 +430,12 @@ def _revoke_item(zip_name: str) -> None:
     )
 
 
-def _cleanup_product_records(product_id: str) -> None:
-    """Delete or revoke all firmware records for the given product_id via the API."""
+def _cleanup_product_hex_records(product_hex: str) -> None:
+    """Delete or revoke all firmware records for the given product_hex via the API."""
     headers = _get_fixture_auth()
     resp = requests.get(
         f"{API_URL}/firmware",
-        params={"product_id": product_id},
+        params={"product_hex": product_hex},
         headers=headers,
         timeout=10,
     )
@@ -583,18 +601,18 @@ def invited_user(api_url, super_auth_with_dynamo):
 def cleanup_test_records():
     """
     After the full test session, delete all test firmware records when
-    CLEANUP_TEST_RECORDS is set. Covers every product_id created during the
-    session (registered in _created_product_ids by each fixture) plus the
-    fixed TEST_PRODUCT_ID and '__UNKNOWN_PRODUCT__'.
+    CLEANUP_TEST_RECORDS is set. Covers every product_hex created during the
+    session (registered in _created_product_hexes by each fixture) plus the
+    fixed TEST_PRODUCT_HEX and '__unknown_product_hex__'.
     Records in RELEASED state are transitioned to REVOKED (sets DynamoDB TTL);
     REVOKED/DELETED records are left for TTL auto-expiry.
     """
     yield
     if not os.environ.get("CLEANUP_TEST_RECORDS"):
         return
-    all_products = _created_product_ids | {TEST_PRODUCT_ID, "__UNKNOWN_PRODUCT__"}
-    for product_id in all_products:
-        _cleanup_product_records(product_id)
+    all_hexes = _created_product_hexes | {TEST_PRODUCT_HEX, "__unknown_product_hex__"}
+    for product_hex in all_hexes:
+        _cleanup_product_hex_records(product_hex)
 
 
 @pytest.fixture(scope="session")
@@ -635,20 +653,19 @@ def fresh_firmware_item():
 def released_firmware_item():
     """
     A firmware record walked to RELEASED state, shared across all tests in the module.
-    Uses a unique product_id so it is isolated from stale data left by other runs.
+    Uses a unique product_hex so it is isolated from stale data left by other runs.
     Cleaned up after the module by transitioning to REVOKED (which sets the DynamoDB TTL).
 
     Use this fixture for read-only OTA tests. Tests that mutate the release status
     (e.g. revoking the item) must use fresh_released_firmware_item instead.
 
     Requires FIREFLY_FIRMWARE_BUCKET to be set and the full OTA stack to be deployed,
-    including the public S3 bucket. The FIRMWARE_TYPE_MAP on func-api-ota-get must
-    include a mapping for the test application (e.g. {"test": "FireFly Test", ...}).
+    including the public S3 bucket.
     """
-    product_id = f"firefly-inttest-{int(time.time())}"
-    _created_product_ids.add(product_id)
+    product_hex = _unique_product_hex()
+    _created_product_hexes.add(product_hex)
     version = f"2026.03.r{int(time.time())}"
-    item = _upload_and_wait(version, product_id)
+    item = _upload_and_wait(version, product_hex)
     zip_name = item.get("zip_name")
 
     _release_item(zip_name)
@@ -661,16 +678,16 @@ def released_firmware_item():
 def fresh_released_firmware_item():
     """
     A firmware record walked to RELEASED state for a single test that mutates it.
-    Uses a unique product_id per invocation for full isolation.
+    Uses a unique product_hex per invocation for full isolation.
     Cleaned up after the test by transitioning to REVOKED (which sets the DynamoDB TTL).
 
     Use this fixture when the test will change the release status (e.g. revoke the item).
     Read-only tests should use released_firmware_item instead.
     """
-    product_id = f"firefly-inttest-{int(time.time())}"
-    _created_product_ids.add(product_id)
+    product_hex = _unique_product_hex()
+    _created_product_hexes.add(product_hex)
     version = f"2026.03.r{int(time.time())}"
-    item = _upload_and_wait(version, product_id)
+    item = _upload_and_wait(version, product_hex)
     zip_name = item.get("zip_name")
 
     _release_item(zip_name)
@@ -687,33 +704,32 @@ def fresh_released_firmware_item():
 def multi_version_ota_items():
     """
     Creates two isolated products for OTA sequencing tests:
-      - product_a: versions v1, v2, v3 — all RELEASED under application="test"
-      - product_b: version v1 only — RELEASED under application="test"
+      - product_hex_a: versions v1, v2, v3 — all RELEASED under class="controller"
+      - product_hex_b: version v1 only — RELEASED under class="controller"
 
-    Tests that verify the next-version logic and product_id isolation use this fixture.
+    Tests that verify the next-version logic and product isolation use this fixture.
     Module-scoped so setup runs once for the entire test_ota_sequencing module.
     Cleaned up by revoking all items at teardown.
     """
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping OTA sequencing tests")
 
-    ts = int(time.time())
-    product_a = f"firefly-inttest-a-{ts}"
-    product_b = f"firefly-inttest-b-{ts}"
-    _created_product_ids.add(product_a)
-    _created_product_ids.add(product_b)
+    product_hex_a = _unique_product_hex()
+    product_hex_b = _unique_product_hex()
+    _created_product_hexes.add(product_hex_a)
+    _created_product_hexes.add(product_hex_b)
 
-    a_v1 = _upload_and_wait(OTA_SEQ_V1, product_a)
-    a_v2 = _upload_and_wait(OTA_SEQ_V2, product_a)
-    a_v3 = _upload_and_wait(OTA_SEQ_V3, product_a)
-    b_v1 = _upload_and_wait(OTA_SEQ_V1, product_b)
+    a_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex_a)
+    a_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex_a)
+    a_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex_a)
+    b_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex_b)
 
     for item in (a_v1, a_v2, a_v3, b_v1):
         _release_item(item["zip_name"])
 
     yield {
-        "product_a": product_a,
-        "product_b": product_b,
+        "product_hex_a": product_hex_a,
+        "product_hex_b": product_hex_b,
         "v1": OTA_SEQ_V1,
         "v2": OTA_SEQ_V2,
         "v3": OTA_SEQ_V3,
@@ -741,13 +757,12 @@ def revoked_version_ota_items():
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping OTA sequencing tests")
 
-    ts = int(time.time())
-    product_id = f"firefly-inttest-rev-{ts}"
-    _created_product_ids.add(product_id)
+    product_hex = _unique_product_hex()
+    _created_product_hexes.add(product_hex)
 
-    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_id)
-    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_id)
-    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_id)
+    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex)
+    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex)
+    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex)
 
     for item in (item_v1, item_v2, item_v3):
         _release_item(item["zip_name"])
@@ -755,7 +770,7 @@ def revoked_version_ota_items():
     _revoke_item(item_v1["zip_name"])
 
     yield {
-        "product_id": product_id,
+        "product_hex": product_hex,
         "v1": OTA_SEQ_V1,
         "v2": OTA_SEQ_V2,
         "v3": OTA_SEQ_V3,
@@ -782,13 +797,12 @@ def fresh_revoked_version_ota_items():
     if not FIRMWARE_BUCKET:
         pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping OTA sequencing tests")
 
-    ts = int(time.time())
-    product_id = f"firefly-inttest-rev-{ts}"
-    _created_product_ids.add(product_id)
+    product_hex = _unique_product_hex()
+    _created_product_hexes.add(product_hex)
 
-    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_id)
-    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_id)
-    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_id)
+    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex)
+    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex)
+    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex)
 
     for item in (item_v1, item_v2, item_v3):
         _release_item(item["zip_name"])
@@ -796,7 +810,7 @@ def fresh_revoked_version_ota_items():
     _revoke_item(item_v1["zip_name"])
 
     yield {
-        "product_id": product_id,
+        "product_hex": product_hex,
         "v1": OTA_SEQ_V1,
         "v2": OTA_SEQ_V2,
         "v3": OTA_SEQ_V3,
@@ -807,45 +821,4 @@ def fresh_revoked_version_ota_items():
 
     # v1 is already revoked; revoke v2 and v3.
     for item in (item_v2, item_v3):
-        _revoke_item(item["zip_name"])
-
-
-@pytest.fixture(scope="module")
-def multi_application_ota_items():
-    """
-    Creates one product_id with firmware for two different applications:
-      - application="test":       versions v1, v2, v3 — all RELEASED
-      - application="test2": version v1 only — RELEASED
-
-    Used to verify that the OTA endpoint scopes results to the requested
-    application and does not leak firmware across applications on the same
-    product_id. Module-scoped so setup runs once per module.
-    """
-    if not FIRMWARE_BUCKET:
-        pytest.skip("FIREFLY_FIRMWARE_BUCKET not set — skipping OTA sequencing tests")
-
-    ts = int(time.time())
-    product_id = f"firefly-inttest-app-{ts}"
-    _created_product_ids.add(product_id)
-
-    test_v1 = _upload_and_wait(OTA_SEQ_V1, product_id, application="test")
-    test_v2 = _upload_and_wait(OTA_SEQ_V2, product_id, application="test")
-    test_v3 = _upload_and_wait(OTA_SEQ_V3, product_id, application="test")
-    ctrl_v1 = _upload_and_wait(OTA_SEQ_V1, product_id, application="test2")
-
-    for item in (test_v1, test_v2, test_v3, ctrl_v1):
-        _release_item(item["zip_name"])
-
-    yield {
-        "product_id": product_id,
-        "v1": OTA_SEQ_V1,
-        "v2": OTA_SEQ_V2,
-        "v3": OTA_SEQ_V3,
-        "test_v1": test_v1,
-        "test_v2": test_v2,
-        "test_v3": test_v3,
-        "ctrl_v1": ctrl_v1,
-    }
-
-    for item in (test_v1, test_v2, test_v3, ctrl_v1):
         _revoke_item(item["zip_name"])

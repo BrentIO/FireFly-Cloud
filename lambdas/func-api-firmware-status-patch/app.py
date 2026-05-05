@@ -51,8 +51,8 @@ def _response(status_code, body):
 
 def _publish_to_public(item, zip_name):
     """Extract firmware files from the private ZIP and upload to the public bucket."""
-    product_id = item["product_id"]
-    application = item["application"]
+    device_class = item.get("class", "").lower()
+    product_hex = item.get("product_hex", "").lower()
     version = item["version"]
     zip_key = f"{PROCESSED_PREFIX}{zip_name}"
 
@@ -65,7 +65,7 @@ def _publish_to_public(item, zip_name):
             if name in EXCLUDE_FROM_OTA:
                 logger.debug(f"Skipping excluded file: {name}")
                 continue
-            dest_key = f"{product_id}/{application}/{version}/{name}"
+            dest_key = f"{device_class}/{product_hex}/{version}/{name}"
             data = zf.read(name)
             s3.put_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=dest_key, Body=data)
             logger.debug(f"Published {name} to s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{dest_key}")
@@ -73,11 +73,11 @@ def _publish_to_public(item, zip_name):
 
 def _revoke_from_public(item):
     """Move public firmware files to the revoked/ prefix."""
-    product_id = item["product_id"]
-    application = item["application"]
+    device_class = item.get("class", "").lower()
+    product_hex = item.get("product_hex", "").lower()
     version = item["version"]
-    prefix = f"{product_id}/{application}/{version}/"
-    revoked_prefix = f"revoked/{product_id}/{application}/{version}/"
+    prefix = f"{device_class}/{product_hex}/{version}/"
+    revoked_prefix = f"revoked/{device_class}/{product_hex}/{version}/"
 
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Prefix=prefix):
@@ -116,9 +116,17 @@ def lambda_handler(event, context):
         if not items:
             return _response(404, {"message": f"Firmware not found: {zip_name}"})
 
-        item = items[0]
-        pk = item["pk"]
-        version = item["version"]
+        pk = items[0]["pk"]
+        version = items[0]["version"]
+
+        # Re-read from the main table with strong consistency — GSI reads are
+        # eventually consistent and can return a stale status immediately after
+        # a transition, causing a spurious 422 on the next PATCH.
+        consistent = firmware_table.get_item(
+            Key={"pk": pk, "version": version},
+            ConsistentRead=True
+        ).get("Item")
+        item = consistent if consistent else items[0]
         current_status = item.get("release_status")
         allowed = VALID_TRANSITIONS.get(current_status, [])
 
