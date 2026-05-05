@@ -66,6 +66,25 @@ jobs:
             --output text)
           echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
 
+      - name: Clean up stack if in ROLLBACK_COMPLETE state
+        run: |
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name firefly-func-s3-firmware-deleted \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
+            echo "Stack in ROLLBACK_COMPLETE — deleting before redeploy"
+            aws cloudformation delete-stack \
+              --stack-name firefly-func-s3-firmware-deleted \
+              --region ${{ secrets.AWS_REGION }}
+            aws cloudformation wait stack-delete-complete \
+              --stack-name firefly-func-s3-firmware-deleted \
+              --region ${{ secrets.AWS_REGION }}
+            echo "Deleted — proceeding with fresh deploy"
+          else
+            echo "Stack status: $STATUS — no cleanup needed"
+          fi
+
       - name: Deploy func-s3-firmware-deleted
         run: |
           sam deploy \

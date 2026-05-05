@@ -65,16 +65,34 @@ jobs:
           cf  = boto3.client('cloudformation')
           ddb = boto3.client('dynamodb')
 
+          stack_status = 'DOES_NOT_EXIST'
           try:
             resp = cf.describe_stacks(StackName=STACK)
-            stack_exists = resp['Stacks'][0]['StackStatus'] != 'DELETE_COMPLETE'
+            stack_status = resp['Stacks'][0]['StackStatus']
           except ClientError as e:
-            stack_exists = False
             if 'does not exist' not in str(e):
               raise
 
-          if stack_exists:
-            print(f'Stack {STACK} exists — skipping adoption')
+          if stack_status == 'ROLLBACK_COMPLETE':
+            # SAM auto-deletes ROLLBACK_COMPLETE stacks and retries a CREATE, but
+            # that CREATE fails because the table still exists (DeletionPolicy:Retain).
+            # Delete the stuck stack ourselves so we can fall through to the import.
+            print(f'Stack in ROLLBACK_COMPLETE — deleting before re-adopt')
+            cf.delete_stack(StackName=STACK)
+            while True:
+              try:
+                resp = cf.describe_stacks(StackName=STACK)
+                s = resp['Stacks'][0]['StackStatus']
+                if s == 'DELETE_FAILED':
+                  print(f'Stack deletion failed')
+                  sys.exit(1)
+              except ClientError:
+                break
+              time.sleep(5)
+            stack_status = 'DOES_NOT_EXIST'
+
+          if stack_status not in ('DOES_NOT_EXIST', 'DELETE_COMPLETE'):
+            print(f'Stack {STACK} exists ({stack_status}) — skipping adoption')
             sys.exit(0)
 
           try:
