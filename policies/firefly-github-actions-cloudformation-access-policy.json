@@ -187,6 +187,15 @@
                 "appconfig:ListApplications"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:DeleteLogGroup"
+            ],
+            "Resource": [
+                "arn:aws:logs:AWS_REGION:AWS_ACCOUNT_ID:log-group:/aws/lambda/firefly-func-*"
+            ]
         }
     ]
 }

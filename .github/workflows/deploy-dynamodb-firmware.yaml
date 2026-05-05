@@ -73,11 +73,12 @@ jobs:
             if 'does not exist' not in str(e):
               raise
 
-          if stack_status == 'ROLLBACK_COMPLETE':
-            # SAM auto-deletes ROLLBACK_COMPLETE stacks and retries a CREATE, but
-            # that CREATE fails because the table still exists (DeletionPolicy:Retain).
-            # Delete the stuck stack ourselves so we can fall through to the import.
-            print(f'Stack in ROLLBACK_COMPLETE — deleting before re-adopt')
+          if stack_status in ('ROLLBACK_COMPLETE', 'REVIEW_IN_PROGRESS'):
+            # ROLLBACK_COMPLETE: SAM auto-deletes and retries CREATE, but the retained
+            # table triggers ResourceExistenceCheck. Delete it ourselves instead.
+            # REVIEW_IN_PROGRESS: a prior IMPORT changeset was created but never
+            # executed; the stack can't be updated until it's cleaned up.
+            print(f'Stack in {stack_status} — deleting before re-adopt')
             cf.delete_stack(StackName=STACK)
             while True:
               try:
