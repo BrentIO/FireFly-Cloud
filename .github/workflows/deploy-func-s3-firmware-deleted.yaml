@@ -85,14 +85,6 @@ jobs:
             echo "Stack status: $STATUS — no cleanup needed"
           fi
 
-      - name: Delete stale log group if present
-        run: |
-          aws logs delete-log-group \
-            --log-group-name /aws/lambda/firefly-func-s3-firmware-deleted \
-            --region ${{ secrets.AWS_REGION }} 2>/dev/null && \
-            echo "Stale log group deleted" || \
-            echo "Log group not present or no permission — continuing"
-
       - name: Deploy func-s3-firmware-deleted
         run: |
           sam deploy \
