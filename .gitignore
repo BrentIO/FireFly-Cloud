@@ -1,5 +1,6 @@
 .claude/
 Claude.md
+TODO.md
 
 # UI build output and dependencies
 ui/dist/
