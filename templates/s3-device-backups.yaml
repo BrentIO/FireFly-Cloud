@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: S3 bucket for encrypted per-device configuration backups
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the S3 bucket to create for device backups
+
+Resources:
+
+  DeviceBackupsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      VersioningConfiguration:
+        Status: Enabled
+
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+
+Outputs:
+  BucketName:
+    Value: !Ref DeviceBackupsBucket
+    Description: The created S3 device backups bucket name
+    Export:
+      Name: firefly-device-backups-bucket-name
+
+  BucketArn:
+    Value: !GetAtt DeviceBackupsBucket.Arn
+    Description: ARN of the device backups S3 bucket
+    Export:
+      Name: firefly-device-backups-bucket-arn

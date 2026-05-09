@@ -1,8 +1,8 @@
 """
-GET /devices/{uuid}/registration — verify device registration status.
+DELETE /devices/{uuid}/backup — remove the stored configuration backup.
 
-Authenticates the request using the shared device_auth module, which verifies
-the ECDSA P-256 signature over SHA-256(nonce||timestamp) and enforces a ±500 ms
+Authentication uses the shared device_auth module, which verifies the ECDSA
+P-256 signature over SHA-256(nonce||timestamp) and enforces a ±500 ms
 timestamp window.
 
 Required headers:
@@ -11,12 +11,20 @@ Required headers:
   X-Device-Timestamp   ISO 8601 UTC timestamp (e.g. "2025-05-09T12:00:00Z")
   X-Device-Signature   Base64-encoded DER ECDSA P-256 signature over
                          SHA-256(nonce_bytes || timestamp_ascii_bytes)
+
+Responses:
+  200  Backup deleted (or did not exist)
+  400  Missing/invalid headers
+  401  Device not registered or signature invalid
+  403  UUID mismatch
+  500  Internal server error
 """
 
 import json
 import os
 
 import boto3
+from botocore.exceptions import ClientError
 
 from shared.app_config import get_appconfig
 from shared.device_auth import DeviceAuthError, verify_device_request
@@ -26,7 +34,11 @@ logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
 
 dynamodb = boto3.resource("dynamodb")
+s3 = boto3.client("s3")
+
 DEVICES_TABLE_NAME = os.environ["DYNAMODB_DEVICES_TABLE_NAME"]
+BACKUP_BUCKET_NAME = os.environ["S3_BACKUP_BUCKET_NAME"]
+
 devices_table = dynamodb.Table(DEVICES_TABLE_NAME)
 
 
@@ -52,15 +64,26 @@ def lambda_handler(event, context):
         except DeviceAuthError as exc:
             return _response(exc.status_code, {"message": str(exc)})
 
-        return _response(200, {
-            "uuid": item["uuid"],
-            "product_id": item.get("product_id"),
-            "product_hex": item.get("product_hex"),
-            "device_class": item.get("device_class"),
-            "registration_date": item.get("registration_date"),
-            "registering_application": item.get("registering_application"),
-            "registering_version": item.get("registering_version"),
-        })
+        s3_key = f"{path_uuid}/backup.ffce"
+
+        # Delete from S3 (idempotent — succeeds even if key does not exist)
+        try:
+            s3.delete_object(Bucket=BACKUP_BUCKET_NAME, Key=s3_key)
+        except ClientError:
+            logger.exception("Failed to delete backup for device %s", path_uuid)
+            return _response(500, {"message": "Internal server error"})
+
+        # Clear last_backup_date in DynamoDB
+        try:
+            devices_table.update_item(
+                Key={"uuid": path_uuid},
+                UpdateExpression="REMOVE last_backup_date",
+            )
+        except ClientError:
+            logger.exception("Failed to clear last_backup_date for device %s", path_uuid)
+            # Non-fatal: object already deleted; log and continue
+
+        return _response(200, {"message": "Backup deleted"})
 
     except Exception:
         logger.exception("Unhandled exception")

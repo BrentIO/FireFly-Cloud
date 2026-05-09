@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API POST /devices/{uuid}/backup
+
+Parameters:
+  SharedLayerArn:
+    Type: String
+    Description: ARN of the shared Lambda layer
+  AppConfigExtensionLayerArn:
+    Type: String
+    Description: ARN of the AWS AppConfig Lambda extension layer (arm64)
+
+  ApiId:
+    Type: String
+    Description: The ID of the existing HTTP API to attach routes to
+
+  BackupBucketName:
+    Type: String
+    Description: Name of the S3 bucket for device backups
+    Default: ""
+
+Resources:
+
+  FuncApiDevicesBackupPostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firefly-func-api-devices-backup-post-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DevicesBackupPostPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/firefly-devices
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:HeadObject
+                Resource:
+                  - !Sub arn:aws:s3:::${BackupBucketName}/*
+              - Effect: Allow
+                Action:
+                  - appconfig:StartConfigurationSession
+                  - appconfig:GetLatestConfiguration
+                Resource: "*"
+
+  FuncApiDevicesBackupPost:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: firefly-func-api-devices-backup-post
+      Role: !GetAtt FuncApiDevicesBackupPostRole.Arn
+      CodeUri: .
+      Layers:
+        - !Ref SharedLayerArn
+        - !Ref AppConfigExtensionLayerArn
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          DYNAMODB_DEVICES_TABLE_NAME: firefly-devices
+          S3_BACKUP_BUCKET_NAME: !Ref BackupBucketName
+          APP_CONFIG_ENV: default
+
+  FuncApiDevicesBackupPostIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FuncApiDevicesBackupPost.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  FuncApiDevicesBackupPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiId
+      RouteKey: POST /devices/{uuid}/backup
+      AuthorizationType: NONE
+      Target: !Sub integrations/${FuncApiDevicesBackupPostIntegration.IntegrationId}
+
+  FuncApiDevicesBackupPostPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncApiDevicesBackupPost
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/POST/devices/*/backup
+
+  FuncApiDevicesBackupPostLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FuncApiDevicesBackupPost}
+      RetentionInDays: 30
+
+Outputs:
+  FuncApiDevicesBackupPostArn:
+    Value: !GetAtt FuncApiDevicesBackupPost.Arn
+    Description: ARN of the devices backup POST Lambda

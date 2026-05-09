@@ -137,6 +137,45 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  deploy-s3-device-backups:
+    uses: ./.github/workflows/deploy-s3-device-backups.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-devices-backup-post:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-devices
+      - deploy-shared-layer
+      - deploy-s3-device-backups
+    uses: ./.github/workflows/deploy-func-api-devices-backup-post.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-devices-backup-get:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-devices
+      - deploy-shared-layer
+      - deploy-s3-device-backups
+    uses: ./.github/workflows/deploy-func-api-devices-backup-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  deploy-func-api-devices-backup-delete:
+    needs:
+      - deploy-api-gateway
+      - deploy-dynamodb-devices
+      - deploy-shared-layer
+      - deploy-s3-device-backups
+    uses: ./.github/workflows/deploy-func-api-devices-backup-delete.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   deploy-func-api-devices-get:
     needs:
       - deploy-api-gateway
@@ -333,6 +372,9 @@ jobs:
       - deploy-func-api-devices-register-post
       - deploy-func-api-devices-registration-get
       - deploy-func-api-devices-get
+      - deploy-func-api-devices-backup-post
+      - deploy-func-api-devices-backup-get
+      - deploy-func-api-devices-backup-delete
       - deploy-func-api-registration-keys-post
       - deploy-func-api-registration-keys-get
       - deploy-fmc-app
