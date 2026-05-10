@@ -433,6 +433,10 @@ function formatDate(iso) {
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Registered</dt>
                       <dd class="text-gray-900 dark:text-gray-100">{{ formatDate(selectedDevice?.registration_date) }}</dd>
                     </div>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Last Cloud Backup</dt>
+                      <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice?.last_backup_date ? formatDate(selectedDevice.last_backup_date) : '—' }}</dd>
+                    </div>
                     <div class="col-span-2">
                       <dt class="text-xs text-gray-500 dark:text-gray-400">Registering Application</dt>
                       <dd class="text-gray-900 dark:text-gray-100">{{ selectedDevice?.registering_application }} <span class="text-gray-400 dark:text-gray-500">{{ selectedDevice?.registering_version }}</span></dd>

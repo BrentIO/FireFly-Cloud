@@ -155,6 +155,34 @@ jobs:
     with:
       target_env: ${{ inputs.target_env }}
 
+  delete-func-api-devices-backup-post:
+    uses: ./.github/workflows/delete-func-api-devices-backup-post.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-api-devices-backup-get:
+    uses: ./.github/workflows/delete-func-api-devices-backup-get.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-func-api-devices-backup-delete:
+    uses: ./.github/workflows/delete-func-api-devices-backup-delete.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
+  delete-s3-device-backups:
+    needs:
+      - delete-func-api-devices-backup-post
+      - delete-func-api-devices-backup-get
+      - delete-func-api-devices-backup-delete
+    uses: ./.github/workflows/delete-s3-device-backups.yaml
+    secrets: inherit
+    with:
+      target_env: ${{ inputs.target_env }}
+
   delete-func-api-registration-keys-post:
     uses: ./.github/workflows/delete-func-api-registration-keys-post.yaml
     secrets: inherit
@@ -184,6 +212,9 @@ jobs:
       - delete-func-api-devices-register-post
       - delete-func-api-devices-registration-get
       - delete-func-api-devices-get
+      - delete-func-api-devices-backup-post
+      - delete-func-api-devices-backup-get
+      - delete-func-api-devices-backup-delete
       - delete-func-api-registration-keys-post
       - delete-func-api-registration-keys-get
     uses: ./.github/workflows/delete-api-gateway.yaml
@@ -248,6 +279,9 @@ jobs:
       - delete-func-api-devices-register-post
       - delete-func-api-devices-registration-get
       - delete-func-api-devices-get
+      - delete-func-api-devices-backup-post
+      - delete-func-api-devices-backup-get
+      - delete-func-api-devices-backup-delete
     uses: ./.github/workflows/delete-dynamodb-devices.yaml
     secrets: inherit
     with:
@@ -286,6 +320,9 @@ jobs:
       - delete-func-api-firmware-download-get
       - delete-func-api-devices-register-post
       - delete-func-api-devices-registration-get
+      - delete-func-api-devices-backup-post
+      - delete-func-api-devices-backup-get
+      - delete-func-api-devices-backup-delete
       - delete-func-api-registration-keys-post
       - delete-func-api-registration-keys-get
     uses: ./.github/workflows/delete-shared-layer.yaml
