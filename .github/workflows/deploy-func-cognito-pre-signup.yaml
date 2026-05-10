@@ -22,6 +22,10 @@ on:
         type: boolean
         default: false
 
+env:
+  AWS_MAX_ATTEMPTS: "10"
+  AWS_RETRY_MODE: adaptive
+
 jobs:
   deploy-func-cognito-pre-signup:
     environment: ${{ inputs.target_env }}
