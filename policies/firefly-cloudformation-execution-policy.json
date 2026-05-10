@@ -151,6 +151,7 @@
             ],
             "Resource": [
                 "arn:aws:s3:::S3_CONFIGURATOR_BUCKET_NAME",
+                "arn:aws:s3:::S3_DEVICE_BACKUPS_BUCKET_NAME",
                 "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME",
                 "arn:aws:s3:::S3_UI_BUCKET_NAME",
                 "arn:aws:s3:::S3_DOCS_BUCKET_NAME"
@@ -166,6 +167,7 @@
             ],
             "Resource": [
                 "arn:aws:s3:::S3_CONFIGURATOR_BUCKET_NAME/*",
+                "arn:aws:s3:::S3_DEVICE_BACKUPS_BUCKET_NAME/*",
                 "arn:aws:s3:::S3_FIRMWARE_PRIVATE_BUCKET_NAME/*",
                 "arn:aws:s3:::S3_FIRMWARE_PUBLIC_BUCKET_NAME/*",
                 "arn:aws:s3:::S3_UI_BUCKET_NAME/*",
