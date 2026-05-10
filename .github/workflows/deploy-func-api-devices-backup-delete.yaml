@@ -26,6 +26,10 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_MAX_ATTEMPTS: "10"
+  AWS_RETRY_MODE: adaptive
+
 jobs:
   deploy-func-api-devices-backup-delete:
     environment: ${{ inputs.target_env }}
