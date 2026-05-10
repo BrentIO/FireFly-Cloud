@@ -8,8 +8,8 @@ Coverage
 --------
 GET  /users           — 200 with correct response shape; 403 without super membership
 POST /users           — 400/403 validation; full invite lifecycle (201 → 409 → DELETE)
-PATCH /users/{email}  — 400/404 validation; is_super update lifecycle
-DELETE /users/{email} — 404 for unknown; full delete lifecycle
+PATCH /users/{email}  — 400/403/404 validation; 200 happy path; 409 last-super guard
+DELETE /users/{email} — 403/404; full delete lifecycle
 """
 
 import urllib.parse
@@ -96,6 +96,16 @@ class TestPostUsersValidation:
         )
         assert resp.status_code == 400
 
+    def test_non_super_user_returns_403(self, api_url, auth_headers):
+        """POST /users called by a non-super user returns 403."""
+        resp = requests.post(
+            f"{api_url}/users",
+            json={"email": "should-be-rejected@example.com"},
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 403, f"Expected 403, got {resp.status_code}: {resp.text}"
+
 
 # ---------------------------------------------------------------------------
 # PATCH /users/{email}
@@ -132,12 +142,73 @@ class TestPatchUsersValidation:
         )
         assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
 
+    def test_non_super_user_returns_403(self, api_url, auth_headers):
+        """PATCH /users/{email} called by a non-super user returns 403."""
+        resp = requests.patch(
+            f"{api_url}/users/{_GHOST_EMAIL}",
+            json={"is_super": True},
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 403, f"Expected 403, got {resp.status_code}: {resp.text}"
+
+    def test_promote_existing_user_returns_200(self, api_url, invited_user, super_auth_headers):
+        """PATCH /users/{email} with is_super=True for a Cognito user returns 200."""
+        # invited_user is in DynamoDB only; to have a Cognito user to patch we use
+        # the CI super user themselves (already in Cognito) — promoting when already
+        # super is a no-op that still returns 200 with the updated record.
+        resp = requests.get(f"{api_url}/users", headers=super_auth_headers, timeout=10)
+        assert resp.status_code == 200
+        super_users = [u for u in resp.json().get("users", []) if u.get("is_super")]
+        if not super_users:
+            pytest.skip("No super user found via GET /users to use as patch target")
+        target_email = super_users[0]["email"]
+        encoded = urllib.parse.quote(target_email, safe="")
+        patch_resp = requests.patch(
+            f"{api_url}/users/{encoded}",
+            json={"is_super": True},
+            headers=super_auth_headers,
+            timeout=10,
+        )
+        assert patch_resp.status_code == 200, f"Expected 200, got {patch_resp.status_code}: {patch_resp.text}"
+        body = patch_resp.json()
+        assert body.get("email") == target_email
+        assert body.get("is_super") is True
+
+    def test_demote_last_super_user_returns_409(self, api_url, super_auth_headers):
+        """PATCH /users/{email} with is_super=False on the last super user returns 409."""
+        resp = requests.get(f"{api_url}/users", headers=super_auth_headers, timeout=10)
+        assert resp.status_code == 200
+        super_users = [u for u in resp.json().get("users", []) if u.get("is_super")]
+        if len(super_users) != 1:
+            pytest.skip(
+                f"Test requires exactly 1 super user in the environment; found {len(super_users)}"
+            )
+        last_super_email = super_users[0]["email"]
+        encoded = urllib.parse.quote(last_super_email, safe="")
+        patch_resp = requests.patch(
+            f"{api_url}/users/{encoded}",
+            json={"is_super": False},
+            headers=super_auth_headers,
+            timeout=10,
+        )
+        assert patch_resp.status_code == 409, f"Expected 409, got {patch_resp.status_code}: {patch_resp.text}"
+
 
 # ---------------------------------------------------------------------------
 # DELETE /users/{email} — idempotent/validation
 # ---------------------------------------------------------------------------
 
 class TestDeleteUsersValidation:
+    def test_non_super_user_returns_403(self, api_url, auth_headers):
+        """DELETE /users/{email} called by a non-super user returns 403."""
+        resp = requests.delete(
+            f"{api_url}/users/{_GHOST_EMAIL}",
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 403, f"Expected 403, got {resp.status_code}: {resp.text}"
+
     def test_delete_unknown_email_succeeds(self, api_url, super_auth_headers):
         """DELETE /users/{email} for a user not in DynamoDB/Cognito still returns 200.
 

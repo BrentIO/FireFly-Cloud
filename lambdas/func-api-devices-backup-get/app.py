@@ -73,8 +73,13 @@ def lambda_handler(event, context):
             body_bytes = obj["Body"].read()
             etag = obj.get("ETag", "").strip('"')
         except ClientError as exc:
-            if exc.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            code = exc.response["Error"]["Code"]
+            http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
+            # MethodNotAllowed (405) is returned by S3 when the current version of
+            # a versioned object is a delete marker (i.e. the backup was deleted).
+            if code in ("NoSuchKey", "NoSuchVersion", "MethodNotAllowed") or http_status in (404, 405):
                 return _response(404, {"message": "No backup found for this device"})
+            logger.warning("Unexpected S3 error for device %s: code=%s http=%s", path_uuid, code, http_status)
             logger.exception("Failed to retrieve backup for device %s", path_uuid)
             return _response(500, {"message": "Internal server error"})
 
