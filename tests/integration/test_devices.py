@@ -14,9 +14,11 @@ Required environment variables (in addition to the standard conftest.py set):
 """
 
 import base64
+import hashlib
 import os
 import time
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 import requests
@@ -86,9 +88,15 @@ def _generate_keypair():
     return private_key, public_key_b64
 
 
-def _sign_nonce(private_key, nonce: bytes) -> str:
-    """Sign nonce bytes with ECDSA P-256 SHA-256; return Base64 DER signature."""
-    sig = private_key.sign(nonce, ECDSA(SHA256()))
+def _now_timestamp() -> str:
+    """Return current UTC time as ISO 8601 string suitable for X-Device-Timestamp."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+
+
+def _sign_nonce(private_key, nonce: bytes, timestamp: str) -> str:
+    """Sign SHA-256(nonce || timestamp) with ECDSA P-256; return Base64 DER signature."""
+    msg_digest = hashlib.sha256(nonce + timestamp.encode("ascii")).digest()
+    sig = private_key.sign(msg_digest, ECDSA(SHA256()))
     return base64.b64encode(sig).decode()
 
 
@@ -316,12 +324,14 @@ class TestDevicesRegistrationGet:
     def test_get_registration_uuid_header_mismatch_returns_403(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
         nonce = bytes(range(32))
-        sig = _sign_nonce(private_key, nonce)
+        ts = _now_timestamp()
+        sig = _sign_nonce(private_key, nonce, ts)
         r = requests.get(
             f"{api_url}/devices/{test_uuid}/registration",
             headers={
                 "X-Device-UUID": str(uuid.uuid4()),
                 "X-Device-Nonce": base64.b64encode(nonce).decode(),
+                "X-Device-Timestamp": ts,
                 "X-Device-Signature": sig,
             },
             timeout=10,
@@ -331,13 +341,15 @@ class TestDevicesRegistrationGet:
     def test_get_registration_unknown_uuid_returns_401(self, api_url):
         unknown = str(uuid.uuid4())
         nonce = bytes(range(32))
+        ts = _now_timestamp()
         private_key = generate_private_key(SECP256R1(), default_backend())
-        sig = _sign_nonce(private_key, nonce)
+        sig = _sign_nonce(private_key, nonce, ts)
         r = requests.get(
             f"{api_url}/devices/{unknown}/registration",
             headers={
                 "X-Device-UUID": unknown,
                 "X-Device-Nonce": base64.b64encode(nonce).decode(),
+                "X-Device-Timestamp": ts,
                 "X-Device-Signature": sig,
             },
             timeout=10,
@@ -347,13 +359,15 @@ class TestDevicesRegistrationGet:
     def test_get_registration_invalid_signature_returns_401(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
         nonce = bytes(range(32))
+        ts = _now_timestamp()
         wrong_key = generate_private_key(SECP256R1(), default_backend())
-        sig = _sign_nonce(wrong_key, nonce)
+        sig = _sign_nonce(wrong_key, nonce, ts)
         r = requests.get(
             f"{api_url}/devices/{test_uuid}/registration",
             headers={
                 "X-Device-UUID": test_uuid,
                 "X-Device-Nonce": base64.b64encode(nonce).decode(),
+                "X-Device-Timestamp": ts,
                 "X-Device-Signature": sig,
             },
             timeout=10,
@@ -363,12 +377,14 @@ class TestDevicesRegistrationGet:
     def test_get_registration_valid_signature_returns_200(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
         nonce = os.urandom(32)
-        sig = _sign_nonce(private_key, nonce)
+        ts = _now_timestamp()
+        sig = _sign_nonce(private_key, nonce, ts)
         r = requests.get(
             f"{api_url}/devices/{test_uuid}/registration",
             headers={
                 "X-Device-UUID": test_uuid,
                 "X-Device-Nonce": base64.b64encode(nonce).decode(),
+                "X-Device-Timestamp": ts,
                 "X-Device-Signature": sig,
             },
             timeout=10,
@@ -378,12 +394,14 @@ class TestDevicesRegistrationGet:
     def test_get_registration_returns_uuid(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
         nonce = os.urandom(32)
-        sig = _sign_nonce(private_key, nonce)
+        ts = _now_timestamp()
+        sig = _sign_nonce(private_key, nonce, ts)
         r = requests.get(
             f"{api_url}/devices/{test_uuid}/registration",
             headers={
                 "X-Device-UUID": test_uuid,
                 "X-Device-Nonce": base64.b64encode(nonce).decode(),
+                "X-Device-Timestamp": ts,
                 "X-Device-Signature": sig,
             },
             timeout=10,
@@ -393,12 +411,14 @@ class TestDevicesRegistrationGet:
     def test_get_registration_returns_product_hex(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
         nonce = os.urandom(32)
-        sig = _sign_nonce(private_key, nonce)
+        ts = _now_timestamp()
+        sig = _sign_nonce(private_key, nonce, ts)
         r = requests.get(
             f"{api_url}/devices/{test_uuid}/registration",
             headers={
                 "X-Device-UUID": test_uuid,
                 "X-Device-Nonce": base64.b64encode(nonce).decode(),
+                "X-Device-Timestamp": ts,
                 "X-Device-Signature": sig,
             },
             timeout=10,
@@ -408,12 +428,14 @@ class TestDevicesRegistrationGet:
     def test_get_registration_returns_registration_date(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
         nonce = os.urandom(32)
-        sig = _sign_nonce(private_key, nonce)
+        ts = _now_timestamp()
+        sig = _sign_nonce(private_key, nonce, ts)
         r = requests.get(
             f"{api_url}/devices/{test_uuid}/registration",
             headers={
                 "X-Device-UUID": test_uuid,
                 "X-Device-Nonce": base64.b64encode(nonce).decode(),
+                "X-Device-Timestamp": ts,
                 "X-Device-Signature": sig,
             },
             timeout=10,
