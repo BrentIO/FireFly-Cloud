@@ -2,8 +2,11 @@
 Tests for GET /firmware/{zip_name}/download.
 """
 
+import os
 import time
+import uuid as _uuid
 
+import boto3
 import pytest
 import requests
 
@@ -126,3 +129,60 @@ def test_download_deleted_firmware_has_message(api_url, auth_headers, fresh_firm
 
     resp = requests.get(f"{api_url}/firmware/{zip_name}/download", headers=auth_headers, timeout=10)
     assert "message" in resp.json()
+
+
+# ---------------------------------------------------------------------------
+# Processing firmware (409) — issue #217
+# ---------------------------------------------------------------------------
+
+def test_download_processing_firmware_returns_409(api_url, auth_headers):
+    """GET /firmware/{zip_name}/download returns 409 when the record is PROCESSING."""
+    table_name = os.environ.get("FIREFLY_FIRMWARE_TABLE_NAME", "firefly-firmware")
+    test_zip_name = f"integration-test-processing-{_uuid.uuid4()}.zip"
+    test_pk = "controller#0x00000001"
+    test_version = f"test-processing-{int(time.time())}"
+
+    table = boto3.resource("dynamodb").Table(table_name)
+    table.put_item(Item={
+        "pk": test_pk,
+        "version": test_version,
+        "zip_name": test_zip_name,
+        "release_status": "PROCESSING",
+    })
+
+    try:
+        resp = requests.get(
+            f"{api_url}/firmware/{test_zip_name}/download",
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 409
+    finally:
+        table.delete_item(Key={"pk": test_pk, "version": test_version})
+
+
+def test_download_processing_firmware_has_message(api_url, auth_headers):
+    """409 response for PROCESSING firmware includes a message field."""
+    table_name = os.environ.get("FIREFLY_FIRMWARE_TABLE_NAME", "firefly-firmware")
+    test_zip_name = f"integration-test-processing-msg-{_uuid.uuid4()}.zip"
+    test_pk = "controller#0x00000001"
+    test_version = f"test-processing-msg-{int(time.time())}"
+
+    table = boto3.resource("dynamodb").Table(table_name)
+    table.put_item(Item={
+        "pk": test_pk,
+        "version": test_version,
+        "zip_name": test_zip_name,
+        "release_status": "PROCESSING",
+    })
+
+    try:
+        resp = requests.get(
+            f"{api_url}/firmware/{test_zip_name}/download",
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 409
+        assert "message" in resp.json()
+    finally:
+        table.delete_item(Key={"pk": test_pk, "version": test_version})
