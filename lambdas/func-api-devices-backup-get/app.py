@@ -66,7 +66,7 @@ def lambda_handler(event, context):
         except DeviceAuthError as exc:
             return _response(exc.status_code, {"message": str(exc)})
 
-        s3_key = f"{path_uuid}/backup.ffce"
+        s3_key = path_uuid
 
         try:
             obj = s3.get_object(Bucket=BACKUP_BUCKET_NAME, Key=s3_key)

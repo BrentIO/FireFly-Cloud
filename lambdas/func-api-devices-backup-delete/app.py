@@ -64,7 +64,7 @@ def lambda_handler(event, context):
         except DeviceAuthError as exc:
             return _response(exc.status_code, {"message": str(exc)})
 
-        s3_key = f"{path_uuid}/backup.ffce"
+        s3_key = path_uuid
 
         # Delete from S3 (idempotent — succeeds even if key does not exist)
         try:
