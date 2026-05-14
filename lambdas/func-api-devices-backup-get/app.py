@@ -75,13 +75,18 @@ def lambda_handler(event, context):
         except ClientError as exc:
             code = exc.response["Error"]["Code"]
             http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
-            # MethodNotAllowed (405) is returned by S3 when the current version of
-            # a versioned object is a delete marker (i.e. the backup was deleted).
-            if code in ("NoSuchKey", "NoSuchVersion", "MethodNotAllowed") or http_status in (404, 405):
-                return _response(404, {"message": "No backup found for this device"})
-            logger.warning("Unexpected S3 error for device %s: code=%s http=%s", path_uuid, code, http_status)
-            logger.exception("Failed to retrieve backup for device %s", path_uuid)
-            return _response(500, {"message": "Internal server error"})
+            # Explicit IAM/permission failure — propagate as 500 so misconfiguration is visible.
+            if code == "AccessDenied":
+                logger.exception("S3 access denied for device %s: code=%s http=%s", path_uuid, code, http_status)
+                return _response(500, {"message": "Internal server error"})
+            # NoSuchKey and MethodNotAllowed (405, returned when the current version is a
+            # delete marker) are the expected "no backup" indicators.  Log a warning for
+            # any other code so unexpected errors are visible in CloudWatch, then return 404
+            # because any non-permission ClientError on get_object means the object is not
+            # accessible (missing, deleted, or in an unreadable state).
+            if code not in ("NoSuchKey", "NoSuchVersion", "MethodNotAllowed") or http_status not in (404, 405):
+                logger.warning("Unexpected S3 error for device %s: code=%s http=%s", path_uuid, code, http_status)
+            return _response(404, {"message": "No backup found for this device"})
 
         return {
             "statusCode": 200,
