@@ -539,10 +539,17 @@ paths:
           schema:
             type: string
             example: AAECBAUGB...
+        - name: X-Device-Timestamp
+          in: header
+          required: true
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          schema:
+            type: string
+            format: date-time
         - name: X-Device-Signature
           in: header
           required: true
-          description: Base64-encoded DER-format ECDSA P-256 signature over the nonce bytes
+          description: Base64-encoded DER ECDSA P-256 signature over SHA-256(nonce_bytes || timestamp_ascii_bytes)
           schema:
             type: string
       responses:
@@ -561,7 +568,7 @@ paths:
                 registering_application: Hardware-Registration-and-Configuration
                 registering_version: "2025.04.01"
         '400':
-          description: Missing required headers, invalid Base64, or nonce is not 32 bytes
+          description: Missing required headers, invalid Base64, nonce is not 32 bytes, or malformed timestamp
           content:
             application/json:
               schema:
@@ -570,7 +577,7 @@ paths:
                 missing_headers:
                   summary: One or more required headers absent
                   value:
-                    message: "X-Device-UUID, X-Device-Nonce, and X-Device-Signature headers are required"
+                    message: "X-Device-UUID, X-Device-Nonce, X-Device-Timestamp, and X-Device-Signature headers are required"
                 invalid_base64:
                   summary: Non-Base64 nonce or signature value
                   value:
@@ -579,8 +586,12 @@ paths:
                   summary: Nonce is not exactly 32 bytes after decoding
                   value:
                     message: "X-Device-Nonce must be 32 bytes"
+                invalid_timestamp:
+                  summary: Timestamp is not valid ISO 8601 UTC
+                  value:
+                    message: "X-Device-Timestamp must be ISO 8601 UTC (e.g. 2025-05-09T12:00:00Z)"
         '401':
-          description: Device UUID not found in the registry, or signature verification failed
+          description: Device UUID not found in the registry, signature verification failed, or timestamp outside ±5 minute window
           content:
             application/json:
               schema:
@@ -594,6 +605,10 @@ paths:
                   summary: Signature does not verify against the stored public key
                   value:
                     message: "Signature verification failed"
+                timestamp_out_of_window:
+                  summary: Timestamp is outside the ±5 minute acceptance window
+                  value:
+                    message: "X-Device-Timestamp is outside the ±5 minute acceptance window"
         '403':
           description: "`X-Device-UUID` header does not match `{uuid}` path parameter"
           content:
