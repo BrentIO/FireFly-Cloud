@@ -645,7 +645,7 @@ paths:
         - name: X-Device-Timestamp
           in: header
           required: true
-          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±500 ms of server time.
           schema:
             type: string
             format: date-time
@@ -707,7 +707,7 @@ paths:
                   value:
                     message: "Body does not appear to be a valid FFCE backup"
         '401':
-          description: Device UUID not found, signature invalid, or timestamp outside ±5 minute window
+          description: Device UUID not found, signature invalid, or timestamp outside ±500 ms window
           content:
             application/json:
               schema:
@@ -773,7 +773,7 @@ paths:
         - name: X-Device-Timestamp
           in: header
           required: true
-          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±500 ms of server time.
           schema:
             type: string
             format: date-time
@@ -810,7 +810,7 @@ paths:
               example:
                 message: "X-Device-UUID, X-Device-Nonce, X-Device-Timestamp, and X-Device-Signature headers are required"
         '401':
-          description: Device UUID not found, signature invalid, or timestamp outside ±5 minute window
+          description: Device UUID not found, signature invalid, or timestamp outside ±500 ms window
           content:
             application/json:
               schema:
@@ -877,7 +877,7 @@ paths:
         - name: X-Device-Timestamp
           in: header
           required: true
-          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±500 ms of server time.
           schema:
             type: string
             format: date-time
@@ -905,7 +905,7 @@ paths:
               example:
                 message: "X-Device-UUID, X-Device-Nonce, X-Device-Timestamp, and X-Device-Signature headers are required"
         '401':
-          description: Device UUID not found, signature invalid, or timestamp outside ±5 minute window
+          description: Device UUID not found, signature invalid, or timestamp outside ±500 ms window
           content:
             application/json:
               schema:
