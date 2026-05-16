@@ -101,7 +101,7 @@ def verify_device_request(event: dict, expected_uuid: str, device_item: dict) ->
             expected_uuid,
             delta,
         )
-        raise DeviceAuthError("X-Device-Timestamp is outside the ±10 second acceptance window", 401)
+        raise DeviceAuthError("X-Device-Timestamp is outside the acceptance window", 401)
 
     # Build signed message: SHA-256(nonce_bytes || timestamp_ascii_bytes)
     import hashlib
