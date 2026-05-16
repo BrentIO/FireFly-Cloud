@@ -1,6 +1,9 @@
 name: 🚀 🚀 Deploy All
 
 on:
+  push:
+    tags:
+      - '[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]'
   workflow_dispatch:
     inputs:
       target_env:
@@ -21,32 +24,32 @@ jobs:
     uses: ./.github/workflows/deploy-dynamodb-firmware.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-dynamodb-users:
     uses: ./.github/workflows/deploy-dynamodb-users.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-dynamodb-devices:
     uses: ./.github/workflows/deploy-dynamodb-devices.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-dynamodb-registration-keys:
     uses: ./.github/workflows/deploy-dynamodb-registration-keys.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-cognito-pre-signup:
     needs: deploy-dynamodb-users
     uses: ./.github/workflows/deploy-func-cognito-pre-signup.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-cognito:
     needs:
@@ -55,13 +58,13 @@ jobs:
     uses: ./.github/workflows/deploy-cognito.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-acm:
     uses: ./.github/workflows/deploy-acm.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-api-gateway:
     needs:
@@ -70,14 +73,14 @@ jobs:
     uses: ./.github/workflows/deploy-api-gateway.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-health-get:
     needs: deploy-api-gateway
     uses: ./.github/workflows/deploy-func-api-health-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-users-get:
     needs:
@@ -86,7 +89,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-users-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-users-post:
     needs:
@@ -95,7 +98,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-users-post.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-users-delete:
     needs:
@@ -105,7 +108,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-users-delete.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-users-patch:
     needs:
@@ -114,7 +117,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-users-patch.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-devices-register-post:
     needs:
@@ -125,7 +128,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-devices-register-post.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-devices-registration-get:
     needs:
@@ -135,13 +138,13 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-devices-registration-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-s3-device-backups:
     uses: ./.github/workflows/deploy-s3-device-backups.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-devices-backup-post:
     needs:
@@ -152,7 +155,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-devices-backup-post.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-devices-backup-get:
     needs:
@@ -163,7 +166,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-devices-backup-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-devices-backup-delete:
     needs:
@@ -174,7 +177,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-devices-backup-delete.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-devices-get:
     needs:
@@ -184,7 +187,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-devices-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-registration-keys-post:
     needs:
@@ -194,7 +197,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-registration-keys-post.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-registration-keys-get:
     needs:
@@ -204,7 +207,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-registration-keys-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-appconfig-get:
     needs:
@@ -212,7 +215,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-appconfig-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-appconfig-patch:
     needs:
@@ -220,7 +223,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-appconfig-patch.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-firmware-get:
     needs:
@@ -229,7 +232,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-firmware-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-firmware-status-patch:
     needs:
@@ -238,7 +241,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-firmware-status-patch.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-firmware-delete:
     needs:
@@ -247,27 +250,27 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-firmware-delete.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-shared-layer:
     uses: ./.github/workflows/deploy-shared-layer.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-s3-firmware-uploaded:
     needs: deploy-shared-layer
     uses: ./.github/workflows/deploy-func-s3-firmware-uploaded.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-s3-firmware-deleted:
     needs: deploy-shared-layer
     uses: ./.github/workflows/deploy-func-s3-firmware-deleted.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-s3-firmware:
     needs:
@@ -277,13 +280,13 @@ jobs:
     uses: ./.github/workflows/deploy-s3-firmware.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-s3-firmware-public:
     uses: ./.github/workflows/deploy-s3-firmware-public.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-cloudfront-firmware:
     needs:
@@ -292,7 +295,7 @@ jobs:
     uses: ./.github/workflows/deploy-cloudfront-firmware.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-ota-get:
     needs:
@@ -302,7 +305,7 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-ota-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-func-api-firmware-download-get:
     needs:
@@ -312,13 +315,13 @@ jobs:
     uses: ./.github/workflows/deploy-func-api-firmware-download-get.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-s3-fmc:
     uses: ./.github/workflows/deploy-s3-fmc.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-cloudfront-fmc:
     needs:
@@ -327,13 +330,13 @@ jobs:
     uses: ./.github/workflows/deploy-cloudfront-fmc.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-s3-configurator:
     uses: ./.github/workflows/deploy-s3-configurator.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-cloudfront-configurator:
     needs:
@@ -342,7 +345,7 @@ jobs:
     uses: ./.github/workflows/deploy-cloudfront-configurator.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   deploy-fmc-app:
     needs:
@@ -351,7 +354,7 @@ jobs:
     uses: ./.github/workflows/deploy-fmc-app.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
 
   run-integration-tests:
     needs:
@@ -381,5 +384,5 @@ jobs:
     uses: ./.github/workflows/run-integration-tests.yaml
     secrets: inherit
     with:
-      target_env: ${{ inputs.target_env }}
+      target_env: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'production' || inputs.target_env }}
       run_appconfig_tests: false
