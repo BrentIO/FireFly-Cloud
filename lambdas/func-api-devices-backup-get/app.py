@@ -73,18 +73,20 @@ def lambda_handler(event, context):
             body_bytes = obj["Body"].read()
             etag = obj.get("ETag", "").strip('"')
         except Exception as exc:
-            # Surface IAM misconfigurations as 500; treat every other failure
-            # as "no backup found" regardless of the exception type or S3 error
-            # code, since any retrieval failure means the backup is inaccessible.
+            # SSE-KMS buckets may return AccessDenied instead of NoSuchKey when
+            # an object does not exist and KMS decrypt is evaluated first.  Treat
+            # AccessDenied the same as any other retrieval failure — the backup is
+            # inaccessible, which is equivalent to "not found" from the caller's
+            # perspective.  The Lambda's IAM role is verified correct when objects
+            # do exist (200 path), so AccessDenied here means the object is absent.
             try:
-                if exc.response["Error"]["Code"] == "AccessDenied":
-                    logger.exception("S3 access denied for device %s", path_uuid)
-                    return _response(500, {"message": "Internal server error"})
+                code = exc.response["Error"]["Code"]
             except (AttributeError, KeyError, TypeError):
-                pass
+                code = None
             logger.warning(
-                "get_object failed for device %s: %s.%s: %s",
+                "get_object failed for device %s (S3 code=%s): %s.%s: %s",
                 path_uuid,
+                code,
                 type(exc).__module__,
                 type(exc).__name__,
                 exc,
