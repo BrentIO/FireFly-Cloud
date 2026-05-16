@@ -26,7 +26,7 @@ import json
 import os
 
 import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import ClientError
 
 from shared.app_config import get_appconfig
 from shared.device_auth import DeviceAuthError, verify_device_request
@@ -72,27 +72,26 @@ def lambda_handler(event, context):
             obj = s3.get_object(Bucket=BACKUP_BUCKET_NAME, Key=s3_key)
             body_bytes = obj["Body"].read()
             etag = obj.get("ETag", "").strip('"')
-        except ClientError as exc:
-            code = exc.response["Error"]["Code"]
-            http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
-            # Explicit IAM/permission failure — propagate as 500 so misconfiguration is visible.
-            if code == "AccessDenied":
-                logger.exception("S3 access denied for device %s: code=%s http=%s", path_uuid, code, http_status)
-                return _response(500, {"message": "Internal server error"})
-            # NoSuchKey and MethodNotAllowed (405, returned when the current version is a
-            # delete marker) are the expected "no backup" indicators.  Log a warning for
-            # any other code so unexpected errors are visible in CloudWatch, then return 404
-            # because any non-permission ClientError on get_object means the object is not
-            # accessible (missing, deleted, or in an unreadable state).
-            if code not in ("NoSuchKey", "NoSuchVersion", "MethodNotAllowed") or http_status not in (404, 405):
-                logger.warning("Unexpected S3 error for device %s: code=%s http=%s", path_uuid, code, http_status)
+        except Exception as exc:
+            # SSE-KMS buckets may return AccessDenied instead of NoSuchKey when
+            # an object does not exist and KMS decrypt is evaluated first.  Treat
+            # AccessDenied the same as any other retrieval failure — the backup is
+            # inaccessible, which is equivalent to "not found" from the caller's
+            # perspective.  The Lambda's IAM role is verified correct when objects
+            # do exist (200 path), so AccessDenied here means the object is absent.
+            try:
+                code = exc.response["Error"]["Code"]
+            except (AttributeError, KeyError, TypeError):
+                code = None
+            logger.warning(
+                "get_object failed for device %s (S3 code=%s): %s.%s: %s",
+                path_uuid,
+                code,
+                type(exc).__module__,
+                type(exc).__name__,
+                exc,
+            )
             return _response(404, {"message": "No backup found for this device"})
-        except BotoCoreError:
-            logger.exception("BotoCoreError retrieving backup for device %s", path_uuid)
-            return _response(404, {"message": "No backup found for this device"})
-        except Exception:
-            logger.exception("Unexpected exception type retrieving backup for device %s", path_uuid)
-            return _response(500, {"message": "Internal server error"})
 
         return {
             "statusCode": 200,
