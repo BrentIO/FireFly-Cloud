@@ -542,7 +542,7 @@ paths:
         - name: X-Device-Timestamp
           in: header
           required: true
-          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±500 ms of server time.
           schema:
             type: string
             format: date-time
@@ -591,7 +591,7 @@ paths:
                   value:
                     message: "X-Device-Timestamp must be ISO 8601 UTC (e.g. 2025-05-09T12:00:00Z)"
         '401':
-          description: Device UUID not found in the registry, signature verification failed, or timestamp outside ±5 minute window
+          description: Device UUID not found in the registry, signature verification failed, or timestamp outside ±500 ms window
           content:
             application/json:
               schema:
@@ -606,9 +606,9 @@ paths:
                   value:
                     message: "Signature verification failed"
                 timestamp_out_of_window:
-                  summary: Timestamp is outside the ±5 minute acceptance window
+                  summary: Timestamp is outside the ±500 ms acceptance window
                   value:
-                    message: "X-Device-Timestamp is outside the ±5 minute acceptance window"
+                    message: "X-Device-Timestamp is outside the ±500 ms acceptance window"
         '403':
           description: "`X-Device-UUID` header does not match `{uuid}` path parameter"
           content:
