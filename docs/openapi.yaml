@@ -176,6 +176,14 @@ paths:
                 $ref: '#/components/schemas/MessageResponse'
               example:
                 message: "User 'user@example.com' not found"
+        '409':
+          description: Cannot delete the last super user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Cannot delete the last super user. Promote another user to super first."
         '500':
           $ref: '#/components/responses/InternalServerError'
 
