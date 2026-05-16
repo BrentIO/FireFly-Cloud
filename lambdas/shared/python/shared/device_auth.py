@@ -10,7 +10,7 @@ requests must carry:
   X-Device-Signature   Base64-encoded DER ECDSA P-256 signature over
                          SHA-256(nonce_bytes || timestamp_ascii_bytes)
 
-The timestamp must be within ±500 ms of the server's current UTC clock.
+The timestamp must be within ±10 seconds of the server's current UTC clock.
 The signature is verified against the device's registered public key.
 """
 
@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.hashes import SHA256
 
 logger = logging.getLogger(__name__)
 
-_TIMESTAMP_WINDOW = timedelta(milliseconds=500)
+_TIMESTAMP_WINDOW = timedelta(seconds=10)
 
 
 class DeviceAuthError(Exception):
@@ -101,7 +101,7 @@ def verify_device_request(event: dict, expected_uuid: str, device_item: dict) ->
             expected_uuid,
             delta,
         )
-        raise DeviceAuthError("X-Device-Timestamp is outside the ±500 ms acceptance window", 401)
+        raise DeviceAuthError("X-Device-Timestamp is outside the ±10 second acceptance window", 401)
 
     # Build signed message: SHA-256(nonce_bytes || timestamp_ascii_bytes)
     import hashlib
