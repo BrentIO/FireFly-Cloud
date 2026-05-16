@@ -605,6 +605,329 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /devices/{uuid}/backup:
+    post:
+      tags: [Devices]
+      summary: Store encrypted configuration backup
+      description: |
+        Stores an encrypted FFCE-format configuration backup for a device.
+        The body must start with the 4-byte magic `FFCE` and may not exceed 512 KB.
+
+        Supports conditional upload: supply `If-None-Match` with the ETag of the
+        existing backup to skip the write when the content has not changed.
+
+        This endpoint has **no** Cognito JWT authorizer — it is authenticated
+        solely by the device's cryptographic signature.
+      operationId: postDeviceBackup
+      security: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Device UUID
+          schema:
+            type: string
+            format: uuid
+            example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        - name: X-Device-UUID
+          in: header
+          required: true
+          description: Must match the `{uuid}` path parameter
+          schema:
+            type: string
+            format: uuid
+        - name: X-Device-Nonce
+          in: header
+          required: true
+          description: Base64-encoded 32-byte random nonce
+          schema:
+            type: string
+        - name: X-Device-Timestamp
+          in: header
+          required: true
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          schema:
+            type: string
+            format: date-time
+        - name: X-Device-Signature
+          in: header
+          required: true
+          description: Base64-encoded DER ECDSA P-256 signature over SHA-256(nonce_bytes || timestamp_ascii_bytes)
+          schema:
+            type: string
+        - name: If-None-Match
+          in: header
+          required: false
+          description: ETag of the existing backup. If the content is unchanged the server returns 304 without re-uploading.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              description: Raw FFCE-format encrypted binary blob (max 512 KB). Must begin with the 4-byte magic `FFCE`.
+      responses:
+        '200':
+          description: Backup stored successfully
+          headers:
+            ETag:
+              description: MD5 hex digest of the stored backup, quoted
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Backup stored"
+                last_backup_date: "2025-05-09T12:00:00Z"
+        '304':
+          description: Backup content identical to existing — no write performed
+          headers:
+            ETag:
+              description: ETag of the unchanged backup
+              schema:
+                type: string
+        '400':
+          description: Missing or invalid headers, invalid Base64, empty body, body exceeds 512 KB limit, or body does not start with `FFCE` magic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                missing_headers:
+                  summary: Required device-auth headers absent
+                  value:
+                    message: "X-Device-UUID, X-Device-Nonce, X-Device-Timestamp, and X-Device-Signature headers are required"
+                invalid_ffce:
+                  summary: Body does not start with FFCE magic bytes
+                  value:
+                    message: "Body does not appear to be a valid FFCE backup"
+        '401':
+          description: Device UUID not found, signature invalid, or timestamp outside ±5 minute window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                not_registered:
+                  value:
+                    message: "Device not registered"
+                bad_signature:
+                  value:
+                    message: "Signature verification failed"
+        '403':
+          description: "`X-Device-UUID` header does not match `{uuid}` path parameter"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "X-Device-UUID header does not match path parameter"
+        '413':
+          description: Payload exceeds the 512 KB limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Payload exceeds maximum size of 512 KB"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      tags: [Devices]
+      summary: Retrieve stored configuration backup
+      description: |
+        Returns the encrypted FFCE-format backup blob stored for this device.
+
+        This endpoint has **no** Cognito JWT authorizer — it is authenticated
+        solely by the device's cryptographic signature.
+      operationId: getDeviceBackup
+      security: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Device UUID
+          schema:
+            type: string
+            format: uuid
+            example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        - name: X-Device-UUID
+          in: header
+          required: true
+          description: Must match the `{uuid}` path parameter
+          schema:
+            type: string
+            format: uuid
+        - name: X-Device-Nonce
+          in: header
+          required: true
+          description: Base64-encoded 32-byte random nonce
+          schema:
+            type: string
+        - name: X-Device-Timestamp
+          in: header
+          required: true
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          schema:
+            type: string
+            format: date-time
+        - name: X-Device-Signature
+          in: header
+          required: true
+          description: Base64-encoded DER ECDSA P-256 signature over SHA-256(nonce_bytes || timestamp_ascii_bytes)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Encrypted backup binary
+          headers:
+            ETag:
+              description: MD5 hex digest of the backup content, quoted
+              schema:
+                type: string
+            Content-Length:
+              description: Size of the binary body in bytes
+              schema:
+                type: integer
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                description: Raw FFCE-format encrypted binary blob
+        '400':
+          description: Missing or invalid headers or invalid Base64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "X-Device-UUID, X-Device-Nonce, X-Device-Timestamp, and X-Device-Signature headers are required"
+        '401':
+          description: Device UUID not found, signature invalid, or timestamp outside ±5 minute window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                not_registered:
+                  value:
+                    message: "Device not registered"
+                bad_signature:
+                  value:
+                    message: "Signature verification failed"
+        '403':
+          description: "`X-Device-UUID` header does not match `{uuid}` path parameter"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "X-Device-UUID header does not match path parameter"
+        '404':
+          description: No backup found for this device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "No backup found for this device"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [Devices]
+      summary: Delete stored configuration backup
+      description: |
+        Removes the stored backup for this device and clears `last_backup_date`
+        from the device record. Idempotent — succeeds even if no backup exists.
+
+        This endpoint has **no** Cognito JWT authorizer — it is authenticated
+        solely by the device's cryptographic signature.
+      operationId: deleteDeviceBackup
+      security: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Device UUID
+          schema:
+            type: string
+            format: uuid
+            example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        - name: X-Device-UUID
+          in: header
+          required: true
+          description: Must match the `{uuid}` path parameter
+          schema:
+            type: string
+            format: uuid
+        - name: X-Device-Nonce
+          in: header
+          required: true
+          description: Base64-encoded 32-byte random nonce
+          schema:
+            type: string
+        - name: X-Device-Timestamp
+          in: header
+          required: true
+          description: ISO 8601 UTC timestamp (e.g. `2025-05-09T12:00:00Z`). Must be within ±5 minutes of server time.
+          schema:
+            type: string
+            format: date-time
+        - name: X-Device-Signature
+          in: header
+          required: true
+          description: Base64-encoded DER ECDSA P-256 signature over SHA-256(nonce_bytes || timestamp_ascii_bytes)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup deleted (or did not exist)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Backup deleted"
+        '400':
+          description: Missing or invalid headers or invalid Base64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "X-Device-UUID, X-Device-Nonce, X-Device-Timestamp, and X-Device-Signature headers are required"
+        '401':
+          description: Device UUID not found, signature invalid, or timestamp outside ±5 minute window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                not_registered:
+                  value:
+                    message: "Device not registered"
+                bad_signature:
+                  value:
+                    message: "Signature verification failed"
+        '403':
+          description: "`X-Device-UUID` header does not match `{uuid}` path parameter"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "X-Device-UUID header does not match path parameter"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /health:
     get:
       tags: [Health]
