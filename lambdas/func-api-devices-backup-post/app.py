@@ -113,7 +113,7 @@ def lambda_handler(event, context):
                 "body": "",
             }
 
-        s3_key = f"{path_uuid}/backup.ffce"
+        s3_key = path_uuid
 
         # Also check against the existing S3 object ETag to avoid redundant writes
         if not if_none_match:
