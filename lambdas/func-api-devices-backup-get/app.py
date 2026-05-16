@@ -26,7 +26,7 @@ import json
 import os
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from shared.app_config import get_appconfig
 from shared.device_auth import DeviceAuthError, verify_device_request
@@ -87,6 +87,12 @@ def lambda_handler(event, context):
             if code not in ("NoSuchKey", "NoSuchVersion", "MethodNotAllowed") or http_status not in (404, 405):
                 logger.warning("Unexpected S3 error for device %s: code=%s http=%s", path_uuid, code, http_status)
             return _response(404, {"message": "No backup found for this device"})
+        except BotoCoreError:
+            logger.exception("BotoCoreError retrieving backup for device %s", path_uuid)
+            return _response(404, {"message": "No backup found for this device"})
+        except Exception:
+            logger.exception("Unexpected exception type retrieving backup for device %s", path_uuid)
+            return _response(500, {"message": "Internal server error"})
 
         return {
             "statusCode": 200,
