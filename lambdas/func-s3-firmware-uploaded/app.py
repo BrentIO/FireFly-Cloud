@@ -243,6 +243,9 @@ def lambda_handler(event, context):
             if manifest.get("bootloader_addr"):
                 item["bootloader_addr"] = manifest["bootloader_addr"]
 
+            if manifest.get("release_url"):
+                item["release_url"] = manifest["release_url"]
+
             firmware_table.put_item(Item=item)
             logger.debug(f"DynamoDB record written for product_id='{product_id}' version='{version}'")
 
