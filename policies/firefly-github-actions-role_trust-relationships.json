@@ -15,7 +15,8 @@
                     "token.actions.githubusercontent.com:sub": [
                         "repo:BrentIO/FireFly-Cloud:*",
                         "repo:BrentIO/FireFly-Controller:*",
-                        "repo:BrentIO/FireFly-Docs:*"
+                        "repo:BrentIO/FireFly-Docs:*",
+                        "repo:BrentIO/FireFly-Client:*"
                     ]
                 }
             }
