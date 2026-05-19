@@ -1123,11 +1123,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OtaManifest'
-              example:
-                type: "FireFly Controller"
-                version: "2026.03.01"
-                url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
-                littlefs: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/www.bin"
+              examples:
+                with_release_url:
+                  summary: Update available with release announcement link
+                  value:
+                    type: "FireFly Controller"
+                    version: "2026.03.01"
+                    url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
+                    littlefs: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/www.bin"
+                    release_url: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
+                without_release_url:
+                  summary: Update available without release announcement link
+                  value:
+                    type: "FireFly Controller"
+                    version: "2026.03.01"
+                    url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
+                    littlefs: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/www.bin"
         '400':
           description: Missing required query parameter
           content:
@@ -1937,6 +1948,11 @@ components:
           type: string
           description: CloudFront URL to the LittleFS partition image. Omitted if no LittleFS image is present in the firmware.
           example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/www.bin"
+        release_url:
+          type: string
+          format: uri
+          description: URL to the release announcement or changelog for this firmware version. Omitted if not provided in the firmware manifest. Used by Home Assistant to render a "Read release announcement" link in the update entity UI.
+          example: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
 
     DownloadResponse:
       type: object
