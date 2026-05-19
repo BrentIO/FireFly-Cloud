@@ -112,6 +112,8 @@ def lambda_handler(event, context):
         }
         if littlefs:
             manifest["littlefs"] = littlefs
+        if item.get("release_url"):
+            manifest["release_url"] = item["release_url"]
 
         return _response(200, manifest)
 
