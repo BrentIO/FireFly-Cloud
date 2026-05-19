@@ -48,6 +48,12 @@ jobs:
         if: ${{ !env.ACT }}
         run: pip install aws-sam-cli
 
+      - name: Upload error page
+        run: |
+          aws s3 cp static/firmware-error.html \
+            s3://${{ secrets.S3_FIRMWARE_PUBLIC_BUCKET_NAME }}/error.html \
+            --content-type text/html
+
       - name: Deploy s3-firmware-public
         run: |
           sam deploy \

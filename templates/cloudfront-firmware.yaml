@@ -45,6 +45,14 @@ Resources:
           MaxTTL: 31536000
           MinTTL: 0
           Compress: true
+        DefaultRootObject: error.html
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /error.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /error.html
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
