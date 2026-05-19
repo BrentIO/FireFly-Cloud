@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FireFly Firmware</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0d1117;
+      color: #c9d1d9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+    .card {
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 2rem 2.5rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin: 0 0 0.5rem;
+      color: #e6edf3;
+    }
+    p {
+      font-size: 0.95rem;
+      color: #8b949e;
+      margin: 0 0 1.5rem;
+      line-height: 1.5;
+    }
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    a {
+      display: block;
+      background-color: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 0.65rem 1rem;
+      color: #58a6ff;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+    a:hover {
+      background-color: #30363d;
+      border-color: #58a6ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>FireFly Firmware Distribution</h1>
+    <p>This server delivers firmware updates to FireFly devices. To download firmware manually, visit the releases page for your device type.</p>
+    <div class="links">
+      <a href="https://github.com/BrentIO/FireFly-Controller/releases">FireFly Controller Firmware</a>
+      <a href="https://github.com/BrentIO/FireFly-Client/releases">FireFly Client Firmware</a>
+    </div>
+  </div>
+</body>
+</html>
