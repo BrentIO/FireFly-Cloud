@@ -1069,24 +1069,24 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /ota/{class}/{product_hex}:
+  /ota/{class}/{product_hex}/{application}:
     get:
       tags: [OTA]
       summary: Get OTA firmware manifest
       description: |
-        Returns an [esp32FOTA](https://github.com/BrentIO/esp32FOTA)-compatible
-        manifest for the next `RELEASED` firmware version the device should install.
-        The `current_version` query parameter is required.
+        Returns firmware information for the given `class`, `product_hex`, and `application`.
 
-        The endpoint returns the oldest `RELEASED` version whose version string is
-        strictly greater than `current_version`. If the device is already on the
-        latest released version, `200 OK` is returned with the same version manifest
-        (the esp32FOTA library uses `semver_compare` to detect no-update; it treats
-        any non-200 response as an error). Returns `409 Conflict` if the device's
-        current version is no longer `RELEASED` (revoked) and no newer version exists.
+        **With `current_version`** — returns an [esp32FOTA](https://github.com/BrentIO/esp32FOTA)-compatible
+        manifest for the next `RELEASED` version the device should install. The endpoint returns
+        the oldest `RELEASED` version strictly greater than `current_version`. If the device is
+        already on the latest released version, `200 OK` is returned with the same version manifest
+        (the esp32FOTA library uses `semver_compare` to detect no-update). Returns `409 Conflict`
+        if the device's current version is `REVOKED` and no newer version is available.
 
-        Returns `404 Not Found` if no `RELEASED` firmware exists at all for the
-        given `class` and `product_hex` combination.
+        **Without `current_version`** — returns all `RELEASED` versions as a list, sorted ascending.
+        Useful for inspection and tooling.
+
+        Returns `404 Not Found` if no `RELEASED` firmware exists for the given combination.
 
         See the [OTA Update Flow](/cloud/ota_update_flow) for full scenario documentation.
       operationId: getOtaManifest
@@ -1106,47 +1106,53 @@ paths:
           schema:
             type: string
             example: "0x32322505"
+        - name: application
+          in: path
+          required: true
+          description: Application name (e.g., `controller`). Case-insensitive; normalized to lowercase.
+          schema:
+            $ref: '#/components/schemas/Application'
         - name: current_version
           in: query
-          required: true
+          required: false
           description: |
             The firmware version string currently running on the device (e.g. `2026.03.01`).
-            Used to determine the next version in the sequential update chain.
+            When provided, returns the next sequential manifest. When omitted, returns all
+            released versions.
           schema:
             $ref: '#/components/schemas/Version'
       responses:
         '200':
           description: |
-            OTA manifest. If `version` matches `current_version`, the device is
-            already up to date and no download will occur.
+            When `current_version` is provided: an OTA manifest. If `version` matches
+            `current_version`, the device is already up to date.
+
+            When `current_version` is omitted: all released versions as a list.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OtaManifest'
+                oneOf:
+                  - $ref: '#/components/schemas/OtaManifest'
+                  - $ref: '#/components/schemas/OtaVersionListResponse'
               examples:
-                with_release_url:
-                  summary: Update available with release announcement link
+                single_manifest:
+                  summary: Next version manifest (current_version provided)
                   value:
                     type: "FireFly Controller"
                     version: "2026.03.01"
                     url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
                     littlefs: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/www.bin"
                     release_url: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
-                without_release_url:
-                  summary: Update available without release announcement link
+                all_versions:
+                  summary: All released versions (current_version omitted)
                   value:
-                    type: "FireFly Controller"
-                    version: "2026.03.01"
-                    url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
-                    littlefs: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/www.bin"
-        '400':
-          description: Missing required query parameter
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-              example:
-                message: "current_version is required"
+                    versions:
+                      - type: "FireFly Controller"
+                        version: "2026.02.01"
+                        url: "https://firmware.somewhere.com/controller/0x32322505/2026.02.01/Controller.ino.bin"
+                      - type: "FireFly Controller"
+                        version: "2026.03.01"
+                        url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -1953,6 +1959,15 @@ components:
           format: uri
           description: URL to the release announcement or changelog for this firmware version. Omitted if not provided in the firmware manifest. Used by Home Assistant to render a "Read release announcement" link in the update entity UI.
           example: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
+
+    OtaVersionListResponse:
+      type: object
+      description: All released firmware versions for a given class/product_hex/application, sorted ascending by version.
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OtaManifest'
 
     DownloadResponse:
       type: object
