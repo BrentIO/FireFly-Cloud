@@ -2,8 +2,8 @@
 Tests for sequential OTA version delivery via GET /ota/{class}/{product_hex}/{application}.
 
 The multi_version_ota_items fixture (module-scoped) creates:
-  - product_hex_a: firmware versions 1.0.01, 2.0.01, 3.0.01 — all RELEASED, class="controller"
-  - product_hex_b: firmware version 1.0.01 only — RELEASED, class="controller"
+  - product_hex_a: firmware versions 1.0.01, 2.0.01, 3.0.01 — all RELEASED, class="integration-test-hardware"
+  - product_hex_b: firmware version 1.0.01 only — RELEASED, class="integration-test-hardware"
 
 The revoked_version_ota_items fixture (module-scoped) creates:
   - a product with versions 1.0.01 (REVOKED), 2.0.01, 3.0.01 (both RELEASED)

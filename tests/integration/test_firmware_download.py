@@ -139,7 +139,7 @@ def test_download_processing_firmware_returns_409(api_url, auth_headers):
     """GET /firmware/{zip_name}/download returns 409 when the record is PROCESSING."""
     table_name = os.environ.get("FIREFLY_FIRMWARE_TABLE_NAME", "firefly-firmware")
     test_zip_name = f"integration-test-processing-{_uuid.uuid4()}.zip"
-    test_pk = "controller#0x00000001"
+    test_pk = "integration-test-hardware#0x00000001"
     test_version = f"test-processing-{int(time.time())}"
 
     table = boto3.resource("dynamodb").Table(table_name)
@@ -165,7 +165,7 @@ def test_download_processing_firmware_has_message(api_url, auth_headers):
     """409 response for PROCESSING firmware includes a message field."""
     table_name = os.environ.get("FIREFLY_FIRMWARE_TABLE_NAME", "firefly-firmware")
     test_zip_name = f"integration-test-processing-msg-{_uuid.uuid4()}.zip"
-    test_pk = "controller#0x00000001"
+    test_pk = "integration-test-hardware#0x00000001"
     test_version = f"test-processing-msg-{int(time.time())}"
 
     table = boto3.resource("dynamodb").Table(table_name)
