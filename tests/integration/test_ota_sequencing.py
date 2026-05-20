@@ -1,5 +1,5 @@
 """
-Tests for sequential OTA version delivery via GET /ota/{class}/{product_hex}.
+Tests for sequential OTA version delivery via GET /ota/{class}/{product_hex}/{application}.
 
 The multi_version_ota_items fixture (module-scoped) creates:
   - product_hex_a: firmware versions 1.0.01, 2.0.01, 3.0.01 — all RELEASED, class="controller"
@@ -20,20 +20,20 @@ import requests
 pytestmark = pytest.mark.ota
 
 # ---------------------------------------------------------------------------
-# current_version required
+# Not found (no current_version)
 # ---------------------------------------------------------------------------
 
-def test_missing_current_version_returns_400(api_url):
+def test_no_current_version_not_found_returns_404(api_url):
     resp = requests.get(
-        f"{api_url}/ota/nonexistent/0x00000000",
+        f"{api_url}/ota/nonexistent/0x00000000/nonexistent",
         timeout=10,
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 404
 
 
-def test_missing_current_version_has_message(api_url):
+def test_no_current_version_not_found_has_message(api_url):
     resp = requests.get(
-        f"{api_url}/ota/nonexistent/0x00000000",
+        f"{api_url}/ota/nonexistent/0x00000000/nonexistent",
         timeout=10,
     )
     assert "message" in resp.json()
@@ -47,7 +47,7 @@ def test_oldest_version_receives_next(api_url, multi_version_ota_items):
     """Device on v1 should receive v2, not v3."""
     d = multi_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex_a']}",
+        f"{api_url}/ota/{d['a_v1']['class']}/{d['product_hex_a']}/{d['application']}",
         params={"current_version": d["v1"]},
         timeout=10,
     )
@@ -59,7 +59,7 @@ def test_middle_version_receives_next(api_url, multi_version_ota_items):
     """Device on v2 should receive v3."""
     d = multi_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex_a']}",
+        f"{api_url}/ota/{d['a_v1']['class']}/{d['product_hex_a']}/{d['application']}",
         params={"current_version": d["v2"]},
         timeout=10,
     )
@@ -71,7 +71,7 @@ def test_latest_version_receives_200_with_same_version(api_url, multi_version_ot
     """Device on v3 (the latest) should receive 200 with v3 — no update triggered."""
     d = multi_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex_a']}",
+        f"{api_url}/ota/{d['a_v1']['class']}/{d['product_hex_a']}/{d['application']}",
         params={"current_version": d["v3"]},
         timeout=10,
     )
@@ -82,7 +82,7 @@ def test_latest_version_receives_200_with_same_version(api_url, multi_version_ot
 def test_manifest_has_required_fields(api_url, multi_version_ota_items):
     d = multi_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex_a']}",
+        f"{api_url}/ota/{d['a_v1']['class']}/{d['product_hex_a']}/{d['application']}",
         params={"current_version": d["v1"]},
         timeout=10,
     )
@@ -95,7 +95,7 @@ def test_manifest_has_required_fields(api_url, multi_version_ota_items):
 def test_manifest_url_is_https(api_url, multi_version_ota_items):
     d = multi_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex_a']}",
+        f"{api_url}/ota/{d['a_v1']['class']}/{d['product_hex_a']}/{d['application']}",
         params={"current_version": d["v1"]},
         timeout=10,
     )
@@ -113,7 +113,7 @@ def test_product_b_returns_its_own_firmware(api_url, multi_version_ota_items):
     """
     d = multi_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex_b']}",
+        f"{api_url}/ota/{d['b_v1']['class']}/{d['product_hex_b']}/{d['application']}",
         params={"current_version": "0.0.01"},
         timeout=10,
     )
@@ -128,7 +128,7 @@ def test_product_b_at_latest_returns_same_version(api_url, multi_version_ota_ite
     """
     d = multi_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex_b']}",
+        f"{api_url}/ota/{d['b_v1']['class']}/{d['product_hex_b']}/{d['application']}",
         params={"current_version": d["v1"]},
         timeout=10,
     )
@@ -138,7 +138,7 @@ def test_product_b_at_latest_returns_same_version(api_url, multi_version_ota_ite
 
 def test_unknown_product_returns_404(api_url):
     resp = requests.get(
-        f"{api_url}/ota/nonexistent/0x00000000",
+        f"{api_url}/ota/nonexistent/0x00000000/nonexistent",
         params={"current_version": "1.0.01"},
         timeout=10,
     )
@@ -156,7 +156,7 @@ def test_revoked_current_version_returns_next_released(api_url, revoked_version_
     """
     d = revoked_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex']}",
+        f"{api_url}/ota/{d['v1_item']['class']}/{d['product_hex']}/{d['application']}",
         params={"current_version": d["v1"]},
         timeout=10,
     )
@@ -171,7 +171,7 @@ def test_revoked_current_version_does_not_return_latest(api_url, revoked_version
     """
     d = revoked_version_ota_items
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex']}",
+        f"{api_url}/ota/{d['v1_item']['class']}/{d['product_hex']}/{d['application']}",
         params={"current_version": d["v1"]},
         timeout=10,
     )
@@ -192,7 +192,7 @@ def test_latest_revoked_with_nothing_newer_returns_409(api_url, auth_headers, fr
         timeout=10,
     )
     resp = requests.get(
-        f"{api_url}/ota/controller/{d['product_hex']}",
+        f"{api_url}/ota/{d['v3_item']['class']}/{d['product_hex']}/{d['application']}",
         params={"current_version": d["v3"]},
         timeout=10,
     )

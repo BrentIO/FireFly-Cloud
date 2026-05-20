@@ -730,6 +730,7 @@ def multi_version_ota_items():
     yield {
         "product_hex_a": product_hex_a,
         "product_hex_b": product_hex_b,
+        "application": TEST_APPLICATION,
         "v1": OTA_SEQ_V1,
         "v2": OTA_SEQ_V2,
         "v3": OTA_SEQ_V3,
@@ -771,6 +772,7 @@ def revoked_version_ota_items():
 
     yield {
         "product_hex": product_hex,
+        "application": TEST_APPLICATION,
         "v1": OTA_SEQ_V1,
         "v2": OTA_SEQ_V2,
         "v3": OTA_SEQ_V3,
@@ -811,6 +813,7 @@ def fresh_revoked_version_ota_items():
 
     yield {
         "product_hex": product_hex,
+        "application": TEST_APPLICATION,
         "v1": OTA_SEQ_V1,
         "v2": OTA_SEQ_V2,
         "v3": OTA_SEQ_V3,
