@@ -43,7 +43,7 @@ def lambda_handler(event, context):
             f"current_version='{current_version}'"
         )
 
-        pk = f"{device_class}#{product_hex}"
+        pk = f"{device_class}#{product_hex}#{device_class}"
 
         response = firmware_table.query(
             KeyConditionExpression=Key("pk").eq(pk),
