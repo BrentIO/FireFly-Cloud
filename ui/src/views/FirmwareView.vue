@@ -20,6 +20,7 @@ import ConfirmModal from '../components/ConfirmModal.vue'
 import { listFirmware, patchFirmwareStatus, deleteFirmware } from '../api/firmware.js'
 import { useToast } from '../composables/useToast.js'
 import {
+  formatClass,
   STATUS_LABELS,
   VALID_TRANSITIONS,
   ROLLBACK_TRANSITIONS,
@@ -46,6 +47,7 @@ const hideActionRequired = ref(true)
 // ── Text filters ──────────────────────────────────────────────────────────────
 const filterApplication = ref('')
 const filterProductId = ref('')
+const filterClass = ref('')
 const filterVersion = ref('')
 
 // ── Sort ──────────────────────────────────────────────────────────────────────
@@ -101,6 +103,10 @@ const filteredItems = computed(() => {
     const q = filterProductId.value.trim().toLowerCase()
     items = items.filter((i) => i.product_id?.toLowerCase().includes(q))
   }
+  if (filterClass.value.trim()) {
+    const q = filterClass.value.trim().toLowerCase()
+    items = items.filter((i) => i.class?.toLowerCase().includes(q))
+  }
   if (filterVersion.value.trim()) {
     const q = filterVersion.value.trim().toLowerCase()
     items = items.filter((i) => i.version?.toLowerCase().includes(q))
@@ -153,7 +159,7 @@ const pageNumbers = computed(() => {
 
 // Reset to page 1 when filters change
 watch(
-  [showDeleted, showReleased, hideActionRequired, filterApplication, filterProductId, filterVersion, pageSize],
+  [showDeleted, showReleased, hideActionRequired, filterApplication, filterProductId, filterClass, filterVersion, pageSize],
   () => {
     currentPage.value = 1
   }
@@ -370,6 +376,14 @@ function setMenuPosition(event) {
               </td>
               <td class="px-4 py-2">
                 <input
+                  v-model="filterClass"
+                  type="text"
+                  placeholder="Filter…"
+                  class="w-full text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </td>
+              <td class="px-4 py-2">
+                <input
                   v-model="filterVersion"
                   type="text"
                   placeholder="Filter…"
@@ -396,6 +410,14 @@ function setMenuPosition(event) {
                 Product ID
                 <ChevronUpIcon v-if="sortKey === 'product_id' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
                 <ChevronDownIcon v-else-if="sortKey === 'product_id' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
+              </th>
+              <th
+                class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
+                @click="toggleSort('class')"
+              >
+                Class
+                <ChevronUpIcon v-if="sortKey === 'class' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
+                <ChevronDownIcon v-else-if="sortKey === 'class' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
               <th
                 class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
@@ -428,6 +450,7 @@ function setMenuPosition(event) {
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24" /></td>
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28" /></td>
                 <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" /></td>
+                <td class="px-4 py-3"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" /></td>
                 <td class="px-4 py-3"><div class="h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse w-20" /></td>
                 <td class="px-4 py-3"></td>
               </tr>
@@ -435,7 +458,7 @@ function setMenuPosition(event) {
 
             <!-- Empty state -->
             <tr v-else-if="paginatedItems.length === 0">
-              <td colspan="5" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+              <td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                 No firmware records found.
               </td>
             </tr>
@@ -453,6 +476,9 @@ function setMenuPosition(event) {
               </td>
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400" @click="goToDetail(item)">
                 {{ item.product_id }}
+              </td>
+              <td class="px-4 py-3 text-gray-600 dark:text-gray-400" @click="goToDetail(item)">
+                {{ formatClass(item.class) }}
               </td>
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400" @click="goToDetail(item)">
                 {{ item.version }}

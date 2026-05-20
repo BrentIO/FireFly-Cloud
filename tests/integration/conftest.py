@@ -35,12 +35,12 @@ fresh_released_firmware_item (function)
     A RELEASED record per test, with its own unique product_hex. Revoked at teardown.
 
 multi_version_ota_items (module)
-    product_hex_a: v1/v2/v3 RELEASED under class="controller"
-    product_hex_b: v1 RELEASED under class="controller"
+    product_hex_a: v1/v2/v3 RELEASED under class="integration-test-hardware"
+    product_hex_b: v1 RELEASED under class="integration-test-hardware"
     Used for sequential OTA delivery and product isolation tests.
 
 revoked_version_ota_items (module)
-    One product_hex: v1 REVOKED, v2/v3 RELEASED, class="controller".
+    One product_hex: v1 REVOKED, v2/v3 RELEASED, class="integration-test-hardware".
     Used for revoked-current-version tests.
 
 fresh_revoked_version_ota_items (function)
@@ -87,6 +87,7 @@ TEST_PRODUCT_ID = "firefly-integration-test"
 TEST_PRODUCT_HEX = "0x00000001"
 TEST_FIRMWARE_TYPE = "FireFly Test"
 TEST_APPLICATION = "test"
+TEST_CLASS = "integration-test-hardware"
 TEST_COMMIT = "0000000000000000000000000000000000000000"
 
 # Version strings used by multi-version OTA sequencing fixtures.
@@ -129,7 +130,7 @@ def _create_test_zip(
         "product_id": TEST_PRODUCT_ID,
         "product_hex": product_hex,
         "version": version,
-        "class": "controller",
+        "class": TEST_CLASS,
         "firmware_type": firmware_type,
         "application": application,
         "branch": "main",
@@ -174,7 +175,7 @@ def _create_zip_invalid_manifest(missing_field: str, product_hex: str = TEST_PRO
         "product_id": TEST_PRODUCT_ID,
         "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "controller",
+        "class": TEST_CLASS,
         "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
@@ -200,7 +201,7 @@ def _create_zip_missing_file(product_hex: str = TEST_PRODUCT_HEX) -> bytes:
         "product_id": TEST_PRODUCT_ID,
         "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "controller",
+        "class": TEST_CLASS,
         "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
@@ -229,7 +230,7 @@ def _create_zip_sha256_mismatch(product_hex: str = TEST_PRODUCT_HEX) -> bytes:
         "product_id": TEST_PRODUCT_ID,
         "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "controller",
+        "class": TEST_CLASS,
         "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
@@ -256,7 +257,7 @@ def _create_zip_missing_partitions(product_hex: str = TEST_PRODUCT_HEX) -> bytes
         "product_id": TEST_PRODUCT_ID,
         "product_hex": product_hex,
         "version": f"error-test-{int(time.time())}",
-        "class": "controller",
+        "class": TEST_CLASS,
         "firmware_type": TEST_FIRMWARE_TYPE,
         "application": TEST_APPLICATION,
         "branch": "main",
@@ -289,7 +290,7 @@ def _upload_and_wait(
     s3 = boto3.client("s3")
     s3.put_object(
         Bucket=FIRMWARE_BUCKET,
-        Key=f"incoming/controller-{product_hex}-{version}.zip",
+        Key=f"incoming/{TEST_CLASS}-{product_hex}-{version}.zip",
         Body=zip_bytes,
     )
 
@@ -704,8 +705,8 @@ def fresh_released_firmware_item():
 def multi_version_ota_items():
     """
     Creates two isolated products for OTA sequencing tests:
-      - product_hex_a: versions v1, v2, v3 — all RELEASED under class="controller"
-      - product_hex_b: version v1 only — RELEASED under class="controller"
+      - product_hex_a: versions v1, v2, v3 — all RELEASED under class="integration-test-hardware"
+      - product_hex_b: version v1 only — RELEASED under class="integration-test-hardware"
 
     Tests that verify the next-version logic and product isolation use this fixture.
     Module-scoped so setup runs once for the entire test_ota_sequencing module.
