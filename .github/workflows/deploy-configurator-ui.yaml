@@ -1,4 +1,5 @@
 name: 🚀 Deploy Configurator UI
+run-name: "Deploy Configurator UI to ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.target_env || inputs.target_env }}"
 
 on:
   repository_dispatch:
