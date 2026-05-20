@@ -87,6 +87,7 @@ TEST_PRODUCT_ID = "firefly-integration-test"
 TEST_PRODUCT_HEX = "0x00000001"
 TEST_FIRMWARE_TYPE = "FireFly Test"
 TEST_APPLICATION = "test"
+TEST_OTA_APPLICATION = "controller"  # OTA lambda queries pk={class}#{product_hex}#{class}, so application must equal class
 TEST_COMMIT = "0000000000000000000000000000000000000000"
 
 # Version strings used by multi-version OTA sequencing fixtures.
@@ -665,7 +666,7 @@ def released_firmware_item():
     product_hex = _unique_product_hex()
     _created_product_hexes.add(product_hex)
     version = f"2026.03.r{int(time.time())}"
-    item = _upload_and_wait(version, product_hex)
+    item = _upload_and_wait(version, product_hex, TEST_OTA_APPLICATION)
     zip_name = item.get("zip_name")
 
     _release_item(zip_name)
@@ -687,7 +688,7 @@ def fresh_released_firmware_item():
     product_hex = _unique_product_hex()
     _created_product_hexes.add(product_hex)
     version = f"2026.03.r{int(time.time())}"
-    item = _upload_and_wait(version, product_hex)
+    item = _upload_and_wait(version, product_hex, TEST_OTA_APPLICATION)
     zip_name = item.get("zip_name")
 
     _release_item(zip_name)
@@ -719,10 +720,10 @@ def multi_version_ota_items():
     _created_product_hexes.add(product_hex_a)
     _created_product_hexes.add(product_hex_b)
 
-    a_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex_a)
-    a_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex_a)
-    a_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex_a)
-    b_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex_b)
+    a_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex_a, TEST_OTA_APPLICATION)
+    a_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex_a, TEST_OTA_APPLICATION)
+    a_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex_a, TEST_OTA_APPLICATION)
+    b_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex_b, TEST_OTA_APPLICATION)
 
     for item in (a_v1, a_v2, a_v3, b_v1):
         _release_item(item["zip_name"])
@@ -760,9 +761,9 @@ def revoked_version_ota_items():
     product_hex = _unique_product_hex()
     _created_product_hexes.add(product_hex)
 
-    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex)
-    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex)
-    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex)
+    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex, TEST_OTA_APPLICATION)
+    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex, TEST_OTA_APPLICATION)
+    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex, TEST_OTA_APPLICATION)
 
     for item in (item_v1, item_v2, item_v3):
         _release_item(item["zip_name"])
@@ -800,9 +801,9 @@ def fresh_revoked_version_ota_items():
     product_hex = _unique_product_hex()
     _created_product_hexes.add(product_hex)
 
-    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex)
-    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex)
-    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex)
+    item_v1 = _upload_and_wait(OTA_SEQ_V1, product_hex, TEST_OTA_APPLICATION)
+    item_v2 = _upload_and_wait(OTA_SEQ_V2, product_hex, TEST_OTA_APPLICATION)
+    item_v3 = _upload_and_wait(OTA_SEQ_V3, product_hex, TEST_OTA_APPLICATION)
 
     for item in (item_v1, item_v2, item_v3):
         _release_item(item["zip_name"])
