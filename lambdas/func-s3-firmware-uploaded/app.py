@@ -79,6 +79,7 @@ def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
     product_id = "__UNKNOWN_PRODUCT__"
     version = f"ERROR#UNKNOWN#{uuid_name}"
 
+    application = "unknown"
     if isinstance(manifest, dict):
         if "class" in manifest:
             device_class = manifest["class"].lower()
@@ -88,10 +89,12 @@ def put_error_item(uuid_name, error_message, original_name=None, manifest=None):
             product_id = manifest["product_id"]
         if "version" in manifest:
             version = f"ERROR#{manifest['version']}#{uuid_name}"
+        if "application" in manifest:
+            application = manifest["application"].lower()
 
     now = int(time.time())
     item = {
-        "pk": f"{device_class}#{product_hex}",
+        "pk": f"{device_class}#{product_hex}#{application}",
         "product_id": product_id,
         "product_hex": product_hex,
         "version": version,
@@ -183,7 +186,8 @@ def lambda_handler(event, context):
             validate_manifest_schema(manifest)
             device_class = manifest["class"].lower()
             product_hex = manifest["product_hex"].lower()
-            logger.debug(f"Manifest validated for class='{device_class}' product_hex='{product_hex}' version='{manifest['version']}'")
+            application = manifest["application"].lower()
+            logger.debug(f"Manifest validated for class='{device_class}' product_hex='{product_hex}' application='{application}' version='{manifest['version']}'")
 
             product_id = manifest["product_id"]
             version = manifest["version"]
@@ -218,7 +222,7 @@ def lambda_handler(event, context):
 
             now = int(time.time())
             item = {
-                "pk": f"{device_class}#{product_hex}",
+                "pk": f"{device_class}#{product_hex}#{application}",
                 "product_id": product_id,
                 "product_hex": product_hex,
                 "firmware_type": manifest.get("firmware_type"),
