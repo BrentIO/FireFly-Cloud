@@ -51,7 +51,7 @@ body:
         - FireFly Management Console
         - Infrastructure
     validations:
-      required: false
+      required: true
 
   - type: textarea
     id: logs
