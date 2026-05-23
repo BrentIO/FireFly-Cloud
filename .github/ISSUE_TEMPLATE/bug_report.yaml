@@ -48,7 +48,7 @@ body:
     attributes:
       label: Application
       options:
-        - FMC
+        - FireFly Management Console
         - Infrastructure
     validations:
       required: false
