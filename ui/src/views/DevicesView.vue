@@ -5,6 +5,8 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   XMarkIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
 } from '@heroicons/vue/24/outline'
 import {
   Dialog,
@@ -42,6 +44,14 @@ const filteredDevices = computed(() => {
 const selectedDevice   = ref(null)
 const partitionHexSize = ref(new Set()) // indices of partition rows showing hex size
 const showProductHex   = ref(false)
+const uuidCopied       = ref(false)
+
+async function copyUuid() {
+  if (!selectedDevice.value?.uuid) return
+  await navigator.clipboard.writeText(selectedDevice.value.uuid)
+  uuidCopied.value = true
+  setTimeout(() => { uuidCopied.value = false }, 2000)
+}
 
 // ── Sort ──────────────────────────────────────────────────────────────────────
 const sortKey = ref('registration_date')
@@ -399,8 +409,16 @@ function formatDate(iso) {
               >
                 <!-- Header -->
                 <div class="flex items-start justify-between px-6 py-4 gap-4">
-                  <div class="min-w-0">
+                  <div class="min-w-0 flex items-center gap-2">
                     <h3 class="text-base font-semibold font-mono text-gray-900 dark:text-gray-100 break-all">{{ selectedDevice?.uuid }}</h3>
+                    <button
+                      @click="copyUuid"
+                      class="flex-shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      :title="uuidCopied ? 'Copied!' : 'Copy UUID'"
+                    >
+                      <CheckIcon v-if="uuidCopied" class="w-4 h-4 text-green-500" />
+                      <ClipboardDocumentIcon v-else class="w-4 h-4" />
+                    </button>
                   </div>
                   <button
                     @click="selectedDevice = null"
