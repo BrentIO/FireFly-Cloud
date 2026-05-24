@@ -15,7 +15,7 @@ CLOUDFRONT_DOMAIN = os.environ["CLOUDFRONT_DOMAIN"]
 
 firmware_table = dynamodb.Table(TABLE_NAME)
 
-LFS_BINARY_NAME = "www.bin"
+LFS_BINARY_NAME = "ui.bin"
 
 
 def _response(status_code, body):
@@ -35,11 +35,11 @@ def _build_manifest(item, device_class, product_hex):
     base_url = f"https://{CLOUDFRONT_DOMAIN}/{device_class}/{product_hex}/{version}"
 
     url = None
-    littlefs = None
+    ui = None
     for f in files:
         name = f["name"]
         if name == LFS_BINARY_NAME:
-            littlefs = f"{base_url}/{name}"
+            ui = f"{base_url}/{name}"
         elif main_binary and name == main_binary:
             url = f"{base_url}/{name}"
         elif not main_binary and name.endswith(".ino.bin"):
@@ -53,8 +53,8 @@ def _build_manifest(item, device_class, product_hex):
         "version": version,
         "url": url,
     }
-    if littlefs:
-        manifest["littlefs"] = littlefs
+    if ui:
+        manifest["ui"] = ui
     if item.get("release_url"):
         manifest["release_url"] = item["release_url"]
 
