@@ -1,4 +1,5 @@
 name: 🧪 Run Integration Tests
+run-name: "Run Integration Tests on ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

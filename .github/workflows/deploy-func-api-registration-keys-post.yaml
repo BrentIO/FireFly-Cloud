@@ -1,4 +1,5 @@
 name: 🚀 Deploy func-api-registration-keys-post
+run-name: "Deploy func-api-registration-keys-post to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:
     inputs:

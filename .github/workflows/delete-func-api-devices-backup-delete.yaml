@@ -1,4 +1,5 @@
 name: ⚠️ Delete func-api-devices-backup-delete
+run-name: "Delete func-api-devices-backup-delete from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

@@ -1,4 +1,5 @@
 name: ⚠️ Delete func-api-firmware-delete
+run-name: "Delete func-api-firmware-delete from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

@@ -1,4 +1,5 @@
 name: ⚠️ Delete CloudFront Configurator
+run-name: "Delete CloudFront Configurator from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

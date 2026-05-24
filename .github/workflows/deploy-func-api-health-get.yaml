@@ -1,4 +1,5 @@
 name: 🚀 Deploy func-api-health-get
+run-name: "Deploy func-api-health-get to ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

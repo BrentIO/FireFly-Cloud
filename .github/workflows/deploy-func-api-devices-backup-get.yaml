@@ -1,4 +1,5 @@
 name: 🚀 Deploy func-api-devices-backup-get
+run-name: "Deploy func-api-devices-backup-get to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:
     inputs:

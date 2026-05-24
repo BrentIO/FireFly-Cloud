@@ -1,4 +1,5 @@
 name: ⚠️ Delete func-cognito-pre-signup
+run-name: "Delete func-cognito-pre-signup from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

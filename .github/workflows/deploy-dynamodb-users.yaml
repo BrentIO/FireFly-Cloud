@@ -1,4 +1,5 @@
 name: 🚀 Deploy dynamodb-users
+run-name: "Deploy dynamodb-users to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:
     inputs:

@@ -1,4 +1,5 @@
 name: ⚠️ Delete func-api-health-get
+run-name: "Delete func-api-health-get from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

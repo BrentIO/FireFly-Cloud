@@ -1,4 +1,5 @@
 name: ⚠️ Delete func-api-users-post
+run-name: "Delete func-api-users-post from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:
