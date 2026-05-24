@@ -295,6 +295,32 @@ class TestDevicesBackupPost:
         assert r.status_code == 200
         assert r.json().get("last_backup_date")
 
+    def test_post_with_etag_header_round_trips_through_get(self, api_url, registered_device):
+        """ETag sent on POST (plaintext SHA-256) is returned verbatim by GET."""
+        import hashlib
+        test_uuid, private_key, _ = registered_device
+        plaintext_sha256 = hashlib.sha256(_VALID_FFCE_BODY).hexdigest()
+
+        post_headers = _auth_headers(test_uuid, private_key)
+        post_headers["Content-Type"] = "application/octet-stream"
+        post_headers["ETag"] = plaintext_sha256
+        post_r = requests.post(
+            f"{api_url}/devices/{test_uuid}/backup",
+            data=_VALID_FFCE_BODY,
+            headers=post_headers,
+            timeout=10,
+        )
+        assert post_r.status_code == 200
+
+        get_headers = _auth_headers(test_uuid, private_key)
+        get_r = requests.get(
+            f"{api_url}/devices/{test_uuid}/backup",
+            headers=get_headers,
+            timeout=10,
+        )
+        assert get_r.status_code == 200
+        assert get_r.headers.get("ETag", "").strip('"') == plaintext_sha256
+
     def test_unchanged_backup_returns_304(self, api_url, registered_device):
         """Posting the same content with If-None-Match returns 304."""
         test_uuid, private_key, _ = registered_device
@@ -441,7 +467,33 @@ class TestDevicesBackupGet:
         assert r.status_code == 200
         assert r.content[:4] == b"FFCE"
 
-    def test_valid_get_response_has_etag(self, api_url, registered_device):
+    def test_get_with_etag_on_post_returns_plaintext_etag(self, api_url, registered_device):
+        """GET ETag header contains the SHA-256 sent on POST, not S3's MD5."""
+        import hashlib
+        test_uuid, private_key, _ = registered_device
+        plaintext_sha256 = hashlib.sha256(_VALID_FFCE_BODY).hexdigest()
+
+        post_headers = _auth_headers(test_uuid, private_key)
+        post_headers["Content-Type"] = "application/octet-stream"
+        post_headers["ETag"] = plaintext_sha256
+        requests.post(
+            f"{api_url}/devices/{test_uuid}/backup",
+            data=_VALID_FFCE_BODY,
+            headers=post_headers,
+            timeout=10,
+        )
+
+        get_headers = _auth_headers(test_uuid, private_key)
+        r = requests.get(
+            f"{api_url}/devices/{test_uuid}/backup",
+            headers=get_headers,
+            timeout=10,
+        )
+        assert r.status_code == 200
+        assert r.headers.get("ETag", "").strip('"') == plaintext_sha256
+
+    def test_get_without_etag_on_post_returns_empty_etag(self, api_url, registered_device):
+        """GET returns an empty ETag when backup was uploaded without an ETag header."""
         test_uuid, private_key, _ = registered_device
         post_headers = _auth_headers(test_uuid, private_key)
         post_headers["Content-Type"] = "application/octet-stream"
@@ -459,7 +511,7 @@ class TestDevicesBackupGet:
             timeout=10,
         )
         assert r.status_code == 200
-        assert "ETag" in r.headers
+        assert r.headers.get("ETag", "").strip('"') == ""
 
 
 # ---------------------------------------------------------------------------
