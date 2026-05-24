@@ -2,7 +2,7 @@
 GET /devices/{uuid}/registration — verify device registration status.
 
 Authenticates the request using the shared device_auth module, which verifies
-the ECDSA P-256 signature over SHA-256(nonce||timestamp) and enforces a ±500 ms
+the ECDSA P-256 signature over SHA-256(nonce||timestamp) and enforces a ±10 s
 timestamp window.
 
 Required headers:
