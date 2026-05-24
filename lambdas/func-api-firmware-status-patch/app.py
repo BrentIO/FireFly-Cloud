@@ -45,7 +45,7 @@ def _response(status_code, body):
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body, indent=4, default=_json_default),
+        "body": json.dumps(body, default=_json_default),
     }
 
 
@@ -127,6 +127,10 @@ def lambda_handler(event, context):
             ConsistentRead=True
         ).get("Item")
         item = consistent if consistent else items[0]
+
+        if new_status == "RELEASED" and item.get("version") == "DEBUG":
+            return _response(409, {"message": "DEBUG firmware cannot be transitioned to RELEASED."})
+
         current_status = item.get("release_status")
         allowed = VALID_TRANSITIONS.get(current_status, [])
 

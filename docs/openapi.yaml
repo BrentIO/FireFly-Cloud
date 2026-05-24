@@ -1271,6 +1271,14 @@ paths:
                 message: "Missing required field: release_status"
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict — DEBUG firmware cannot be transitioned to RELEASED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "DEBUG firmware cannot be transitioned to RELEASED."
         '422':
           description: Invalid status transition
           content:
