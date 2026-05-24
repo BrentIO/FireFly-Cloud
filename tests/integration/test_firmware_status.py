@@ -2,6 +2,8 @@
 Tests for PATCH /firmware/{zip_name}/status.
 """
 
+import uuid
+
 import pytest
 import requests
 
@@ -245,7 +247,8 @@ def test_patch_status_full_workflow_history_statuses_in_order(api_url, auth_head
 
 def test_patch_status_debug_firmware_cannot_be_released(api_url, auth_headers):
     """DEBUG firmware must be blocked from transitioning to RELEASED."""
-    item = _upload_and_wait("DEBUG")
+    unique_hex = f"0x{uuid.uuid4().int & 0xFFFFFFFF:08x}"
+    item = _upload_and_wait("DEBUG", product_hex=unique_hex)
     zip_name = item["zip_name"]
 
     try:
