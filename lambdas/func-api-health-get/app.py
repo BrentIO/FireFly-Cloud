@@ -11,5 +11,5 @@ def health(event, context):
     return {
         "statusCode": 200,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps({"status": "OK"}, indent=4)
+        "body": json.dumps({"status": "OK"})
     }

@@ -31,7 +31,7 @@ def _response(status_code, body=None):
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
     }
-    resp["body"] = json.dumps(body, indent=4, default=str) if body is not None else ""
+    resp["body"] = json.dumps(body, default=str) if body is not None else ""
     return resp
 
 

@@ -45,7 +45,7 @@ def _response(status_code, body):
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body, indent=4, default=_json_default),
+        "body": json.dumps(body, default=_json_default),
     }
 
 
