@@ -136,14 +136,21 @@ function formatAddress(addr) {
 const displayFiles = computed(() => {
   const flashable = (props.item.files || []).filter(f => isFlashableFile(f.name))
   const nonBin = (props.item.files || []).filter(f => !f.name.endsWith('.bin'))
+  const mapped = flashable.map(f => {
+    const isConfigBin = f.name === 'config.bin'
+    const isBootloaderOrPartitions = f.name.endsWith('.bootloader.bin') || f.name.endsWith('.partitions.bin')
+    const willSkip = (isConfigBin && !destroyConfig.value) || (isBootloaderOrPartitions && !eraseAll.value)
+    return { name: f.name, address: resolveFlashAddress(f.name), label: willSkip ? null : displayAddress(f.name), skipped: willSkip }
+  })
+  mapped.sort((a, b) => {
+    if (a.address === null && b.address === null) return 0
+    if (a.address === null) return 1
+    if (b.address === null) return -1
+    return a.address - b.address
+  })
   return [
-    ...flashable.map(f => {
-      const isConfigBin = f.name === 'config.bin'
-      const isBootloaderOrPartitions = f.name.endsWith('.bootloader.bin') || f.name.endsWith('.partitions.bin')
-      const willSkip = (isConfigBin && !destroyConfig.value) || (isBootloaderOrPartitions && !eraseAll.value)
-      return { name: f.name, label: willSkip ? null : displayAddress(f.name), skipped: willSkip }
-    }),
-    ...nonBin.map(f => ({ name: f.name, label: null, skipped: true })),
+    ...mapped,
+    ...nonBin.map(f => ({ name: f.name, address: null, label: null, skipped: true })),
   ]
 })
 
