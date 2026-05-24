@@ -127,6 +127,10 @@ def lambda_handler(event, context):
             ConsistentRead=True
         ).get("Item")
         item = consistent if consistent else items[0]
+
+        if new_status == "RELEASED" and item.get("version") == "DEBUG":
+            return _response(409, {"message": "DEBUG firmware cannot be transitioned to RELEASED."})
+
         current_status = item.get("release_status")
         allowed = VALID_TRANSITIONS.get(current_status, [])
 

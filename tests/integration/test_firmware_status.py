@@ -5,6 +5,8 @@ Tests for PATCH /firmware/{zip_name}/status.
 import pytest
 import requests
 
+from conftest import _upload_and_wait
+
 pytestmark = pytest.mark.firmware_status
 
 
@@ -235,3 +237,34 @@ def test_patch_status_full_workflow_history_statuses_in_order(api_url, auth_head
 
     statuses = [e["status"] for e in resp.json()["status_history"]]
     assert statuses == ["READY_TO_TEST", "TESTING", "RELEASED", "REVOKED"]
+
+
+# ---------------------------------------------------------------------------
+# DEBUG firmware constraints
+# ---------------------------------------------------------------------------
+
+def test_patch_status_debug_firmware_cannot_be_released(api_url, auth_headers):
+    """DEBUG firmware must be blocked from transitioning to RELEASED."""
+    item = _upload_and_wait("DEBUG")
+    zip_name = item["zip_name"]
+
+    try:
+        # Advance to TESTING (valid transition)
+        requests.patch(
+            f"{api_url}/firmware/{zip_name}/status",
+            json={"release_status": "TESTING"},
+            headers=auth_headers,
+            timeout=10,
+        )
+
+        # Attempt RELEASED — must be rejected
+        resp = requests.patch(
+            f"{api_url}/firmware/{zip_name}/status",
+            json={"release_status": "RELEASED"},
+            headers=auth_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 409
+        assert "message" in resp.json()
+    finally:
+        requests.delete(f"{api_url}/firmware/{zip_name}", headers=auth_headers, timeout=10)
