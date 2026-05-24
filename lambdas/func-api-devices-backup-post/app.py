@@ -16,6 +16,9 @@ Required headers:
 
 Optional headers:
   If-None-Match        ETag of existing backup; returns 304 if unchanged
+  ETag                 SHA-256 hex of the plaintext backup content (from /backup.etag
+                         on the device); stored as S3 object metadata so restore can
+                         return the same value
 
 Responses:
   200  Backup stored successfully
@@ -103,6 +106,7 @@ def lambda_handler(event, context):
         # Check If-None-Match header for 304 short-circuit
         headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
         if_none_match = headers.get("if-none-match", "").strip().strip('"')
+        plaintext_etag = headers.get("etag", "").strip().strip('"')
         if if_none_match and if_none_match == etag:
             return {
                 "statusCode": 304,
@@ -135,12 +139,15 @@ def lambda_handler(event, context):
 
         # Store backup in S3
         try:
-            s3.put_object(
-                Bucket=BACKUP_BUCKET_NAME,
-                Key=s3_key,
-                Body=body_bytes,
-                ContentType="application/octet-stream",
-            )
+            put_kwargs = {
+                "Bucket": BACKUP_BUCKET_NAME,
+                "Key": s3_key,
+                "Body": body_bytes,
+                "ContentType": "application/octet-stream",
+            }
+            if plaintext_etag:
+                put_kwargs["Metadata"] = {"etag": plaintext_etag}
+            s3.put_object(**put_kwargs)
         except ClientError:
             logger.exception("Failed to store backup for device %s", path_uuid)
             return _response(500, {"message": "Internal server error"})

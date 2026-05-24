@@ -684,6 +684,12 @@ paths:
           description: ETag of the existing backup. If the content is unchanged the server returns 304 without re-uploading.
           schema:
             type: string
+        - name: ETag
+          in: header
+          required: false
+          description: SHA-256 hex digest of the plaintext backup content (read from `/backup.etag` on the device). Stored as S3 object metadata and returned by `GET /devices/{uuid}/backup` so the controller can restore `/backup.etag` after a restore.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -697,7 +703,7 @@ paths:
           description: Backup stored successfully
           headers:
             ETag:
-              description: MD5 hex digest of the stored backup, quoted
+              description: MD5 hex digest of the encrypted backup body, quoted. Used for `If-None-Match` conditional upload on subsequent requests.
               schema:
                 type: string
           content:
@@ -811,7 +817,7 @@ paths:
           description: Encrypted backup binary
           headers:
             ETag:
-              description: MD5 hex digest of the backup content, quoted
+              description: SHA-256 hex digest of the plaintext backup content, as stored at upload time. Empty string if the backup was uploaded without an `ETag` header.
               schema:
                 type: string
             Content-Length:
