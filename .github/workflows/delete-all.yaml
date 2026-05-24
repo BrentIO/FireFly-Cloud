@@ -1,4 +1,5 @@
 name: ⚠️ ⚠️ Delete All
+run-name: "Delete All from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

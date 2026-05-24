@@ -1,4 +1,5 @@
 name: ⚠️ Delete S3 Device Backups
+run-name: "Delete S3 Device Backups from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:

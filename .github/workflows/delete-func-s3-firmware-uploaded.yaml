@@ -1,4 +1,5 @@
 name: ⚠️ Delete func-s3-firmware-uploaded
+run-name: "Delete func-s3-firmware-uploaded from ${{ inputs.target_env }}"
 
 on:
   workflow_dispatch:
