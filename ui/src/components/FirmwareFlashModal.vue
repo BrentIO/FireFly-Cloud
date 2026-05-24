@@ -70,7 +70,7 @@ const bootloaderAddr = computed(() =>
  */
 function isFlashableFile(filename) {
   if (filename === `${props.item.application}.ino.bin`) return true
-  if (filename === 'www.bin') return true
+  if (filename === 'ui.bin') return true
   if (filename === 'config.bin') return true
   if (filename.endsWith('.bootloader.bin')) return true
   if (filename.endsWith('.partitions.bin')) return true
@@ -90,7 +90,7 @@ function resolveFlashAddress(filename) {
     const v = offsets['app0']
     return v != null ? Number(v) : null
   }
-  if (filename === 'www.bin') {
+  if (filename === 'ui.bin') {
     const v = offsets['www']
     return v != null ? Number(v) : null
   }
@@ -114,7 +114,7 @@ function displayAddress(filename) {
     const v = offsets['app0']
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
-  if (filename === 'www.bin') {
+  if (filename === 'ui.bin') {
     const v = offsets['www']
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
