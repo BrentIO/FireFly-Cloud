@@ -103,15 +103,12 @@ def verify_device_request(event: dict, expected_uuid: str, device_item: dict) ->
         )
         raise DeviceAuthError("X-Device-Timestamp is outside the acceptance window", 401)
 
-    # Build signed message: SHA-256(nonce_bytes || timestamp_ascii_bytes)
-    import hashlib
-    ts_bytes    = timestamp_str.encode("ascii")
-    msg_digest  = hashlib.sha256(nonce_bytes + ts_bytes).digest()
-
-    # Verify signature
+    # Verify signature over nonce_bytes || timestamp_ascii_bytes
+    # ECDSA(SHA256()) hashes internally; do not pre-hash
+    ts_bytes = timestamp_str.encode("ascii")
     try:
         pub_key = _load_public_key(device_item["public_key"])
-        pub_key.verify(sig_der, msg_digest, ECDSA(SHA256()))
+        pub_key.verify(sig_der, nonce_bytes + ts_bytes, ECDSA(SHA256()))
     except InvalidSignature:
         logger.warning("Invalid signature for device %s", expected_uuid)
         raise DeviceAuthError("Signature verification failed", 401)

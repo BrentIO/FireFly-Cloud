@@ -14,7 +14,6 @@ Required environment variables (in addition to the standard conftest.py set):
 """
 
 import base64
-import hashlib
 import os
 import time
 import uuid
@@ -94,9 +93,8 @@ def _now_timestamp() -> str:
 
 
 def _sign_nonce(private_key, nonce: bytes, timestamp: str) -> str:
-    """Sign SHA-256(nonce || timestamp) with ECDSA P-256; return Base64 DER signature."""
-    msg_digest = hashlib.sha256(nonce + timestamp.encode("ascii")).digest()
-    sig = private_key.sign(msg_digest, ECDSA(SHA256()))
+    """Sign nonce || timestamp with ECDSA P-256 SHA-256; return Base64 DER signature."""
+    sig = private_key.sign(nonce + timestamp.encode("ascii"), ECDSA(SHA256()))
     return base64.b64encode(sig).decode()
 
 
