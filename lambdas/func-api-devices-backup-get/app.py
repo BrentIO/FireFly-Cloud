@@ -14,6 +14,8 @@ Required headers:
 
 Responses:
   200  Encrypted backup binary (application/octet-stream, base64-encoded body)
+       ETag response header contains the SHA-256 hex of the plaintext content
+       (stored at upload time), which the controller writes to /backup.etag after restore
   400  Missing/invalid headers
   401  Device not registered or signature invalid
   403  UUID mismatch
@@ -71,7 +73,7 @@ def lambda_handler(event, context):
         try:
             obj = s3.get_object(Bucket=BACKUP_BUCKET_NAME, Key=s3_key)
             body_bytes = obj["Body"].read()
-            etag = obj.get("ETag", "").strip('"')
+            etag = obj.get("Metadata", {}).get("etag", "")
         except Exception as exc:
             # SSE-KMS buckets may return AccessDenied instead of NoSuchKey when
             # an object does not exist and KMS decrypt is evaluated first.  Treat
