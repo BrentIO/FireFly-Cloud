@@ -25,6 +25,13 @@ Parameters:
     Type: String
     Description: ID of the Cognito JWT authorizer on the HTTP API
 
+  EnvironmentName:
+    Type: String
+    AllowedValues:
+      - dev
+      - production
+    Description: Deployment environment name; controls whether DEBUG firmware can be promoted to RELEASED
+
 Resources:
 
   FuncApiFirmwareStatusPatchRole:
@@ -98,6 +105,7 @@ Resources:
           S3_FIRMWARE_PRIVATE_BUCKET_NAME: !Ref FirmwarePrivateBucketName
           S3_FIRMWARE_PUBLIC_BUCKET_NAME: !Ref FirmwarePublicBucketName
           APP_CONFIG_ENV: default
+          ENVIRONMENT_NAME: !Ref EnvironmentName
 
   FuncApiFirmwareStatusPatchIntegration:
     Type: AWS::ApiGatewayV2::Integration

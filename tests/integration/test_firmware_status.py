@@ -2,6 +2,7 @@
 Tests for PATCH /firmware/{zip_name}/status.
 """
 
+import os
 import uuid
 
 import pytest
@@ -246,28 +247,29 @@ def test_patch_status_full_workflow_history_statuses_in_order(api_url, auth_head
 # ---------------------------------------------------------------------------
 
 def test_patch_status_debug_firmware_cannot_be_released(api_url, auth_headers):
-    """DEBUG firmware must be blocked from transitioning to RELEASED."""
+    """DEBUG firmware is blocked from RELEASED in production; allowed in other environments."""
     unique_hex = f"0x{uuid.uuid4().int & 0xFFFFFFFF:08x}"
     item = _upload_and_wait("DEBUG", product_hex=unique_hex)
     zip_name = item["zip_name"]
+    is_production = os.environ.get("ENVIRONMENT_NAME", "") == "production"
 
     try:
-        # Advance to TESTING (valid transition)
         requests.patch(
             f"{api_url}/firmware/{zip_name}/status",
             json={"release_status": "TESTING"},
             headers=auth_headers,
             timeout=10,
         )
-
-        # Attempt RELEASED — must be rejected
         resp = requests.patch(
             f"{api_url}/firmware/{zip_name}/status",
             json={"release_status": "RELEASED"},
             headers=auth_headers,
             timeout=10,
         )
-        assert resp.status_code == 409
-        assert "message" in resp.json()
+        if is_production:
+            assert resp.status_code == 409
+            assert "message" in resp.json()
+        else:
+            assert resp.status_code == 200
     finally:
         requests.delete(f"{api_url}/firmware/{zip_name}", headers=auth_headers, timeout=10)
