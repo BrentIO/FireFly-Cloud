@@ -45,7 +45,7 @@ def lambda_handler(event, context):
 
         item = devices_table.get_item(Key={"uuid": path_uuid}).get("Item")
         if not item:
-            return _response(401, {"message": "Device not registered"})
+            return _response(404, {"message": "Device not registered"})
 
         try:
             verify_device_request(event, path_uuid, item)
