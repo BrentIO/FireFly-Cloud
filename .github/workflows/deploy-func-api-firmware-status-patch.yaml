@@ -98,6 +98,7 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ secrets.AWS_REGION }} \
             --parameter-overrides \
+              EnvironmentName=${{ inputs.target_env }} \
               ApiId=${{ steps.lookup-api.outputs.api_id }} \
               AuthorizerId=${{ steps.lookup-auth.outputs.authorizer_id }} \
               SharedLayerArn=${{ steps.lookup-layer.outputs.layer_arn }} \

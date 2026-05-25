@@ -1282,7 +1282,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: Conflict — DEBUG firmware cannot be transitioned to RELEASED.
+          description: >
+            Conflict — DEBUG firmware cannot be transitioned to RELEASED in the production environment.
           content:
             application/json:
               schema:
