@@ -336,7 +336,7 @@ class TestDevicesRegistrationGet:
         )
         assert r.status_code == 403
 
-    def test_get_registration_unknown_uuid_returns_401(self, api_url):
+    def test_get_registration_unknown_uuid_returns_404(self, api_url):
         unknown = str(uuid.uuid4())
         nonce = bytes(range(32))
         ts = _now_timestamp()
@@ -352,7 +352,7 @@ class TestDevicesRegistrationGet:
             },
             timeout=10,
         )
-        assert r.status_code == 401
+        assert r.status_code == 404
 
     def test_get_registration_invalid_signature_returns_401(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device

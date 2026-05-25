@@ -599,16 +599,12 @@ paths:
                   value:
                     message: "X-Device-Timestamp must be ISO 8601 UTC (e.g. 2025-05-09T12:00:00Z)"
         '401':
-          description: Device UUID not found in the registry, signature verification failed, or timestamp outside the acceptance window
+          description: Signature verification failed or timestamp outside the acceptance window
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
               examples:
-                not_registered:
-                  summary: Device UUID not in the devices table
-                  value:
-                    message: "Device not registered"
                 bad_signature:
                   summary: Signature does not verify against the stored public key
                   value:
@@ -625,6 +621,14 @@ paths:
                 $ref: '#/components/schemas/MessageResponse'
               example:
                 message: "X-Device-UUID header does not match path parameter"
+        '404':
+          description: Device UUID not found in the registry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                message: "Device not registered"
         '500':
           $ref: '#/components/responses/InternalServerError'
 
