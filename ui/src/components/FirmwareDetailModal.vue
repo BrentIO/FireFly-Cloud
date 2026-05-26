@@ -49,6 +49,9 @@ const loadError = ref(null)
 // Download state
 const downloadLoading = ref(false)
 
+// Transition (release/rollback) state
+const transitionLoading = ref(false)
+
 // Flash modal state
 const flashOpen = ref(false)
 const webSerialSupported = 'serial' in navigator
@@ -129,6 +132,7 @@ function requestTransition(nextStatus) {
 
 async function executeTransition(nextStatus) {
   confirmOpen.value = false
+  transitionLoading.value = true
   try {
     await patchFirmwareStatus(props.zipName, nextStatus)
     success(`Status updated to ${STATUS_LABELS[nextStatus] || nextStatus}.`)
@@ -136,6 +140,8 @@ async function executeTransition(nextStatus) {
     emit('changed')
   } catch (err) {
     error(`Failed to update status: ${err.message}`, err)
+  } finally {
+    transitionLoading.value = false
   }
 }
 
@@ -329,15 +335,25 @@ function transitionButtonClass(nextStatus) {
                         <button
                           v-if="ROLLBACK_TRANSITIONS[item.release_status]"
                           @click="requestTransition(ROLLBACK_TRANSITIONS[item.release_status])"
-                          class="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-colors"
+                          :disabled="transitionLoading"
+                          class="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-600 hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors inline-flex items-center gap-1.5"
                         >
+                          <svg v-if="transitionLoading" class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                          </svg>
                           {{ TRANSITION_BUTTON_LABELS[ROLLBACK_TRANSITIONS[item.release_status]] }}
                         </button>
                         <button
                           v-if="VALID_TRANSITIONS[item.release_status]"
                           @click="requestTransition(VALID_TRANSITIONS[item.release_status])"
-                          :class="transitionButtonClass(VALID_TRANSITIONS[item.release_status])"
+                          :disabled="transitionLoading"
+                          :class="[transitionButtonClass(VALID_TRANSITIONS[item.release_status]), 'disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5']"
                         >
+                          <svg v-if="transitionLoading" class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                          </svg>
                           {{ TRANSITION_BUTTON_LABELS[VALID_TRANSITIONS[item.release_status]] }}
                         </button>
                       </div>
