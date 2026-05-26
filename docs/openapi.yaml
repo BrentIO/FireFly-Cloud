@@ -1920,7 +1920,7 @@ components:
               description: |
                 Map of ESP32 partition names to their flash byte offsets, parsed from the
                 firmware's `partitions.bin` at upload time. Used by the UI to resolve flash
-                addresses for dynamic partitions (e.g. `config`, `www`). Absent or empty
+                addresses for dynamic partitions (e.g. `config`, `ui`). Absent or empty
                 for ERROR records or firmware ingested before this field was introduced.
               additionalProperties:
                 type: integer
@@ -1929,7 +1929,7 @@ components:
                 otadata: 57344
                 app0: 65536
                 config: 3276800
-                www: 3473408
+                ui: 3473408
 
     FirmwareListResponse:
       type: object
