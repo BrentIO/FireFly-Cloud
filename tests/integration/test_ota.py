@@ -124,7 +124,7 @@ def test_ota_manifest_has_url(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert "url" in resp.json()
+    assert "app" in resp.json()
 
 
 def test_ota_manifest_url_is_https(api_url, released_firmware_item):
@@ -133,7 +133,7 @@ def test_ota_manifest_url_is_https(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert resp.json()["url"].startswith("https://")
+    assert resp.json()["app"].startswith("https://")
 
 
 def test_ota_manifest_version_matches_released(api_url, released_firmware_item):

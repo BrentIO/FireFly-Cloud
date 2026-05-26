@@ -51,7 +51,7 @@ def _build_manifest(item, device_class, product_hex):
     manifest = {
         "type": firmware_type,
         "version": version,
-        "url": url,
+        "app": url,
     }
     if ui:
         manifest["ui"] = ui
