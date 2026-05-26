@@ -1950,14 +1950,14 @@ components:
     OtaManifest:
       type: object
       description: |
-        esp32FOTA-compatible firmware manifest. The `url` field points to the main
+        esp32FOTA-compatible firmware manifest. The `app` field points to the main
         application binary. The `ui` field, when present, points to the
         UI (LittleFS) partition image. Both URLs serve files from the CloudFront
         firmware distribution.
       required:
         - type
         - version
-        - url
+        - app
       properties:
         type:
           type: string
@@ -1965,7 +1965,7 @@ components:
           example: "FireFly Controller"
         version:
           $ref: '#/components/schemas/Version'
-        url:
+        app:
           type: string
           description: CloudFront URL to the main application firmware binary.
           example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/Controller.ino.bin"

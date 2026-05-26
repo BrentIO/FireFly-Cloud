@@ -89,7 +89,7 @@ def test_manifest_has_required_fields(api_url, multi_version_ota_items):
     body = resp.json()
     assert "type" in body
     assert "version" in body
-    assert "url" in body
+    assert "app" in body
 
 
 def test_manifest_url_is_https(api_url, multi_version_ota_items):
@@ -99,7 +99,7 @@ def test_manifest_url_is_https(api_url, multi_version_ota_items):
         params={"current_version": d["v1"]},
         timeout=10,
     )
-    assert resp.json()["url"].startswith("https://")
+    assert resp.json()["app"].startswith("https://")
 
 
 # ---------------------------------------------------------------------------
