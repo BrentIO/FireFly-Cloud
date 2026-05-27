@@ -1134,18 +1134,16 @@ paths:
       responses:
         '200':
           description: |
-            When `current_version` is provided: an OTA manifest. If `version` matches
-            `current_version`, the device is already up to date.
-
-            When `current_version` is omitted: all released versions as a list.
+            Always a JSON array of OtaManifest objects. When `current_version` is
+            provided the array contains exactly one entry — the next sequential version
+            (or the current version if already up to date). When `current_version` is
+            omitted the array contains all released versions sorted ascending.
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/OtaManifest'
-                  - type: array
-                    items:
-                      $ref: '#/components/schemas/OtaManifest'
+                type: array
+                items:
+                  $ref: '#/components/schemas/OtaManifest'
               examples:
                 single_manifest:
                   $ref: '#/components/examples/OtaManifestExample'
@@ -1338,16 +1336,16 @@ components:
   examples:
 
     OtaManifestExample:
-      summary: OTA manifest for a single firmware version
-      value: &ota_manifest_example
-        application_name: "FireFly Controller"
-        version: "2026.03.01"
-        binaries:
-          - partition: "app"
-            url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
-          - partition: "ui"
-            url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/ui.bin"
-        release_url: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
+      summary: Single-item array returned when current_version is provided
+      value:
+        - application_name: "FireFly Controller"
+          version: "2026.03.01"
+          binaries:
+            - partition: "app"
+              url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
+            - partition: "ui"
+              url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/ui.bin"
+          release_url: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
 
     OtaVersionListExample:
       summary: All released versions (current_version omitted)
@@ -1357,7 +1355,14 @@ components:
           binaries:
             - partition: "app"
               url: "https://firmware.somewhere.com/controller/0x32322505/2026.02.01/Controller.ino.bin"
-        - *ota_manifest_example
+        - application_name: "FireFly Controller"
+          version: "2026.03.01"
+          binaries:
+            - partition: "app"
+              url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
+            - partition: "ui"
+              url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/ui.bin"
+          release_url: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
 
   schemas:
 

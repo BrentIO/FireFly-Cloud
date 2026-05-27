@@ -139,7 +139,7 @@ def lambda_handler(event, context):
             logger.error(f"No main binary found in files for pk='{pk}' version='{version}'")
             return _response(500, {"message": "No main firmware binary found in released record"})
 
-        return _response(200, manifest)
+        return _response(200, [manifest])
 
     except Exception:
         logger.exception("Unhandled exception")
