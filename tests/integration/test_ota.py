@@ -6,7 +6,7 @@ and the full OTA stack (public S3 bucket, CloudFront, func-api-ota-get) to be
 deployed.
 
 Without current_version the endpoint returns all RELEASED versions as a list.
-With current_version it returns the next sequential manifest.
+With current_version it returns a single-item array containing the next sequential manifest.
 """
 
 import pytest
@@ -62,20 +62,12 @@ def test_ota_no_current_version_returns_200(api_url, released_firmware_item):
     assert resp.status_code == 200
 
 
-def test_ota_no_current_version_has_versions_key(api_url, released_firmware_item):
+def test_ota_no_current_version_response_is_list(api_url, released_firmware_item):
     resp = requests.get(
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
         timeout=10,
     )
-    assert "versions" in resp.json()
-
-
-def test_ota_no_current_version_versions_is_list(api_url, released_firmware_item):
-    resp = requests.get(
-        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
-        timeout=10,
-    )
-    assert isinstance(resp.json()["versions"], list)
+    assert isinstance(resp.json(), list)
 
 
 def test_ota_no_current_version_contains_released_version(api_url, released_firmware_item):
@@ -83,7 +75,7 @@ def test_ota_no_current_version_contains_released_version(api_url, released_firm
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
         timeout=10,
     )
-    versions = [v["version"] for v in resp.json()["versions"]]
+    versions = [v["version"] for v in resp.json()]
     assert released_firmware_item["version"] in versions
 
 
@@ -100,13 +92,22 @@ def test_ota_returns_200_for_released_firmware(api_url, released_firmware_item):
     assert resp.status_code == 200
 
 
+def test_ota_manifest_response_is_list(api_url, released_firmware_item):
+    resp = requests.get(
+        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
+        params={"current_version": OLDER_VERSION},
+        timeout=10,
+    )
+    assert isinstance(resp.json(), list)
+
+
 def test_ota_manifest_has_application_name(api_url, released_firmware_item):
     resp = requests.get(
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert "application_name" in resp.json()
+    assert "application_name" in resp.json()[0]
 
 
 def test_ota_manifest_has_version(api_url, released_firmware_item):
@@ -115,7 +116,7 @@ def test_ota_manifest_has_version(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert "version" in resp.json()
+    assert "version" in resp.json()[0]
 
 
 def test_ota_manifest_has_binaries(api_url, released_firmware_item):
@@ -124,7 +125,7 @@ def test_ota_manifest_has_binaries(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert "binaries" in resp.json()
+    assert "binaries" in resp.json()[0]
 
 
 def test_ota_manifest_has_app_binary(api_url, released_firmware_item):
@@ -133,7 +134,7 @@ def test_ota_manifest_has_app_binary(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    partitions = [b["partition"] for b in resp.json()["binaries"]]
+    partitions = [b["partition"] for b in resp.json()[0]["binaries"]]
     assert "app" in partitions
 
 
@@ -143,7 +144,7 @@ def test_ota_manifest_url_is_https(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    app_binary = next(b for b in resp.json()["binaries"] if b["partition"] == "app")
+    app_binary = next(b for b in resp.json()[0]["binaries"] if b["partition"] == "app")
     assert app_binary["url"].startswith("https://")
 
 
@@ -153,7 +154,7 @@ def test_ota_manifest_version_matches_released(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert resp.json()["version"] == released_firmware_item["version"]
+    assert resp.json()[0]["version"] == released_firmware_item["version"]
 
 
 def test_ota_returns_409_after_revoke_with_nothing_newer(api_url, auth_headers, fresh_released_firmware_item):
