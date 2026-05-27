@@ -163,6 +163,7 @@ jobs:
           FIREFLY_TEST_USER_PASSWORD: ${{ steps.ci-creds.outputs.password }}
           FIREFLY_DEVICES_TABLE_NAME: firefly-devices
           CLEANUP_TEST_RECORDS: ${{ vars.CLEANUP_TEST_RECORDS }}
+          ENVIRONMENT_NAME: ${{ inputs.target_env }}
 
       - name: Delete CI test user
         if: always() && steps.lookup-cognito.outputs.user_pool_id != '' && steps.ci-creds.outputs.email != ''
