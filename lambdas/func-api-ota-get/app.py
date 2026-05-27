@@ -99,7 +99,7 @@ def lambda_handler(event, context):
                 )
                 if m is not None
             ]
-            return _response(200, {"versions": versions})
+            return _response(200, versions)
 
         if not items:
             check = firmware_table.query(

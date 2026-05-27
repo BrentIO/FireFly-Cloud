@@ -1143,7 +1143,9 @@ paths:
               schema:
                 oneOf:
                   - $ref: '#/components/schemas/OtaManifest'
-                  - $ref: '#/components/schemas/OtaVersionListResponse'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/OtaManifest'
               examples:
                 single_manifest:
                   $ref: '#/components/examples/OtaManifestExample'
@@ -1350,13 +1352,12 @@ components:
     OtaVersionListExample:
       summary: All released versions (current_version omitted)
       value:
-        versions:
-          - application_name: "FireFly Controller"
-            version: "2026.02.01"
-            binaries:
-              - partition: "app"
-                url: "https://firmware.somewhere.com/controller/0x32322505/2026.02.01/Controller.ino.bin"
-          - *ota_manifest_example
+        - application_name: "FireFly Controller"
+          version: "2026.02.01"
+          binaries:
+            - partition: "app"
+              url: "https://firmware.somewhere.com/controller/0x32322505/2026.02.01/Controller.ino.bin"
+        - *ota_manifest_example
 
   schemas:
 
@@ -2003,15 +2004,6 @@ components:
           format: uri
           description: URL to the release announcement or changelog for this firmware version. Omitted if not provided in the firmware manifest. Used by Home Assistant to render a "Read release announcement" link in the update entity UI.
           example: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
-
-    OtaVersionListResponse:
-      type: object
-      description: All released firmware versions for a given class/product_hex/application, sorted ascending by version.
-      properties:
-        versions:
-          type: array
-          items:
-            $ref: '#/components/schemas/OtaManifest'
 
     DownloadResponse:
       type: object

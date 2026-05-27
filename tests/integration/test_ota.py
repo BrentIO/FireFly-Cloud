@@ -62,20 +62,12 @@ def test_ota_no_current_version_returns_200(api_url, released_firmware_item):
     assert resp.status_code == 200
 
 
-def test_ota_no_current_version_has_versions_key(api_url, released_firmware_item):
+def test_ota_no_current_version_response_is_list(api_url, released_firmware_item):
     resp = requests.get(
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
         timeout=10,
     )
-    assert "versions" in resp.json()
-
-
-def test_ota_no_current_version_versions_is_list(api_url, released_firmware_item):
-    resp = requests.get(
-        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
-        timeout=10,
-    )
-    assert isinstance(resp.json()["versions"], list)
+    assert isinstance(resp.json(), list)
 
 
 def test_ota_no_current_version_contains_released_version(api_url, released_firmware_item):
@@ -83,7 +75,7 @@ def test_ota_no_current_version_contains_released_version(api_url, released_firm
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
         timeout=10,
     )
-    versions = [v["version"] for v in resp.json()["versions"]]
+    versions = [v["version"] for v in resp.json()]
     assert released_firmware_item["version"] in versions
 
 
