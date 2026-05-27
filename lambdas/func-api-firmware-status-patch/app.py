@@ -8,6 +8,7 @@ import zipfile
 import boto3
 import os
 from boto3.dynamodb.conditions import Attr, Key
+from botocore.exceptions import ClientError
 
 logging_config = get_appconfig(profile="logging")
 logger = configure_logger(logging_config)
@@ -173,11 +174,17 @@ def lambda_handler(event, context):
             "Key": {"pk": pk, "version": version},
             "UpdateExpression": update_expression,
             "ExpressionAttributeValues": expression_values,
+            "ConditionExpression": Attr("release_status").eq(current_status),
         }
         if new_status == "REVOKED":
             kwargs["ExpressionAttributeNames"] = {"#ttl": "ttl"}
 
-        firmware_table.update_item(**kwargs)
+        try:
+            firmware_table.update_item(**kwargs)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return _response(409, {"message": "Status was modified concurrently; please retry."})
+            raise
 
         logger.debug(f"Transitioned zip_name='{zip_name}' from '{current_status}' to '{new_status}'")
 

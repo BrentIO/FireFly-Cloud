@@ -469,7 +469,8 @@ function transitionButtonClass(nextStatus) {
                   <button
                     v-if="!NON_DELETABLE_STATES.has(item.release_status)"
                     @click="requestDelete"
-                    class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                    :disabled="transitionLoading"
+                    class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
                   >
                     Delete
                   </button>
