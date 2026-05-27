@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write
+  actions: write
 
 jobs:
   release:
@@ -39,9 +39,7 @@ jobs:
           tag_name: ${{ inputs.version }}
           generate_release_notes: true
 
-  deploy:
-    needs: release
-    uses: ./.github/workflows/deploy-all.yaml
-    secrets: inherit
-    with:
-      target_env: production
+      - name: Deploy to production
+        run: gh workflow run deploy-all.yaml --ref ${{ inputs.version }} -f target_env=production
+        env:
+          GH_TOKEN: ${{ github.token }}
