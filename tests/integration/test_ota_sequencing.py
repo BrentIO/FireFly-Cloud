@@ -52,7 +52,7 @@ def test_oldest_version_receives_next(api_url, multi_version_ota_items):
         timeout=10,
     )
     assert resp.status_code == 200
-    assert resp.json()["version"] == d["v2"]
+    assert resp.json()[0]["version"] == d["v2"]
 
 
 def test_middle_version_receives_next(api_url, multi_version_ota_items):
@@ -64,7 +64,7 @@ def test_middle_version_receives_next(api_url, multi_version_ota_items):
         timeout=10,
     )
     assert resp.status_code == 200
-    assert resp.json()["version"] == d["v3"]
+    assert resp.json()[0]["version"] == d["v3"]
 
 
 def test_latest_version_receives_200_with_same_version(api_url, multi_version_ota_items):
@@ -76,7 +76,7 @@ def test_latest_version_receives_200_with_same_version(api_url, multi_version_ot
         timeout=10,
     )
     assert resp.status_code == 200
-    assert resp.json()["version"] == d["v3"]
+    assert resp.json()[0]["version"] == d["v3"]
 
 
 def test_manifest_has_required_fields(api_url, multi_version_ota_items):
@@ -86,7 +86,7 @@ def test_manifest_has_required_fields(api_url, multi_version_ota_items):
         params={"current_version": d["v1"]},
         timeout=10,
     )
-    body = resp.json()
+    body = resp.json()[0]
     assert "application_name" in body
     assert "version" in body
     assert "binaries" in body
@@ -99,7 +99,7 @@ def test_manifest_url_is_https(api_url, multi_version_ota_items):
         params={"current_version": d["v1"]},
         timeout=10,
     )
-    app_binary = next(b for b in resp.json()["binaries"] if b["partition"] == "app")
+    app_binary = next(b for b in resp.json()[0]["binaries"] if b["partition"] == "app")
     assert app_binary["url"].startswith("https://")
 
 
@@ -119,7 +119,7 @@ def test_product_b_returns_its_own_firmware(api_url, multi_version_ota_items):
         timeout=10,
     )
     assert resp.status_code == 200
-    assert resp.json()["version"] == d["v1"]
+    assert resp.json()[0]["version"] == d["v1"]
 
 
 def test_product_b_at_latest_returns_same_version(api_url, multi_version_ota_items):
@@ -134,7 +134,7 @@ def test_product_b_at_latest_returns_same_version(api_url, multi_version_ota_ite
         timeout=10,
     )
     assert resp.status_code == 200
-    assert resp.json()["version"] == d["v1"]
+    assert resp.json()[0]["version"] == d["v1"]
 
 
 def test_unknown_product_returns_404(api_url):
@@ -162,7 +162,7 @@ def test_revoked_current_version_returns_next_released(api_url, revoked_version_
         timeout=10,
     )
     assert resp.status_code == 200
-    assert resp.json()["version"] == d["v2"]
+    assert resp.json()[0]["version"] == d["v2"]
 
 
 def test_revoked_current_version_does_not_return_latest(api_url, revoked_version_ota_items):
@@ -176,7 +176,7 @@ def test_revoked_current_version_does_not_return_latest(api_url, revoked_version
         params={"current_version": d["v1"]},
         timeout=10,
     )
-    assert resp.json()["version"] != d["v3"]
+    assert resp.json()[0]["version"] != d["v3"]
 
 
 def test_latest_revoked_with_nothing_newer_returns_409(api_url, auth_headers, fresh_revoked_version_ota_items):
