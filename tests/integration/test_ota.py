@@ -100,13 +100,13 @@ def test_ota_returns_200_for_released_firmware(api_url, released_firmware_item):
     assert resp.status_code == 200
 
 
-def test_ota_manifest_has_type(api_url, released_firmware_item):
+def test_ota_manifest_has_application_name(api_url, released_firmware_item):
     resp = requests.get(
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert "type" in resp.json()
+    assert "application_name" in resp.json()
 
 
 def test_ota_manifest_has_version(api_url, released_firmware_item):
@@ -118,13 +118,23 @@ def test_ota_manifest_has_version(api_url, released_firmware_item):
     assert "version" in resp.json()
 
 
-def test_ota_manifest_has_url(api_url, released_firmware_item):
+def test_ota_manifest_has_binaries(api_url, released_firmware_item):
     resp = requests.get(
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert "app" in resp.json()
+    assert "binaries" in resp.json()
+
+
+def test_ota_manifest_has_app_binary(api_url, released_firmware_item):
+    resp = requests.get(
+        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
+        params={"current_version": OLDER_VERSION},
+        timeout=10,
+    )
+    partitions = [b["partition"] for b in resp.json()["binaries"]]
+    assert "app" in partitions
 
 
 def test_ota_manifest_url_is_https(api_url, released_firmware_item):
@@ -133,7 +143,8 @@ def test_ota_manifest_url_is_https(api_url, released_firmware_item):
         params={"current_version": OLDER_VERSION},
         timeout=10,
     )
-    assert resp.json()["app"].startswith("https://")
+    app_binary = next(b for b in resp.json()["binaries"] if b["partition"] == "app")
+    assert app_binary["url"].startswith("https://")
 
 
 def test_ota_manifest_version_matches_released(api_url, released_firmware_item):

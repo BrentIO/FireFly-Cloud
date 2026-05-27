@@ -1086,11 +1086,11 @@ paths:
       description: |
         Returns firmware information for the given `class`, `product_hex`, and `application`.
 
-        **With `current_version`** — returns an [esp32FOTA](https://github.com/BrentIO/esp32FOTA)-compatible
+        **With `current_version`** — returns an [esp32OTA](https://github.com/BrentIO/esp32OTA)-compatible
         manifest for the next `RELEASED` version the device should install. The endpoint returns
         the oldest `RELEASED` version strictly greater than `current_version`. If the device is
         already on the latest released version, `200 OK` is returned with the same version manifest
-        (the esp32FOTA library uses `semver_compare` to detect no-update). Returns `409 Conflict`
+        (the esp32OTA library uses version comparison to detect no-update). Returns `409 Conflict`
         if the device's current version is `REVOKED` and no newer version is available.
 
         **Without `current_version`** — returns all `RELEASED` versions as a list, sorted ascending.
@@ -1148,21 +1148,28 @@ paths:
                 single_manifest:
                   summary: Next version manifest (current_version provided)
                   value:
-                    type: "FireFly Controller"
+                    application_name: "FireFly Controller"
                     version: "2026.03.01"
-                    url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
-                    ui: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/ui.bin"
+                    binaries:
+                      - partition: "app"
+                        url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
+                      - partition: "ui"
+                        url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/ui.bin"
                     release_url: "https://github.com/BrentIO/FireFly-Controller/releases/tag/2026.03.01"
                 all_versions:
                   summary: All released versions (current_version omitted)
                   value:
                     versions:
-                      - type: "FireFly Controller"
+                      - application_name: "FireFly Controller"
                         version: "2026.02.01"
-                        url: "https://firmware.somewhere.com/controller/0x32322505/2026.02.01/Controller.ino.bin"
-                      - type: "FireFly Controller"
+                        binaries:
+                          - partition: "app"
+                            url: "https://firmware.somewhere.com/controller/0x32322505/2026.02.01/Controller.ino.bin"
+                      - application_name: "FireFly Controller"
                         version: "2026.03.01"
-                        url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
+                        binaries:
+                          - partition: "app"
+                            url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -1947,32 +1954,46 @@ components:
         release_status:
           $ref: '#/components/schemas/ReleaseStatus'
 
+    OtaBinary:
+      type: object
+      description: A single binary entry in an esp32OTA manifest.
+      required:
+        - partition
+        - url
+      properties:
+        partition:
+          type: string
+          description: Partition label to flash (e.g. `app`, `ui`).
+          example: "app"
+        url:
+          type: string
+          format: uri
+          description: CloudFront URL to the binary for this partition.
+          example: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
+
     OtaManifest:
       type: object
       description: |
-        esp32FOTA-compatible firmware manifest. The `app` field points to the main
-        application binary. The `ui` field, when present, points to the
-        UI (LittleFS) partition image. Both URLs serve files from the CloudFront
-        firmware distribution.
+        esp32OTA-compatible firmware manifest. The `binaries` array contains one entry per
+        partition to flash. The `app` partition entry is always present; the `ui` (LittleFS)
+        entry is included only when a UI binary is part of the release. All URLs serve files
+        from the CloudFront firmware distribution.
       required:
-        - type
+        - application_name
         - version
-        - app
+        - binaries
       properties:
-        type:
+        application_name:
           type: string
-          description: Firmware type string as expected by the esp32FOTA library on the device.
+          description: Application name as embedded in the firmware via `PROJECT_NAME`. Used by the esp32OTA library to match the correct manifest entry.
           example: "FireFly Controller"
         version:
           $ref: '#/components/schemas/Version'
-        app:
-          type: string
-          description: CloudFront URL to the main application firmware binary.
-          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/Controller.ino.bin"
-        ui:
-          type: string
-          description: CloudFront URL to the UI (LittleFS) partition image. Omitted if not present in the firmware.
-          example: "https://firmware.somewhere.com/FFC3232-2603/Controller/2026.03.01/ui.bin"
+        binaries:
+          type: array
+          description: List of partition binaries to flash. Always contains `app`; may also contain `ui`.
+          items:
+            $ref: '#/components/schemas/OtaBinary'
         release_url:
           type: string
           format: uri
