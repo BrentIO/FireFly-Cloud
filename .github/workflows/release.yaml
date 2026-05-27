@@ -40,6 +40,6 @@ jobs:
           generate_release_notes: true
 
       - name: Deploy to production
-        run: gh workflow run deploy-all.yaml --ref main -f target_env=production
+        run: gh workflow run deploy-all.yaml --ref ${{ inputs.version }} -f target_env=production
         env:
           GH_TOKEN: ${{ github.token }}
