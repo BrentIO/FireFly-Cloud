@@ -13,13 +13,6 @@ on:
         options:
           - dev
           - production
-  workflow_call:
-    inputs:
-      target_env:
-        type: string
-        required: true
-        description: "Target environment"
-
 permissions:
   contents: read
   actions: write
