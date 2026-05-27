@@ -34,27 +34,29 @@ def _build_manifest(item, device_class, product_hex):
 
     base_url = f"https://{CLOUDFRONT_DOMAIN}/{device_class}/{product_hex}/{version}"
 
-    url = None
-    ui = None
+    app_url = None
+    ui_url = None
     for f in files:
         name = f["name"]
         if name == LFS_BINARY_NAME:
-            ui = f"{base_url}/{name}"
+            ui_url = f"{base_url}/{name}"
         elif main_binary and name == main_binary:
-            url = f"{base_url}/{name}"
+            app_url = f"{base_url}/{name}"
         elif not main_binary and name.endswith(".ino.bin"):
-            url = f"{base_url}/{name}"
+            app_url = f"{base_url}/{name}"
 
-    if not url:
+    if not app_url:
         return None
 
+    binaries = [{"partition": "app", "url": app_url}]
+    if ui_url:
+        binaries.append({"partition": "ui", "url": ui_url})
+
     manifest = {
-        "type": firmware_type,
+        "application_name": firmware_type,
         "version": version,
-        "app": url,
+        "binaries": binaries,
     }
-    if ui:
-        manifest["ui"] = ui
     if item.get("release_url"):
         manifest["release_url"] = item["release_url"]
 
