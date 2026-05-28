@@ -103,6 +103,7 @@ function resolveFlashAddress(filename) {
 
 /**
  * Display label for the idle-state file table.
+ * Returns null when the address is unknown — the template renders that as an error.
  * Uses stored partition_offsets for all addresses except bootloader and
  * partition table, which are fixed by ESP32 architecture.
  */
@@ -112,15 +113,15 @@ function displayAddress(filename) {
   if (filename.endsWith('.partitions.bin')) return '0x08000'
   if (filename === `${props.item.application}.ino.bin`) {
     const v = offsets['app0']
-    return v != null ? formatAddress(Number(v)) : 'from partition table'
+    return v != null ? formatAddress(Number(v)) : null
   }
   if (filename === 'ui.bin') {
     const v = offsets['ui']
-    return v != null ? formatAddress(Number(v)) : 'from partition table'
+    return v != null ? formatAddress(Number(v)) : null
   }
   if (filename === 'config.bin') {
     const v = offsets['config']
-    return v != null ? formatAddress(Number(v)) : 'from partition table'
+    return v != null ? formatAddress(Number(v)) : null
   }
   return null
 }
@@ -153,6 +154,12 @@ const displayFiles = computed(() => {
     ...nonBin.map(f => ({ name: f.name, address: null, label: null, skipped: true })),
   ]
 })
+
+// True when any non-skipped flashable file has no resolvable address.
+// Used to block flashing and surface an error in the UI.
+const hasUnresolvableFiles = computed(() =>
+  displayFiles.value.some(f => !f.skipped && f.address === null)
+)
 
 // ---------------------------------------------------------------------------
 // IndexedDB firmware cache — keyed by zipName, max MAX_CACHED entries (LRU)
@@ -459,8 +466,8 @@ onUnmounted(async () => {
                             {{ f.name }}
                           </td>
                           <td class="px-4 py-2 text-xs text-right"
-                              :class="f.skipped ? 'text-gray-400 dark:text-gray-600 italic' : 'font-mono text-gray-500 dark:text-gray-400'">
-                            {{ f.skipped ? 'skipped' : f.label }}
+                              :class="f.skipped ? 'text-gray-400 dark:text-gray-600 italic' : f.label === null ? 'text-red-600 dark:text-red-400 font-medium' : 'font-mono text-gray-500 dark:text-gray-400'">
+                            {{ f.skipped ? 'skipped' : f.label !== null ? f.label : 'unknown address' }}
                           </td>
                         </tr>
                       </tbody>
@@ -593,9 +600,13 @@ onUnmounted(async () => {
                   >
                     Cancel
                   </button>
+                  <span v-if="hasUnresolvableFiles" class="text-xs text-red-600 dark:text-red-400 self-center">
+                    Cannot flash: one or more files have unknown addresses.
+                  </span>
                   <button
                     @click="startFlash"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    :disabled="hasUnresolvableFiles"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Connect &amp; Flash
                   </button>
