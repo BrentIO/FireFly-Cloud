@@ -91,7 +91,7 @@ function resolveFlashAddress(filename) {
     return v != null ? Number(v) : null
   }
   if (filename === 'ui.bin') {
-    const v = offsets['www']
+    const v = offsets['ui']
     return v != null ? Number(v) : null
   }
   if (filename === 'config.bin') {
@@ -115,7 +115,7 @@ function displayAddress(filename) {
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
   if (filename === 'ui.bin') {
-    const v = offsets['www']
+    const v = offsets['ui']
     return v != null ? formatAddress(Number(v)) : 'from partition table'
   }
   if (filename === 'config.bin') {
