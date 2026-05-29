@@ -130,7 +130,7 @@ def lambda_handler(event, context):
         item = consistent if consistent else items[0]
 
         environment_name = os.environ.get("ENVIRONMENT_NAME", "")
-        if new_status == "RELEASED" and item.get("version") == "DEBUG" and environment_name == "production":
+        if new_status == "RELEASED" and item.get("version") == "9999.99.99" and environment_name == "production":
             return _response(409, {"message": "DEBUG firmware cannot be transitioned to RELEASED."})
 
         current_status = item.get("release_status")
