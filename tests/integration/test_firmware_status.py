@@ -243,13 +243,13 @@ def test_patch_status_full_workflow_history_statuses_in_order(api_url, auth_head
 
 
 # ---------------------------------------------------------------------------
-# DEBUG firmware constraints
+# Non-release firmware constraints (version 9999.99.99)
 # ---------------------------------------------------------------------------
 
 def test_patch_status_debug_firmware_cannot_be_released(api_url, auth_headers):
-    """DEBUG firmware is blocked from RELEASED in production; allowed in other environments."""
+    """Non-release firmware (9999.99.99) is blocked from RELEASED in production; allowed in other environments."""
     unique_hex = f"0x{uuid.uuid4().int & 0xFFFFFFFF:08x}"
-    item = _upload_and_wait("DEBUG", product_hex=unique_hex)
+    item = _upload_and_wait("9999.99.99", product_hex=unique_hex)
     zip_name = item["zip_name"]
     is_production = os.environ.get("ENVIRONMENT_NAME", "") == "production"
 
