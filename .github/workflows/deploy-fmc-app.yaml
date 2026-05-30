@@ -1,4 +1,4 @@
-name: 🚀 Deploy FMC App
+name: 🛠️ Deploy FMC App
 run-name: "Deploy FMC App to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

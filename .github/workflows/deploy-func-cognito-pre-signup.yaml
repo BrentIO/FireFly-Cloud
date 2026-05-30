@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-cognito-pre-signup
+name: 🛠️ Deploy func-cognito-pre-signup
 run-name: "Deploy func-cognito-pre-signup to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

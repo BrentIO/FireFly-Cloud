@@ -1,4 +1,4 @@
-name: 🚀 Deploy shared-layer
+name: 🛠️ Deploy shared-layer
 run-name: "Deploy shared-layer to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

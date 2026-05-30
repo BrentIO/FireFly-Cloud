@@ -1,4 +1,4 @@
-name: 🚀 Deploy S3 Firmware Public
+name: 🛠️ Deploy S3 Firmware Public
 run-name: "Deploy S3 Firmware Public to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

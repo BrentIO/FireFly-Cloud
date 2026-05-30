@@ -1,4 +1,4 @@
-name: 🚀 Deploy dynamodb-firmware
+name: 🛠️ Deploy dynamodb-firmware
 run-name: "Deploy dynamodb-firmware to ${{ inputs.target_env }}"
 
 on:

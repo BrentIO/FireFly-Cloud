@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-firmware-status-patch
+name: 🛠️ Deploy func-api-firmware-status-patch
 run-name: "Deploy func-api-firmware-status-patch to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

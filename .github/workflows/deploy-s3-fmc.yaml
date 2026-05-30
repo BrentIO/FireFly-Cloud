@@ -1,4 +1,4 @@
-name: 🚀 Deploy S3 FMC
+name: 🛠️ Deploy S3 FMC
 run-name: "Deploy S3 FMC to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

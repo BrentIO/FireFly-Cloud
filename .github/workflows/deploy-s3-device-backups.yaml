@@ -1,4 +1,4 @@
-name: 🚀 Deploy S3 Device Backups
+name: 🛠️ Deploy S3 Device Backups
 run-name: "Deploy S3 Device Backups to ${{ inputs.target_env }}"
 
 on:

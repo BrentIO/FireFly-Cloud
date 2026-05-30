@@ -1,4 +1,4 @@
-name: 🚀 Deploy dynamodb-registration-keys
+name: 🛠️ Deploy dynamodb-registration-keys
 run-name: "Deploy dynamodb-registration-keys to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

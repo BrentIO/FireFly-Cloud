@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-appconfig-patch
+name: 🛠️ Deploy func-api-appconfig-patch
 run-name: "Deploy func-api-appconfig-patch to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-s3-firmware-uploaded
+name: 🛠️ Deploy func-s3-firmware-uploaded
 run-name: "Deploy func-s3-firmware-uploaded to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

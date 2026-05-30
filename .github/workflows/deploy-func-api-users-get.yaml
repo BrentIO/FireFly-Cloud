@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-users-get
+name: 🛠️ Deploy func-api-users-get
 run-name: "Deploy func-api-users-get to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

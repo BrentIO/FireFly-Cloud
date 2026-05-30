@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-firmware-get
+name: 🛠️ Deploy func-api-firmware-get
 run-name: "Deploy func-api-firmware-get to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

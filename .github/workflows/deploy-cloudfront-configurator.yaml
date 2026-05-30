@@ -1,4 +1,4 @@
-name: 🚀 Deploy CloudFront Configurator
+name: 🛠️ Deploy CloudFront Configurator
 run-name: "Deploy CloudFront Configurator to ${{ inputs.target_env }}"
 
 on:

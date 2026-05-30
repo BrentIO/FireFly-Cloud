@@ -1,4 +1,4 @@
-name: 🚀 Deploy CloudFront Firmware
+name: 🛠️ Deploy CloudFront Firmware
 run-name: "Deploy CloudFront Firmware to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

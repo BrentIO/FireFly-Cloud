@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-devices-register-post
+name: 🛠️ Deploy func-api-devices-register-post
 run-name: "Deploy func-api-devices-register-post to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:
