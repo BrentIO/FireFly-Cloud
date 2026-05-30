@@ -4,6 +4,7 @@ from decimal import Decimal
 import io
 import json
 import time
+import uuid
 import zipfile
 import boto3
 import os
@@ -15,10 +16,12 @@ logger = configure_logger(logging_config)
 
 dynamodb = boto3.resource("dynamodb", endpoint_url=os.environ.get("DYNAMODB_ENDPOINT"))
 s3 = boto3.client("s3", endpoint_url=os.environ.get("S3_ENDPOINT"))
+cloudfront = boto3.client("cloudfront")
 
 TABLE_NAME = os.environ["DYNAMODB_FIRMWARE_TABLE_NAME"]
 S3_FIRMWARE_PRIVATE_BUCKET_NAME = os.environ["S3_FIRMWARE_PRIVATE_BUCKET_NAME"]
 S3_FIRMWARE_PUBLIC_BUCKET_NAME = os.environ["S3_FIRMWARE_PUBLIC_BUCKET_NAME"]
+CLOUDFRONT_DISTRIBUTION_ID = os.environ["CLOUDFRONT_DISTRIBUTION_ID"]
 
 firmware_table = dynamodb.Table(TABLE_NAME)
 
@@ -71,6 +74,16 @@ def _publish_to_public(item, zip_name):
             s3.put_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=dest_key, Body=data)
             logger.debug(f"Published {name} to s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{dest_key}")
 
+    invalidation_path = f"/{device_class}/{product_hex}/{version}/*"
+    cloudfront.create_invalidation(
+        DistributionId=CLOUDFRONT_DISTRIBUTION_ID,
+        InvalidationBatch={
+            "Paths": {"Quantity": 1, "Items": [invalidation_path]},
+            "CallerReference": str(uuid.uuid4()),
+        },
+    )
+    logger.debug(f"Issued CloudFront invalidation for {invalidation_path}")
+
 
 def _revoke_from_public(item):
     """Move public firmware files to the revoked/ prefix."""
@@ -93,6 +106,16 @@ def _revoke_from_public(item):
             )
             s3.delete_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=src_key)
             logger.debug(f"Moved s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{src_key} to {dest_key}")
+
+    invalidation_path = f"/{device_class}/{product_hex}/{version}/*"
+    cloudfront.create_invalidation(
+        DistributionId=CLOUDFRONT_DISTRIBUTION_ID,
+        InvalidationBatch={
+            "Paths": {"Quantity": 1, "Items": [invalidation_path]},
+            "CallerReference": str(uuid.uuid4()),
+        },
+    )
+    logger.debug(f"Issued CloudFront invalidation for {invalidation_path}")
 
 
 def lambda_handler(event, context):

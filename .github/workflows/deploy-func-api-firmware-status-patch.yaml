@@ -89,6 +89,15 @@ jobs:
             --output text)
           echo "layer_arn=$APPCONFIG_ARN" >> $GITHUB_OUTPUT
 
+      - name: Look up CloudFront firmware distribution ID
+        id: lookup-cloudfront
+        run: |
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name firefly-cloudfront-firmware \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text)
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+
       - name: Deploy func-api-firmware-status-patch
         run: |
           sam deploy \
@@ -105,6 +114,7 @@ jobs:
               AppConfigExtensionLayerArn=${{ steps.lookup-appconfig-ext.outputs.layer_arn }} \
               FirmwarePrivateBucketName=${{ secrets.S3_FIRMWARE_PRIVATE_BUCKET_NAME }} \
               FirmwarePublicBucketName=${{ secrets.S3_FIRMWARE_PUBLIC_BUCKET_NAME }} \
+              CloudFrontDistributionId=${{ steps.lookup-cloudfront.outputs.distribution_id }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --s3-bucket ${{ secrets.S3_SAM_DEPLOYMENT_BUCKET_NAME }}

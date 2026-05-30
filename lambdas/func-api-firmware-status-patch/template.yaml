@@ -32,6 +32,10 @@ Parameters:
       - production
     Description: Deployment environment name; controls whether DEBUG firmware can be promoted to RELEASED
 
+  CloudFrontDistributionId:
+    Type: String
+    Description: ID of the CloudFront firmware distribution; used to issue invalidations on publish and revoke
+
 Resources:
 
   FuncApiFirmwareStatusPatchRole:
@@ -80,6 +84,11 @@ Resources:
                   - !Sub arn:aws:s3:::${FirmwarePublicBucketName}/*
               - Effect: Allow
                 Action:
+                  - cloudfront:CreateInvalidation
+                Resource:
+                  - !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}"
+              - Effect: Allow
+                Action:
                   - appconfig:StartConfigurationSession
                   - appconfig:GetLatestConfiguration
                 Resource: "*"
@@ -104,6 +113,7 @@ Resources:
           DYNAMODB_FIRMWARE_TABLE_NAME: firefly-firmware
           S3_FIRMWARE_PRIVATE_BUCKET_NAME: !Ref FirmwarePrivateBucketName
           S3_FIRMWARE_PUBLIC_BUCKET_NAME: !Ref FirmwarePublicBucketName
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           APP_CONFIG_ENV: default
           ENVIRONMENT_NAME: !Ref EnvironmentName
 

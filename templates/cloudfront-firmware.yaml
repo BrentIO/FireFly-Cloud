@@ -72,6 +72,10 @@ Resources:
         EvaluateTargetHealth: false
 
 Outputs:
+  DistributionId:
+    Value: !Ref FirmwareDistribution
+    Description: CloudFront distribution ID
+
   DistributionDomain:
     Value: !GetAtt FirmwareDistribution.DomainName
     Description: CloudFront distribution domain name
