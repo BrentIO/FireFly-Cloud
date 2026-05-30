@@ -235,6 +235,7 @@ jobs:
     needs:
       - deploy-api-gateway
       - deploy-shared-layer
+      - deploy-cloudfront-firmware
     uses: ./.github/workflows/deploy-func-api-firmware-status-patch.yaml
     secrets: inherit
     with:
