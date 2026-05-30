@@ -1,4 +1,4 @@
-name: 🚀 Deploy S3 Configurator
+name: 🛠️ Deploy S3 Configurator
 run-name: "Deploy S3 Configurator to ${{ inputs.target_env }}"
 
 on:

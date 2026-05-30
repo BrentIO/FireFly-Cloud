@@ -1,4 +1,4 @@
-name: 🚀 Deploy CloudFront FMC
+name: 🛠️ Deploy CloudFront FMC
 run-name: "Deploy CloudFront FMC to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

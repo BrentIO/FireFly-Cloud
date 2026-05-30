@@ -1,4 +1,4 @@
-name: 🚀 Deploy dynamodb-devices
+name: 🛠️ Deploy dynamodb-devices
 run-name: "Deploy dynamodb-devices to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

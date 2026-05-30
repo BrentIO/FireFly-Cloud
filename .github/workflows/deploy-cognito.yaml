@@ -1,4 +1,4 @@
-name: 🚀 Deploy Cognito
+name: 🛠️ Deploy Cognito
 run-name: "Deploy Cognito to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

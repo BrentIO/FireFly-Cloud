@@ -1,4 +1,4 @@
-name: 🚀 Deploy ACM Certificate
+name: 🛠️ Deploy ACM Certificate
 run-name: "Deploy ACM Certificate to ${{ inputs.target_env }}"
 
 on:

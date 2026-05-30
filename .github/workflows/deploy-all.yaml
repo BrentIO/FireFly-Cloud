@@ -1,4 +1,4 @@
-name: 🚀 🚀 Deploy All
+name: 🛠️ Deploy All
 run-name: "Deploy ${{ github.ref_name }} to ${{ inputs.target_env }}"
 
 on:

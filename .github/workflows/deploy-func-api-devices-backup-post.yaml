@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-devices-backup-post
+name: 🛠️ Deploy func-api-devices-backup-post
 run-name: "Deploy func-api-devices-backup-post to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:

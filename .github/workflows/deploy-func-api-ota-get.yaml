@@ -1,4 +1,4 @@
-name: 🚀 Deploy func-api-ota-get
+name: 🛠️ Deploy func-api-ota-get
 run-name: "Deploy func-api-ota-get to ${{ inputs.target_env }}"
 on:
   workflow_dispatch:
