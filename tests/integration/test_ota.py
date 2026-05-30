@@ -157,6 +157,36 @@ def test_ota_manifest_version_matches_released(api_url, released_firmware_item):
     assert resp.json()[0]["version"] == released_firmware_item["version"]
 
 
+def test_ota_manifest_app_binary_has_sha256(api_url, released_firmware_item):
+    resp = requests.get(
+        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
+        params={"current_version": OLDER_VERSION},
+        timeout=10,
+    )
+    app_binary = next(b for b in resp.json()[0]["binaries"] if b["partition"] == "app")
+    assert "sha256" in app_binary
+
+
+def test_ota_manifest_app_binary_sha256_is_string(api_url, released_firmware_item):
+    resp = requests.get(
+        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
+        params={"current_version": OLDER_VERSION},
+        timeout=10,
+    )
+    app_binary = next(b for b in resp.json()[0]["binaries"] if b["partition"] == "app")
+    assert isinstance(app_binary["sha256"], str)
+
+
+def test_ota_manifest_app_binary_sha256_is_not_empty(api_url, released_firmware_item):
+    resp = requests.get(
+        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
+        params={"current_version": OLDER_VERSION},
+        timeout=10,
+    )
+    app_binary = next(b for b in resp.json()[0]["binaries"] if b["partition"] == "app")
+    assert app_binary["sha256"]
+
+
 def test_ota_returns_409_after_revoke_with_nothing_newer(api_url, auth_headers, fresh_released_firmware_item):
     released_firmware_item = fresh_released_firmware_item
     """
