@@ -481,7 +481,7 @@ function setMenuPosition(event) {
                 {{ formatClass(item.class) }}
               </td>
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400" @click="goToDetail(item)">
-                {{ item.version }}
+                {{ item.version }}{{ item.commit ? ` (${item.commit.substring(0, 8)})` : '' }}
               </td>
               <td class="px-4 py-3" @click="goToDetail(item)">
                 <StatusBadge :status="item.release_status" />
