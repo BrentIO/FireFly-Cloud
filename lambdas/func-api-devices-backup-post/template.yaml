@@ -48,13 +48,8 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:PutObject
-                  - s3:HeadObject
                 Resource:
                   - !Sub arn:aws:s3:::${BackupBucketName}/*
-              - Effect: Allow
-                Action:
-                  - kms:Decrypt
-                Resource: "*"
               - Effect: Allow
                 Action:
                   - appconfig:StartConfigurationSession

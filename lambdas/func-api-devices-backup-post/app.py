@@ -110,23 +110,16 @@ def lambda_handler(event, context):
 
         s3_key = path_uuid
 
-        # 304 short-circuit: only when both ETag and If-None-Match are supplied
-        if etag and if_none_match:
-            try:
-                head = s3.head_object(Bucket=BACKUP_BUCKET_NAME, Key=s3_key)
-                stored_etag = head.get("Metadata", {}).get("etag", "")
-                if stored_etag and stored_etag == if_none_match:
-                    return {
-                        "statusCode": 304,
-                        "headers": {
-                            "ETag": f'"{stored_etag}"',
-                            "Content-Type": "application/json",
-                        },
-                        "body": "",
-                    }
-            except ClientError as exc:
-                if exc.response["Error"]["Code"] != "404":
-                    logger.warning("head_object failed for %s: %s", path_uuid, exc)
+        # 304 short-circuit: client asserts current content matches stored content
+        if etag and if_none_match and etag == if_none_match:
+            return {
+                "statusCode": 304,
+                "headers": {
+                    "ETag": f'"{etag}"',
+                    "Content-Type": "application/json",
+                },
+                "body": "",
+            }
 
         # Store backup in S3
         try:
