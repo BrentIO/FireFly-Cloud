@@ -269,7 +269,22 @@ class TestDevicesBackupPost:
         )
         assert r.status_code == 200
 
-    def test_valid_backup_response_has_etag(self, api_url, registered_device):
+    def test_valid_backup_response_has_etag_when_etag_header_sent(self, api_url, registered_device):
+        import hashlib
+        test_uuid, private_key, _ = registered_device
+        headers = _auth_headers(test_uuid, private_key)
+        headers["Content-Type"] = "application/octet-stream"
+        headers["ETag"] = hashlib.sha256(_VALID_FFCE_BODY).hexdigest()
+        r = requests.post(
+            f"{api_url}/devices/{test_uuid}/backup",
+            data=_VALID_FFCE_BODY,
+            headers=headers,
+            timeout=10,
+        )
+        assert r.status_code == 200
+        assert "ETag" in r.headers
+
+    def test_valid_backup_response_omits_etag_when_no_etag_header_sent(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
         headers = _auth_headers(test_uuid, private_key)
         headers["Content-Type"] = "application/octet-stream"
@@ -280,7 +295,7 @@ class TestDevicesBackupPost:
             timeout=10,
         )
         assert r.status_code == 200
-        assert "ETag" in r.headers
+        assert r.headers.get("ETag", "") == ""
 
     def test_valid_backup_response_has_last_backup_date(self, api_url, registered_device):
         test_uuid, private_key, _ = registered_device
@@ -322,11 +337,15 @@ class TestDevicesBackupPost:
         assert get_r.headers.get("ETag", "").strip('"') == plaintext_sha256
 
     def test_unchanged_backup_returns_304(self, api_url, registered_device):
-        """Posting the same content with If-None-Match returns 304."""
+        """Posting the same content with ETag + If-None-Match returns 304."""
+        import hashlib
         test_uuid, private_key, _ = registered_device
-        # First POST to ensure the backup exists and get the ETag
+        plaintext_sha256 = hashlib.sha256(_VALID_FFCE_BODY).hexdigest()
+
+        # First POST — include ETag so the plaintext hash is stored in S3 metadata
         headers = _auth_headers(test_uuid, private_key)
         headers["Content-Type"] = "application/octet-stream"
+        headers["ETag"] = plaintext_sha256
         first = requests.post(
             f"{api_url}/devices/{test_uuid}/backup",
             data=_VALID_FFCE_BODY,
@@ -334,13 +353,13 @@ class TestDevicesBackupPost:
             timeout=10,
         )
         assert first.status_code == 200
-        etag = first.headers.get("ETag", "").strip('"')
-        assert etag
+        assert first.headers.get("ETag", "").strip('"') == plaintext_sha256
 
-        # POST again with If-None-Match
+        # Second POST — send both ETag and If-None-Match; server compares against stored metadata
         headers2 = _auth_headers(test_uuid, private_key)
         headers2["Content-Type"] = "application/octet-stream"
-        headers2["If-None-Match"] = f'"{etag}"'
+        headers2["ETag"] = plaintext_sha256
+        headers2["If-None-Match"] = plaintext_sha256
         second = requests.post(
             f"{api_url}/devices/{test_uuid}/backup",
             data=_VALID_FFCE_BODY,

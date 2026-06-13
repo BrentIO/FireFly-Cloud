@@ -640,8 +640,10 @@ paths:
         Stores an encrypted FFCE-format configuration backup for a device.
         The body must start with the 4-byte magic `FFCE` and may not exceed 512 KB.
 
-        Supports conditional upload: supply `If-None-Match` with the ETag of the
-        existing backup to skip the write when the content has not changed.
+        Supports conditional upload: supply both `ETag` (the plaintext SHA-256 of
+        the content being uploaded) and `If-None-Match` (the ETag returned by a
+        previous POST or GET) to skip the write when the content has not changed.
+        If `ETag` is absent the 304 check is skipped.
 
         This endpoint has **no** Cognito JWT authorizer — it is authenticated
         solely by the device's cryptographic signature.
@@ -685,7 +687,7 @@ paths:
         - name: If-None-Match
           in: header
           required: false
-          description: ETag of the existing backup. If the content is unchanged the server returns 304 without re-uploading.
+          description: Plaintext SHA-256 ETag of the backup the client believes is already stored (as returned by a previous POST or GET). Compared against the stored S3 metadata ETag. Only evaluated when the `ETag` request header is also present; returns 304 if they match.
           schema:
             type: string
         - name: ETag
@@ -707,7 +709,7 @@ paths:
           description: Backup stored successfully
           headers:
             ETag:
-              description: MD5 hex digest of the encrypted backup body, quoted. Used for `If-None-Match` conditional upload on subsequent requests.
+              description: SHA-256 hex digest of the plaintext backup content, as supplied in the `ETag` request header. Matches the value returned by `GET /devices/{uuid}/backup`. Omitted if the request did not include an `ETag` header.
               schema:
                 type: string
           content:
@@ -721,7 +723,7 @@ paths:
           description: Backup content identical to existing — no write performed
           headers:
             ETag:
-              description: ETag of the unchanged backup
+              description: Plaintext SHA-256 ETag of the unchanged backup, matching the stored S3 metadata value.
               schema:
                 type: string
         '400':

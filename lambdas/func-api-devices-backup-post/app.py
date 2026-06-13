@@ -15,14 +15,19 @@ Required headers:
                          SHA-256(nonce_bytes || timestamp_ascii_bytes)
 
 Optional headers:
-  If-None-Match        ETag of existing backup; returns 304 if unchanged
   ETag                 SHA-256 hex of the plaintext backup content (from /backup.etag
-                         on the device); stored as S3 object metadata so restore can
-                         return the same value
+                         on the device); stored as S3 object metadata and returned
+                         by GET so the controller can restore /backup.etag after a restore
+  If-None-Match        Plaintext SHA-256 ETag of the backup the client believes is
+                         already stored (as returned by a previous POST or GET).
+                         Compared against the stored S3 metadata ETag. Only evaluated
+                         when the ETag request header is also present; 304 returned if
+                         they match. Skipped if ETag header is absent.
 
 Responses:
   200  Backup stored successfully
-  304  Backup unchanged (ETag match)
+  304  Backup unchanged (plaintext ETag match); only returned when both ETag and
+         If-None-Match headers are present
   400  Missing/invalid headers or body too large
   401  Device not registered or signature invalid
   403  UUID mismatch
@@ -31,7 +36,6 @@ Responses:
 """
 
 import base64
-import hashlib
 import json
 import os
 
@@ -100,35 +104,22 @@ def lambda_handler(event, context):
         if len(body_bytes) < 4 or body_bytes[:4] != b"FFCE":
             return _response(400, {"message": "Body does not appear to be a valid FFCE backup"})
 
-        # Compute ETag as MD5 of the body (matches S3 ETag for single-part uploads)
-        etag = hashlib.md5(body_bytes).hexdigest()
-
-        # Check If-None-Match header for 304 short-circuit
         headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+        etag = headers.get("etag", "").strip().strip('"')
         if_none_match = headers.get("if-none-match", "").strip().strip('"')
-        plaintext_etag = headers.get("etag", "").strip().strip('"')
-        if if_none_match and if_none_match == etag:
-            return {
-                "statusCode": 304,
-                "headers": {
-                    "ETag": f'"{etag}"',
-                    "Content-Type": "application/json",
-                },
-                "body": "",
-            }
 
         s3_key = path_uuid
 
-        # Also check against the existing S3 object ETag to avoid redundant writes
-        if not if_none_match:
+        # 304 short-circuit: only when both ETag and If-None-Match are supplied
+        if etag and if_none_match:
             try:
                 head = s3.head_object(Bucket=BACKUP_BUCKET_NAME, Key=s3_key)
-                existing_etag = head.get("ETag", "").strip('"')
-                if existing_etag and existing_etag == etag:
+                stored_etag = head.get("Metadata", {}).get("etag", "")
+                if stored_etag and stored_etag == if_none_match:
                     return {
                         "statusCode": 304,
                         "headers": {
-                            "ETag": f'"{etag}"',
+                            "ETag": f'"{stored_etag}"',
                             "Content-Type": "application/json",
                         },
                         "body": "",
@@ -145,8 +136,8 @@ def lambda_handler(event, context):
                 "Body": body_bytes,
                 "ContentType": "application/octet-stream",
             }
-            if plaintext_etag:
-                put_kwargs["Metadata"] = {"etag": plaintext_etag}
+            if etag:
+                put_kwargs["Metadata"] = {"etag": etag}
             s3.put_object(**put_kwargs)
         except ClientError:
             logger.exception("Failed to store backup for device %s", path_uuid)
@@ -165,12 +156,13 @@ def lambda_handler(event, context):
             logger.exception("Failed to update last_backup_date for device %s", path_uuid)
             # Non-fatal: backup was stored; just log and continue
 
+        response_headers = {"Content-Type": "application/json"}
+        if etag:
+            response_headers["ETag"] = f'"{etag}"'
+
         return {
             "statusCode": 200,
-            "headers": {
-                "ETag": f'"{etag}"',
-                "Content-Type": "application/json",
-            },
+            "headers": response_headers,
             "body": json.dumps({"message": "Backup stored", "last_backup_date": now_iso}),
         }
 
