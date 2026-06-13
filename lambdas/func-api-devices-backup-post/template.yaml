@@ -53,6 +53,10 @@ Resources:
                   - !Sub arn:aws:s3:::${BackupBucketName}/*
               - Effect: Allow
                 Action:
+                  - kms:Decrypt
+                Resource: "*"
+              - Effect: Allow
+                Action:
                   - appconfig:StartConfigurationSession
                   - appconfig:GetLatestConfiguration
                 Resource: "*"
