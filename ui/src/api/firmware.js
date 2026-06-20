@@ -24,3 +24,8 @@ export function deleteFirmware(zipName) {
 export function getFirmwareDownloadUrl(zipName) {
   return apiFetch(`/firmware/${encodeURIComponent(zipName)}/download`)
 }
+
+export function getOtaPayload(deviceClass, productHex, application, version) {
+  const params = new URLSearchParams({ current_version: version })
+  return apiFetch(`/ota/${encodeURIComponent(deviceClass)}/${encodeURIComponent(productHex)}/${encodeURIComponent(application)}?${params}`)
+}

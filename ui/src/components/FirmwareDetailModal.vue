@@ -9,6 +9,7 @@ import {
 import {
   XMarkIcon,
   ArrowDownTrayIcon,
+  ClipboardDocumentIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   BoltIcon,
@@ -17,7 +18,7 @@ import StatusBadge from './StatusBadge.vue'
 import RelativeTime from './RelativeTime.vue'
 import ConfirmModal from './ConfirmModal.vue'
 import FirmwareFlashModal from './FirmwareFlashModal.vue'
-import { getFirmware, patchFirmwareStatus, deleteFirmware, getFirmwareDownloadUrl } from '../api/firmware.js'
+import { getFirmware, patchFirmwareStatus, deleteFirmware, getFirmwareDownloadUrl, getOtaPayload } from '../api/firmware.js'
 import { useToast } from '../composables/useToast.js'
 import {
   formatBytes,
@@ -48,6 +49,9 @@ const loadError = ref(null)
 
 // Download state
 const downloadLoading = ref(false)
+
+// OTA payload copy state
+const otaPayloadLoading = ref(false)
 
 // Transition (release/rollback) state
 const transitionLoading = ref(false)
@@ -108,6 +112,19 @@ async function handleDownload() {
     error('Failed to get download URL.', err)
   } finally {
     downloadLoading.value = false
+  }
+}
+
+async function handleCopyOtaPayload() {
+  otaPayloadLoading.value = true
+  try {
+    const data = await getOtaPayload(item.value.class, item.value.product_hex, item.value.application, item.value.version)
+    await navigator.clipboard.writeText(JSON.stringify(data[0]))
+    success('OTA payload copied to clipboard.')
+  } catch (err) {
+    error('Failed to copy OTA payload.', err)
+  } finally {
+    otaPayloadLoading.value = false
   }
 }
 
@@ -495,6 +512,26 @@ function transitionButtonClass(nextStatus) {
                       <template v-else>
                         <ArrowDownTrayIcon class="w-4 h-4" />
                         Download ZIP
+                      </template>
+                    </button>
+
+                    <!-- Copy OTA Payload (released firmware only) -->
+                    <button
+                      v-if="item.release_status === 'RELEASED'"
+                      @click="handleCopyOtaPayload"
+                      :disabled="otaPayloadLoading"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    >
+                      <template v-if="otaPayloadLoading">
+                        <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        Copying…
+                      </template>
+                      <template v-else>
+                        <ClipboardDocumentIcon class="w-4 h-4" />
+                        Copy OTA Payload
                       </template>
                     </button>
 
