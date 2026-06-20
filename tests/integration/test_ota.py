@@ -119,6 +119,15 @@ def test_ota_manifest_has_version(api_url, released_firmware_item):
     assert "version" in resp.json()[0]
 
 
+def test_ota_manifest_has_commit(api_url, released_firmware_item):
+    resp = requests.get(
+        f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",
+        params={"current_version": OLDER_VERSION},
+        timeout=10,
+    )
+    assert "commit" in resp.json()[0]
+
+
 def test_ota_manifest_has_binaries(api_url, released_firmware_item):
     resp = requests.get(
         f"{api_url}/ota/{released_firmware_item['class']}/{released_firmware_item['product_hex']}/{released_firmware_item['application']}",

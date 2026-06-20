@@ -89,6 +89,7 @@ def test_manifest_has_required_fields(api_url, multi_version_ota_items):
     body = resp.json()[0]
     assert "application_name" in body
     assert "version" in body
+    assert "commit" in body
     assert "binaries" in body
 
 
