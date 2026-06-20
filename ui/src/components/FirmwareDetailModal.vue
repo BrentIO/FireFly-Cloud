@@ -119,7 +119,7 @@ async function handleCopyOtaPayload() {
   otaPayloadLoading.value = true
   try {
     const data = await getOtaPayload(item.value.class, item.value.product_hex, item.value.application, item.value.version)
-    await navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+    await navigator.clipboard.writeText(JSON.stringify(data[0]))
     success('OTA payload copied to clipboard.')
   } catch (err) {
     error('Failed to copy OTA payload.', err)
