@@ -62,6 +62,7 @@ def _build_manifest(item, device_class, product_hex):
     manifest = {
         "application_name": firmware_type,
         "version": version,
+        "commit": item.get("commit"),
         "binaries": binaries,
     }
     if item.get("release_url"):

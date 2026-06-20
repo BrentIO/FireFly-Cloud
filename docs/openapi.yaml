@@ -1342,6 +1342,7 @@ components:
       value:
         - application_name: "FireFly Controller"
           version: "2026.03.01"
+          commit: "e23ff88"
           binaries:
             - partition: "app"
               url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
@@ -1354,11 +1355,13 @@ components:
       value:
         - application_name: "FireFly Controller"
           version: "2026.02.01"
+          commit: "a1b2c3d"
           binaries:
             - partition: "app"
               url: "https://firmware.somewhere.com/controller/0x32322505/2026.02.01/Controller.ino.bin"
         - application_name: "FireFly Controller"
           version: "2026.03.01"
+          commit: "e23ff88"
           binaries:
             - partition: "app"
               url: "https://firmware.somewhere.com/controller/0x32322505/2026.03.01/Controller.ino.bin"
@@ -1993,6 +1996,7 @@ components:
       required:
         - application_name
         - version
+        - commit
         - binaries
       properties:
         application_name:
@@ -2001,6 +2005,8 @@ components:
           example: "FireFly Controller"
         version:
           $ref: '#/components/schemas/Version'
+        commit:
+          $ref: '#/components/schemas/Commit'
         binaries:
           type: array
           description: List of partition binaries to flash. Always contains `app`; may also contain `ui`.
