@@ -1,6 +1,7 @@
 from shared.app_config import get_appconfig
 from shared.logging_config import configure_logger
 from decimal import Decimal
+import hashlib
 import io
 import json
 import time
@@ -65,13 +66,28 @@ def _publish_to_public(item, zip_name):
     zip_obj = s3.get_object(Bucket=S3_FIRMWARE_PRIVATE_BUCKET_NAME, Key=zip_key)
     zip_bytes = zip_obj["Body"].read()
 
+    expected_sha256 = {
+        f["name"]: f["sha256"]
+        for f in item.get("files", [])
+        if f["name"] not in EXCLUDE_FROM_OTA
+    }
+
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         for name in zf.namelist():
             if name in EXCLUDE_FROM_OTA:
                 logger.debug(f"Skipping excluded file: {name}")
                 continue
-            dest_key = f"{device_class}/{product_hex}/{application}/{version}/{name}"
             data = zf.read(name)
+            actual_sha256 = hashlib.sha256(data).hexdigest()
+            expected = expected_sha256.get(name)
+            if expected is None:
+                raise Exception(f"File '{name}' is not in the firmware manifest")
+            if actual_sha256 != expected:
+                raise Exception(
+                    f"SHA256 mismatch for '{name}': "
+                    f"expected {expected}, got {actual_sha256}"
+                )
+            dest_key = f"{device_class}/{product_hex}/{application}/{version}/{name}"
             s3.put_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=dest_key, Body=data)
             logger.debug(f"Published {name} to s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{dest_key}")
 
