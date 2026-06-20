@@ -32,7 +32,8 @@ def _build_manifest(item, device_class, product_hex):
     firmware_type = item.get("firmware_type")
     main_binary = item.get("main_binary")
 
-    base_url = f"https://{CLOUDFRONT_DOMAIN}/{device_class}/{product_hex}/{version}"
+    application = item.get("application", "").lower()
+    base_url = f"https://{CLOUDFRONT_DOMAIN}/{device_class}/{product_hex}/{application}/{version}"
 
     app_url = None
     app_sha256 = None

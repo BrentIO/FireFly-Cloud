@@ -1,6 +1,7 @@
 from shared.app_config import get_appconfig
 from shared.logging_config import configure_logger
 from decimal import Decimal
+import hashlib
 import io
 import json
 import time
@@ -57,6 +58,7 @@ def _publish_to_public(item, zip_name):
     """Extract firmware files from the private ZIP and upload to the public bucket."""
     device_class = item.get("class", "").lower()
     product_hex = item.get("product_hex", "").lower()
+    application = item.get("application", "").lower()
     version = item["version"]
     zip_key = f"{PROCESSED_PREFIX}{zip_name}"
 
@@ -64,17 +66,32 @@ def _publish_to_public(item, zip_name):
     zip_obj = s3.get_object(Bucket=S3_FIRMWARE_PRIVATE_BUCKET_NAME, Key=zip_key)
     zip_bytes = zip_obj["Body"].read()
 
+    expected_sha256 = {
+        f["name"]: f["sha256"]
+        for f in item.get("files", [])
+        if f["name"] not in EXCLUDE_FROM_OTA
+    }
+
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         for name in zf.namelist():
             if name in EXCLUDE_FROM_OTA:
                 logger.debug(f"Skipping excluded file: {name}")
                 continue
-            dest_key = f"{device_class}/{product_hex}/{version}/{name}"
             data = zf.read(name)
+            actual_sha256 = hashlib.sha256(data).hexdigest()
+            expected = expected_sha256.get(name)
+            if expected is None:
+                raise Exception(f"File '{name}' is not in the firmware manifest")
+            if actual_sha256 != expected:
+                raise Exception(
+                    f"SHA256 mismatch for '{name}': "
+                    f"expected {expected}, got {actual_sha256}"
+                )
+            dest_key = f"{device_class}/{product_hex}/{application}/{version}/{name}"
             s3.put_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=dest_key, Body=data)
             logger.debug(f"Published {name} to s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{dest_key}")
 
-    invalidation_path = f"/{device_class}/{product_hex}/{version}/*"
+    invalidation_path = f"/{device_class}/{product_hex}/{application}/{version}/*"
     cloudfront.create_invalidation(
         DistributionId=CLOUDFRONT_DISTRIBUTION_ID,
         InvalidationBatch={
@@ -89,9 +106,10 @@ def _revoke_from_public(item):
     """Move public firmware files to the revoked/ prefix."""
     device_class = item.get("class", "").lower()
     product_hex = item.get("product_hex", "").lower()
+    application = item.get("application", "").lower()
     version = item["version"]
-    prefix = f"{device_class}/{product_hex}/{version}/"
-    revoked_prefix = f"revoked/{device_class}/{product_hex}/{version}/"
+    prefix = f"{device_class}/{product_hex}/{application}/{version}/"
+    revoked_prefix = f"revoked/{device_class}/{product_hex}/{application}/{version}/"
 
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Prefix=prefix):
@@ -107,7 +125,7 @@ def _revoke_from_public(item):
             s3.delete_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=src_key)
             logger.debug(f"Moved s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{src_key} to {dest_key}")
 
-    invalidation_path = f"/{device_class}/{product_hex}/{version}/*"
+    invalidation_path = f"/{device_class}/{product_hex}/{application}/{version}/*"
     cloudfront.create_invalidation(
         DistributionId=CLOUDFRONT_DISTRIBUTION_ID,
         InvalidationBatch={
