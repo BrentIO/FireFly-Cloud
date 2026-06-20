@@ -515,12 +515,23 @@ function transitionButtonClass(nextStatus) {
                       </template>
                     </button>
 
+                    <!-- Flash via USB (Chrome / Web Serial only; not available for deleted firmware or missing partition data) -->
+                    <button
+                      v-if="webSerialSupported && item.release_status !== 'DELETED'"
+                      @click="flashOpen = true"
+                      :disabled="!hasPartitionOffsets"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    >
+                      <BoltIcon class="w-4 h-4" />
+                      Flash via USB
+                    </button>
+
                     <!-- Copy OTA Payload (released firmware only) -->
                     <button
                       v-if="item.release_status === 'RELEASED'"
                       @click="handleCopyOtaPayload"
                       :disabled="otaPayloadLoading"
-                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
                     >
                       <template v-if="otaPayloadLoading">
                         <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -533,17 +544,6 @@ function transitionButtonClass(nextStatus) {
                         <ClipboardDocumentIcon class="w-4 h-4" />
                         Copy OTA Payload
                       </template>
-                    </button>
-
-                    <!-- Flash via USB (Chrome / Web Serial only; not available for deleted firmware or missing partition data) -->
-                    <button
-                      v-if="webSerialSupported && item.release_status !== 'DELETED'"
-                      @click="flashOpen = true"
-                      :disabled="!hasPartitionOffsets"
-                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                    >
-                      <BoltIcon class="w-4 h-4" />
-                      Flash via USB
                     </button>
                   </div>
                 </div>
