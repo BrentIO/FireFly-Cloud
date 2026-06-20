@@ -57,6 +57,7 @@ def _publish_to_public(item, zip_name):
     """Extract firmware files from the private ZIP and upload to the public bucket."""
     device_class = item.get("class", "").lower()
     product_hex = item.get("product_hex", "").lower()
+    application = item.get("application", "").lower()
     version = item["version"]
     zip_key = f"{PROCESSED_PREFIX}{zip_name}"
 
@@ -69,12 +70,12 @@ def _publish_to_public(item, zip_name):
             if name in EXCLUDE_FROM_OTA:
                 logger.debug(f"Skipping excluded file: {name}")
                 continue
-            dest_key = f"{device_class}/{product_hex}/{version}/{name}"
+            dest_key = f"{device_class}/{product_hex}/{application}/{version}/{name}"
             data = zf.read(name)
             s3.put_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=dest_key, Body=data)
             logger.debug(f"Published {name} to s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{dest_key}")
 
-    invalidation_path = f"/{device_class}/{product_hex}/{version}/*"
+    invalidation_path = f"/{device_class}/{product_hex}/{application}/{version}/*"
     cloudfront.create_invalidation(
         DistributionId=CLOUDFRONT_DISTRIBUTION_ID,
         InvalidationBatch={
@@ -89,9 +90,10 @@ def _revoke_from_public(item):
     """Move public firmware files to the revoked/ prefix."""
     device_class = item.get("class", "").lower()
     product_hex = item.get("product_hex", "").lower()
+    application = item.get("application", "").lower()
     version = item["version"]
-    prefix = f"{device_class}/{product_hex}/{version}/"
-    revoked_prefix = f"revoked/{device_class}/{product_hex}/{version}/"
+    prefix = f"{device_class}/{product_hex}/{application}/{version}/"
+    revoked_prefix = f"revoked/{device_class}/{product_hex}/{application}/{version}/"
 
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Prefix=prefix):
@@ -107,7 +109,7 @@ def _revoke_from_public(item):
             s3.delete_object(Bucket=S3_FIRMWARE_PUBLIC_BUCKET_NAME, Key=src_key)
             logger.debug(f"Moved s3://{S3_FIRMWARE_PUBLIC_BUCKET_NAME}/{src_key} to {dest_key}")
 
-    invalidation_path = f"/{device_class}/{product_hex}/{version}/*"
+    invalidation_path = f"/{device_class}/{product_hex}/{application}/{version}/*"
     cloudfront.create_invalidation(
         DistributionId=CLOUDFRONT_DISTRIBUTION_ID,
         InvalidationBatch={
