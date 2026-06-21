@@ -51,8 +51,13 @@ const filterClass = ref('')
 const filterVersion = ref('')
 
 // ── Sort ──────────────────────────────────────────────────────────────────────
-const sortKey = ref('uploaded_at')
-const sortDir = ref('desc')
+// Each entry: { key, dir: 'asc' | 'desc' }. First entry is the primary sort.
+const sortCriteria = ref([
+  { key: 'version', dir: 'asc' },
+  { key: 'class', dir: 'asc' },
+  { key: 'application', dir: 'asc' },
+  { key: 'product_id', dir: 'asc' },
+])
 
 // ── Pagination ────────────────────────────────────────────────────────────────
 const currentPage = ref(1)
@@ -112,14 +117,15 @@ const filteredItems = computed(() => {
     items = items.filter((i) => i.version?.toLowerCase().includes(q))
   }
 
-  // Sort
-  const key = sortKey.value
-  const dir = sortDir.value === 'asc' ? 1 : -1
+  // Multi-column sort: iterate criteria in order until a non-zero comparison is found
   items = [...items].sort((a, b) => {
-    const av = a[key] ?? ''
-    const bv = b[key] ?? ''
-    if (av < bv) return -1 * dir
-    if (av > bv) return 1 * dir
+    for (const { key, dir } of sortCriteria.value) {
+      const d = dir === 'asc' ? 1 : -1
+      const av = a[key] ?? ''
+      const bv = b[key] ?? ''
+      if (av < bv) return -1 * d
+      if (av > bv) return 1 * d
+    }
     return 0
   })
 
@@ -165,13 +171,21 @@ watch(
   }
 )
 
-// ── Sort toggle ───────────────────────────────────────────────────────────────
+// ── Sort helpers ──────────────────────────────────────────────────────────────
+function sortIndexFor(key) {
+  return sortCriteria.value.findIndex((c) => c.key === key)
+}
+
 function toggleSort(key) {
-  if (sortKey.value === key) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortKey.value = key
-    sortDir.value = 'asc'
+  const idx = sortIndexFor(key)
+  if (idx === 0) {
+    // Primary column: toggle direction
+    sortCriteria.value[0].dir = sortCriteria.value[0].dir === 'asc' ? 'desc' : 'asc'
+  } else if (idx > 0) {
+    // Non-primary: promote to position 0, reset to ascending
+    const [removed] = sortCriteria.value.splice(idx, 1)
+    removed.dir = 'asc'
+    sortCriteria.value.unshift(removed)
   }
 }
 
@@ -400,40 +414,47 @@ function setMenuPosition(event) {
                 @click="toggleSort('application')"
               >
                 Application
-                <ChevronUpIcon v-if="sortKey === 'application' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
-                <ChevronDownIcon v-else-if="sortKey === 'application' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
+                <span class="inline-flex items-center gap-0.5 ml-0.5">
+                  <ChevronUpIcon v-if="sortCriteria[sortIndexFor('application')]?.dir === 'asc'" class="w-3 h-3" />
+                  <ChevronDownIcon v-else class="w-3 h-3" />
+                  <span class="text-[10px] font-normal leading-none">{{ sortIndexFor('application') + 1 }}</span>
+                </span>
               </th>
               <th
                 class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
                 @click="toggleSort('class')"
               >
                 Class
-                <ChevronUpIcon v-if="sortKey === 'class' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
-                <ChevronDownIcon v-else-if="sortKey === 'class' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
+                <span class="inline-flex items-center gap-0.5 ml-0.5">
+                  <ChevronUpIcon v-if="sortCriteria[sortIndexFor('class')]?.dir === 'asc'" class="w-3 h-3" />
+                  <ChevronDownIcon v-else class="w-3 h-3" />
+                  <span class="text-[10px] font-normal leading-none">{{ sortIndexFor('class') + 1 }}</span>
+                </span>
               </th>
               <th
                 class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
                 @click="toggleSort('product_id')"
               >
                 Product ID
-                <ChevronUpIcon v-if="sortKey === 'product_id' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
-                <ChevronDownIcon v-else-if="sortKey === 'product_id' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
+                <span class="inline-flex items-center gap-0.5 ml-0.5">
+                  <ChevronUpIcon v-if="sortCriteria[sortIndexFor('product_id')]?.dir === 'asc'" class="w-3 h-3" />
+                  <ChevronDownIcon v-else class="w-3 h-3" />
+                  <span class="text-[10px] font-normal leading-none">{{ sortIndexFor('product_id') + 1 }}</span>
+                </span>
               </th>
               <th
                 class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
                 @click="toggleSort('version')"
               >
                 Version
-                <ChevronUpIcon v-if="sortKey === 'version' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
-                <ChevronDownIcon v-else-if="sortKey === 'version' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
+                <span class="inline-flex items-center gap-0.5 ml-0.5">
+                  <ChevronUpIcon v-if="sortCriteria[sortIndexFor('version')]?.dir === 'asc'" class="w-3 h-3" />
+                  <ChevronDownIcon v-else class="w-3 h-3" />
+                  <span class="text-[10px] font-normal leading-none">{{ sortIndexFor('version') + 1 }}</span>
+                </span>
               </th>
-              <th
-                class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
-                @click="toggleSort('release_status')"
-              >
+              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none whitespace-nowrap">
                 Release Status
-                <ChevronUpIcon v-if="sortKey === 'release_status' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
-                <ChevronDownIcon v-else-if="sortKey === 'release_status' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
               <th class="px-4 py-3"></th>
             </tr>
