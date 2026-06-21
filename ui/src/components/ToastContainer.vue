@@ -14,8 +14,8 @@ const { toasts, removeToast } = useToast()
         class="rounded-lg px-4 py-3 shadow-lg flex items-start gap-3"
         :class="
           toast.type === 'success'
-            ? 'bg-green-50 border border-green-200 dark:bg-green-900/50 dark:border-green-700 text-green-800 dark:text-green-200'
-            : 'bg-red-50 border border-red-200 dark:bg-red-900/50 dark:border-red-700 text-red-800 dark:text-red-200'
+            ? 'bg-green-100 border border-green-300 dark:bg-green-900 dark:border-green-700 text-green-800 dark:text-green-200'
+            : 'bg-red-100 border border-red-300 dark:bg-red-900 dark:border-red-700 text-red-800 dark:text-red-200'
         "
       >
         <p class="flex-1 text-sm font-medium">{{ toast.message }}</p>
