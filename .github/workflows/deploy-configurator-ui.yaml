@@ -58,12 +58,26 @@ jobs:
         working-directory: Controller/ui
         run: npm ci --legacy-peer-deps
 
+      - name: Clean dist directory
+        working-directory: Controller/ui
+        run: rm -rf dist
+
       - name: Build UI
         working-directory: Controller/ui
         env:
           VITE_UI_VERSION: "${{ env.BRANCH }} (${{ env.COMMIT_HASH }})"
           VITE_CLOUD_MODE: "true"
         run: npm run build -- --outDir dist
+
+      - name: Validate build output
+        working-directory: Controller/ui
+        run: |
+          JS_FILE=$(grep -oP 'src="/assets/[^"]+\.js"' dist/index.html | sed 's|src="||;s|"||')
+          CSS_FILE=$(grep -oP 'href="/assets/[^"]+\.css"' dist/index.html | sed 's|href="||;s|"||')
+          for f in $JS_FILE $CSS_FILE; do
+            [ -f "dist$f" ] || { echo "ERROR: index.html references $f but file not found in dist/"; exit 1; }
+          done
+          echo "Build validation passed"
 
       - name: Look up S3 bucket name
         id: lookup-s3
