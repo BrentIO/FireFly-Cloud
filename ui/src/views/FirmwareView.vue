@@ -53,7 +53,7 @@ const filterVersion = ref('')
 // ── Sort ──────────────────────────────────────────────────────────────────────
 // Each entry: { key, dir: 'asc' | 'desc' }. First entry is the primary sort.
 const sortCriteria = ref([
-  { key: 'version', dir: 'asc' },
+  { key: 'version', dir: 'desc' },
   { key: 'class', dir: 'asc' },
   { key: 'application', dir: 'asc' },
   { key: 'product_id', dir: 'asc' },
