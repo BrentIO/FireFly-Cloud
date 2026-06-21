@@ -368,7 +368,7 @@ function setMenuPosition(event) {
               </td>
               <td class="px-4 py-2">
                 <input
-                  v-model="filterProductId"
+                  v-model="filterClass"
                   type="text"
                   placeholder="Filter…"
                   class="w-full text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -376,7 +376,7 @@ function setMenuPosition(event) {
               </td>
               <td class="px-4 py-2">
                 <input
-                  v-model="filterClass"
+                  v-model="filterProductId"
                   type="text"
                   placeholder="Filter…"
                   class="w-full text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -405,19 +405,19 @@ function setMenuPosition(event) {
               </th>
               <th
                 class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
-                @click="toggleSort('product_id')"
-              >
-                Product ID
-                <ChevronUpIcon v-if="sortKey === 'product_id' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
-                <ChevronDownIcon v-else-if="sortKey === 'product_id' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
-              </th>
-              <th
-                class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
                 @click="toggleSort('class')"
               >
                 Class
                 <ChevronUpIcon v-if="sortKey === 'class' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
                 <ChevronDownIcon v-else-if="sortKey === 'class' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
+              </th>
+              <th
+                class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
+                @click="toggleSort('product_id')"
+              >
+                Product ID
+                <ChevronUpIcon v-if="sortKey === 'product_id' && sortDir === 'asc'" class="inline w-3 h-3 ml-0.5" />
+                <ChevronDownIcon v-else-if="sortKey === 'product_id' && sortDir === 'desc'" class="inline w-3 h-3 ml-0.5" />
               </th>
               <th
                 class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none whitespace-nowrap"
@@ -475,10 +475,10 @@ function setMenuPosition(event) {
                 {{ item.application }}
               </td>
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400" @click="goToDetail(item)">
-                {{ item.product_id }}
+                {{ formatClass(item.class) }}
               </td>
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400" @click="goToDetail(item)">
-                {{ formatClass(item.class) }}
+                {{ item.product_id }}
               </td>
               <td class="px-4 py-3 text-gray-600 dark:text-gray-400" @click="goToDetail(item)">
                 {{ item.version }}{{ item.commit ? ` (${item.commit.substring(0, 8)})` : '' }}
