@@ -58,7 +58,24 @@ let transport = null
 // whitelist (e.g. {application}.ino.merged.bin produced by ESP-IDF ≥ 3.3.7)
 // is silently ignored and never shown in the flash dialog.
 // Non-.bin files (*.elf, *.map, manifest.json, etc.) are shown as skipped.
+//
+// FireFly-Client (FFI0600-2011, product_hex 0x06002011) is the sole ESP8266
+// product ever produced and has been discontinued, so this one product_hex is
+// hardcoded below rather than adding a general chip-family field. On ESP8266,
+// {application}.ino.bin is a single combined image meant to be written at
+// bootloader_addr (0x000000), not at the ESP32 app0 offset. Its
+// *.partitions.bin is a synthetic, documentary-only file (see FireFly-Client's
+// devices.yaml) and must never be written to the device — on ESP32 it's a
+// real partition table flashed at 0x08000, but on ESP8266 that address falls
+// inside the app image and writing to it corrupts the just-flashed firmware.
+// Everything else is assumed to be ESP32.
 // ---------------------------------------------------------------------------
+
+const ESP8266_PRODUCT_HEX = '0x06002011'
+
+const isEsp8266 = computed(() =>
+  (props.item.product_hex || '').toLowerCase() === ESP8266_PRODUCT_HEX
+)
 
 const bootloaderAddr = computed(() =>
   props.item.bootloader_addr != null ? Number(props.item.bootloader_addr) : 0x01000
@@ -69,6 +86,7 @@ const bootloaderAddr = computed(() =>
  * All other files (including unrecognised .bin files) are excluded entirely.
  */
 function isFlashableFile(filename) {
+  if (isEsp8266.value && filename.endsWith('.partitions.bin')) return false
   if (filename === `${props.item.application}.ino.bin`) return true
   if (filename === 'ui.bin') return true
   if (filename === 'config.bin') return true
@@ -87,6 +105,7 @@ function resolveFlashAddress(filename) {
   if (filename.endsWith('.bootloader.bin')) return bootloaderAddr.value
   if (filename.endsWith('.partitions.bin')) return 0x08000
   if (filename === `${props.item.application}.ino.bin`) {
+    if (isEsp8266.value) return bootloaderAddr.value
     const v = offsets['app0']
     return v != null ? Number(v) : null
   }
@@ -112,6 +131,7 @@ function displayAddress(filename) {
   if (filename.endsWith('.bootloader.bin')) return formatAddress(bootloaderAddr.value)
   if (filename.endsWith('.partitions.bin')) return '0x08000'
   if (filename === `${props.item.application}.ino.bin`) {
+    if (isEsp8266.value) return formatAddress(bootloaderAddr.value)
     const v = offsets['app0']
     return v != null ? formatAddress(Number(v)) : null
   }
